@@ -705,51 +705,50 @@ class _BookingScreenState extends State<BookingScreen> {
                       ),
                     ),
 
-                    // ====== BANNER THÔNG TIN ĐẶT CỌC 100K NẾU Ở TAB CỌC ======
-                    if (_isDepositTab)
-                      Container(
-                        color: Colors.white,
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                        child: Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEFF6FF),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: const Color(0xFFBFDBFE)),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: const [
-                                  Icon(Icons.shield_outlined, color: Color(0xFF1D4ED8), size: 17),
-                                  SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      'Chính sách đặt cọc thế chân giữ chỗ',
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.bold,
-                                        color: Color(0xFF1E3A8A),
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
+                    // ====== BANNER THÔNG TIN ĐẶT CỌC 100K & QUY ĐỊNH 5 NGÀY ======
+                    Container(
+                      color: Colors.white,
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEFF6FF),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFBFDBFE)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: const [
+                                Icon(Icons.shield_outlined, color: Color(0xFF1D4ED8), size: 17),
+                                SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    'Chính sách đặt lịch & cọc thế chân giữ chỗ',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF1E3A8A),
                                     ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                ],
-                              ),
-                              const SizedBox(height: 6),
-                              const Text(
-                                '• Tiền thế chân giữ chỗ: 100.000 VNĐ.\n'
-                                '• Thời hạn giữ phòng: Tối đa 5 ngày kể từ hôm nay (không cho chọn ngày trong quá khứ).\n'
-                                '• Đảm bảo: Ngay sau khi cọc, phòng được chuyển sang trạng thái "Đã cọc" và khóa người khác.\n'
-                                '• Sau khi ấn "Tiến hành đặt cọc", bạn có 15 phút để thanh toán chuyển khoản Napas 24/7.',
-                                style: TextStyle(fontSize: 11.5, color: Color(0xFF1E40AF), height: 1.4),
-                              ),
-                            ],
-                          ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            const Text(
+                              '• Tiền thế chân giữ chỗ: 100.000 VNĐ.\n'
+                              '• Thời hạn coi phòng: Giữ chỗ tối đa trong vòng 5 ngày tới (không chọn ngày quá khứ). Nếu sau 5 ngày không đến coi hoặc nhận phòng thì sẽ mất cọc.\n'
+                              '• Đảm bảo: Ngay sau khi cọc, phòng được chuyển sang trạng thái "Đã cọc" để khóa khách khác.\n'
+                              '• Sau khi ấn "Tiến hành đặt cọc", hệ thống hiển thị mã VietQR chuẩn Napas 24/7 có hiệu lực trong 15 phút để chuyển khoản cho chủ nhà.',
+                              style: TextStyle(fontSize: 11.5, color: Color(0xFF1E40AF), height: 1.45),
+                            ),
+                          ],
                         ),
                       ),
+                    ),
 
                     // ====== BỘ CHỌN PHÒNG (NẾU CÓ NHIỀU PHÒNG HOẶC Ở TAB ĐẶT LỊCH) ======
                     if (_rooms.length > 1)
@@ -948,7 +947,7 @@ class _BookingScreenState extends State<BookingScreen> {
                               const SizedBox(width: 6),
                               Expanded(
                                 child: Text(
-                                  _isDepositTab ? 'Ngày dự kiến dọn vào ở' : 'Chọn ngày hẹn xem',
+                                  'Ngày coi phòng / dự kiến ở',
                                   style: const TextStyle(
                                     fontSize: 15,
                                     fontWeight: FontWeight.bold,
@@ -968,17 +967,15 @@ class _BookingScreenState extends State<BookingScreen> {
                               ),
                             ],
                           ),
-                          if (_isDepositTab) ...[
-                            const SizedBox(height: 3),
-                            const Text(
-                              'Tối đa 5 ngày tới (Không áp dụng ngày trong quá khứ)',
-                              style: TextStyle(
-                                fontSize: 11.5,
-                                color: Color(0xFF09638E),
-                                fontWeight: FontWeight.w500,
-                              ),
+                          const SizedBox(height: 3),
+                          const Text(
+                            '100k giữ phòng tối đa 5 ngày tới. Nếu sau 5 ngày không coi phòng sẽ mất cọc.',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: Color(0xFFD97706),
+                              fontWeight: FontWeight.w600,
                             ),
-                          ],
+                          ),
                           const SizedBox(height: 14),
 
                            // Day selector horizontal scroll
@@ -1504,9 +1501,7 @@ class _BookingScreenState extends State<BookingScreen> {
                         child: Text(
                           _isSubmitting
                               ? 'Đang xử lý...'
-                              : (_isDepositTab
-                                  ? 'Tiến Hành Đặt Cọc (100.000đ)'
-                                  : 'Xác Nhận & Thanh Toán Thế Chân (100k)'),
+                              : 'Tiến Hành Đặt Cọc (100.000đ)',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 15.5,
@@ -1515,9 +1510,7 @@ class _BookingScreenState extends State<BookingScreen> {
                         ),
                       ),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: _isDepositTab
-                            ? const Color(0xFF16A34A)
-                            : const Color(0xFF09638E),
+                        backgroundColor: const Color(0xFF09638E),
                         padding: const EdgeInsets.symmetric(vertical: 15),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14),
@@ -1527,12 +1520,10 @@ class _BookingScreenState extends State<BookingScreen> {
                     ),
                   ),
                   const SizedBox(height: 6),
-                  Text(
-                    _isDepositTab
-                        ? 'Phiếu giữ chỗ có hiệu lực 15 phút để hoàn tất thanh toán cọc thế chân.\nSau 15 phút không thanh toán, phòng sẽ tự động mở lại cho khách khác.'
-                        : 'Thanh toán tiền thế chân 100.000đ qua mã QR để khóa phòng và xác nhận lịch hẹn.\nBan Quản lý Kiêu Giang sẽ gọi hoặc gửi Zalo hỗ trợ bạn.',
+                  const Text(
+                    'Khi ấn "Tiến hành đặt cọc", phòng sẽ được chuyển sang Đã cọc và mã VietQR chuẩn Napas 24/7 có hiệu lực 15 phút để bạn chuyển tiền thế chân 100k tới chủ nhà.',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11,
                       color: Color(0xFF94A3B8),
                       height: 1.4,
