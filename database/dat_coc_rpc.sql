@@ -50,14 +50,14 @@ BEGIN
   LIMIT 1;
 
   IF v_ma_khach IS NULL THEN
-    v_ma_khach := 'KH_' || SUBSTRING(REPLACE(p_so_dt, ' ', ''), 1, 10);
+    v_ma_khach := 'KH' || RIGHT(REPLACE(p_so_dt, ' ', ''), 6);
     INSERT INTO khach_thue (ma_khach, ho_ten_khach, so_dt, dia_chi_thuong_tru) 
     VALUES (v_ma_khach, p_ho_ten, p_so_dt, 'Khách đặt cọc giữ chỗ online')
     ON CONFLICT (ma_khach) DO NOTHING;
   END IF;
 
-  -- 4. Tạo mã phiếu giữ chỗ và thời gian hết hạn 15 phút, hạn giữ chỗ 5 ngày
-  v_ma_giu_cho := 'GC_' || TO_CHAR(NOW(), 'YYMMDDHH24MISS') || '_' || SUBSTRING(p_ma_phong, 1, 5);
+  -- 4. Tạo mã phiếu giữ chỗ và thời gian hết hạn 15 phút, hạn giữ chỗ 5 ngày (đảm bảo <= 10 ký tự)
+  v_ma_giu_cho := 'GC' || TO_CHAR(NOW(), 'HH24MISS') || SUBSTRING(p_ma_phong, 1, 2);
   v_expires_at := NOW() + INTERVAL '15 minutes';
   v_ngay_het_han := NOW() + INTERVAL '5 days';
 

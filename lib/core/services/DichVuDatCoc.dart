@@ -125,8 +125,11 @@ class DepositService {
       );
     }
 
-    // C. Tìm hoặc tạo hồ sơ khách trong khach_thue
-    String maKhach = 'KH_${cleanPhone.length >= 10 ? cleanPhone.substring(cleanPhone.length - 8) : cleanPhone}';
+    // C. Tìm hoặc tạo hồ sơ khách trong khach_thue (đảm bảo maKhach <= 10 ký tự)
+    final phoneSuffix = cleanPhone.length >= 6
+        ? cleanPhone.substring(cleanPhone.length - 6)
+        : cleanPhone.padLeft(6, '0');
+    String maKhach = 'KH$phoneSuffix';
     try {
       final khachRow = await db
           .from('khach_thue')
@@ -137,6 +140,17 @@ class DepositService {
       if (khachRow != null && khachRow['ma_khach'] != null) {
         maKhach = khachRow['ma_khach'].toString();
       } else {
+        // Kiểm tra xem mã khách này có bị trùng với người khác không
+        final checkDup = await db
+            .from('khach_thue')
+            .select('ma_khach')
+            .eq('ma_khach', maKhach)
+            .maybeSingle();
+        if (checkDup != null) {
+          final rand = (cleanPhone.hashCode.abs() % 900000) + 100000;
+          maKhach = 'KH$rand';
+        }
+
         await db.from('khach_thue').insert({
           'ma_khach': maKhach,
           'ho_ten_khach': cleanName,
@@ -146,6 +160,16 @@ class DepositService {
       }
     } catch (eKhach) {
       debugPrint('[khach_thue upsert notice]: $eKhach');
+      try {
+        final reQuery = await db
+            .from('khach_thue')
+            .select('ma_khach')
+            .eq('so_dt', cleanPhone)
+            .maybeSingle();
+        if (reQuery != null && reQuery['ma_khach'] != null) {
+          maKhach = reQuery['ma_khach'].toString();
+        }
+      } catch (_) {}
     }
 
     // D. Chuyển phòng sang 'Đã cọc'
@@ -153,8 +177,9 @@ class DepositService {
       'trang_thai': 'Đã cọc',
     }).eq('ma_phong', room.maPhong);
 
-    // E. Tạo phiếu giữ chỗ lưu trạng thái 'ChoThanhToan', gán expires_at = NOW() + 15 phút
-    final maGiuCho = 'GC_${DateTime.now().millisecondsSinceEpoch.toString().substring(5)}';
+    // E. Tạo phiếu giữ chỗ lưu trạng thái 'ChoThanhToan' (maGiuCho <= 10 ký tự chuẩn VARCHAR(10))
+    final tsStr = DateTime.now().millisecondsSinceEpoch.toString();
+    final maGiuCho = 'GC${tsStr.substring(tsStr.length - 7)}';
     final now = DateTime.now();
     final expiresAt = now.add(const Duration(minutes: paymentTimeoutMinutes));
     final ngayHetHan = now.add(const Duration(days: maxHoldDays));

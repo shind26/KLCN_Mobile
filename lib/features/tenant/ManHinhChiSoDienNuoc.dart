@@ -394,8 +394,14 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
       final nam = now.year.toString();
       final thangNam = '$thang/$nam';
 
-      final maHdClean = widget.maHopDong.replaceAll(' ', '');
-      final maKy = 'KY_${nam}_${thang}_$maHdClean';
+      final cleanHd = (widget.maHopDong.trim().isEmpty ? 'HD001' : widget.maHopDong)
+          .replaceAll(' ', '');
+      // Bảng chi_so_dien_nuoc có cột ma_ky là VARCHAR(10)
+      // Định dạng: KY + Tháng (2 số) + _ + 5 ký tự mã HĐ = 10 ký tự (Ví dụ: KY10_HD001)
+      final hdPart = cleanHd.length > 5
+          ? cleanHd.substring(cleanHd.length - 5)
+          : cleanHd;
+      final maKy = 'KY${thang}_$hdPart';
 
       // ── XỬ LÝ LƯU ẢNH MINH CHỨNG (STORAGE + BASE64 FALLBACK) ──
       String? urlAnhDien;
@@ -410,7 +416,9 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
             fileOptions: const FileOptions(contentType: 'image/jpeg', upsert: true),
           );
           urlAnhDien = db.storage.from('contracts').getPublicUrl(pathDien);
-        } catch (_) {
+          debugPrint('[METER] Upload ảnh điện vào Storage thành công: $urlAnhDien');
+        } catch (e) {
+          debugPrint('[METER] Storage upload điện notice: $e (Lưu fallback Base64)');
           urlAnhDien = 'data:image/jpeg;base64,${base64Encode(_bytesDien!)}';
         }
       }
@@ -424,7 +432,9 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
             fileOptions: const FileOptions(contentType: 'image/jpeg', upsert: true),
           );
           urlAnhNuoc = db.storage.from('contracts').getPublicUrl(pathNuoc);
-        } catch (_) {
+          debugPrint('[METER] Upload ảnh nước vào Storage thành công: $urlAnhNuoc');
+        } catch (e) {
+          debugPrint('[METER] Storage upload nước notice: $e (Lưu fallback Base64)');
           urlAnhNuoc = 'data:image/jpeg;base64,${base64Encode(_bytesNuoc!)}';
         }
       }
@@ -439,22 +449,31 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
         'chi_so_nuoc_moi': _nuocMoi,
         'ngay_ghi_nhan': now.toIso8601String(),
         'trang_thai_duyet': 'Chờ duyệt',
-        'ma_hop_dong': widget.maHopDong,
-        'anh_dien': urlAnhDien,
-        'anh_nuoc': urlAnhNuoc,
+        'ma_hop_dong': cleanHd,
+        if (urlAnhDien != null) 'anh_dien': urlAnhDien,
+        if (urlAnhNuoc != null) 'anh_nuoc': urlAnhNuoc,
       });
 
       debugPrint('[METER] Đã lưu thành công vào chi_so_dien_nuoc trên Supabase kèm ảnh: $maKy');
+
+      if (!mounted) return;
+      setState(() => _step = 2);
+      _slideController.reset();
+      _slideController.forward();
+      await Future.delayed(const Duration(milliseconds: 200));
+      _successController.forward();
     } catch (e) {
       debugPrint('Lỗi lưu chi_so_dien_nuoc vào Supabase: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi gửi chỉ số điện nước: $e'),
+            backgroundColor: Colors.redAccent,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
     }
-
-    if (!mounted) return;
-    setState(() => _step = 2);
-    _slideController.reset();
-    _slideController.forward();
-    await Future.delayed(const Duration(milliseconds: 200));
-    _successController.forward();
   }
 
   // ── CHỌN NGUỒN ẢNH VÀ QUÉT TỰ ĐỘNG BẰNG AI ────────────────
@@ -514,7 +533,9 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
     try {
       final img = await picker.pickImage(
         source: source,
-        imageQuality: 85,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 70,
       );
       if (img == null || !mounted) return;
 

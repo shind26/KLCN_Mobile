@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:nhatro_kieugiang/data/models/MoHinhPhong.dart';
 import 'package:nhatro_kieugiang/features/guest/ManHinhTrangChuKhach.dart';
@@ -278,10 +278,10 @@ class BookingSuccessScreen extends StatelessWidget {
                                 ],
                                 const SizedBox(height: 12),
                                 _buildDetailRow(
-                                  icon: Icons.place_rounded,
-                                  iconColor: const Color(0xFFEF4444),
-                                  label: 'Địa chỉ đón tiếp',
-                                  value: 'Đường Số 8, P. Linh Xuân, TP. Thủ Đức, TP.HCM',
+                                  icon: Icons.verified_user_rounded,
+                                  iconColor: const Color(0xFF16A34A),
+                                  label: 'Tiền thế chân',
+                                  value: '100.000 đ (Đã thanh toán)',
                                 ),
                               ],
                             ),
@@ -327,7 +327,7 @@ class BookingSuccessScreen extends StatelessWidget {
                           _buildStepItem(
                             step: '2',
                             title: 'Đón tiếp tại nhà trọ',
-                            desc: 'Đến đúng giờ tại địa chỉ, bảo vệ và quản lý sẽ trực tiếp đón và dẫn bạn xem phòng.',
+                            desc: 'Đến đúng giờ hẹn, bảo vệ và quản lý sẽ trực tiếp đón và dẫn bạn xem phòng.',
                           ),
                           const SizedBox(height: 12),
                           _buildStepItem(

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -10,6 +9,8 @@ import 'package:nhatro_kieugiang/core/utils/AmThanhThanhToanHelper.dart';
 import 'package:nhatro_kieugiang/core/utils/VietQrHelper.dart';
 import 'package:nhatro_kieugiang/data/models/MoHinhGiuCho.dart';
 import 'package:nhatro_kieugiang/data/models/MoHinhPhong.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:nhatro_kieugiang/features/guest/ManHinhDatPhongThanhCong.dart';
 import 'package:nhatro_kieugiang/features/guest/ManHinhTrangChuKhach.dart';
 import 'package:nhatro_kieugiang/features/tenant/ManHinhVnPayWebView.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -19,6 +20,11 @@ class ManHinhThanhToanTheChan extends StatefulWidget {
   final RoomModel room;
   final String customerName;
   final String customerPhone;
+  final String? appointmentCode;
+  final String? appointmentDate;
+  final String? timeSlot;
+  final int? guestCount;
+  final String? note;
 
   const ManHinhThanhToanTheChan({
     super.key,
@@ -26,6 +32,11 @@ class ManHinhThanhToanTheChan extends StatefulWidget {
     required this.room,
     required this.customerName,
     required this.customerPhone,
+    this.appointmentCode,
+    this.appointmentDate,
+    this.timeSlot,
+    this.guestCount,
+    this.note,
   });
 
   @override
@@ -157,6 +168,18 @@ class _ManHinhThanhToanTheChanState extends State<ManHinhThanhToanTheChan>
         maGiuCho: widget.giuCho.maGiuCho,
         maPhong: widget.room.maPhong,
       );
+
+      if (widget.appointmentCode != null && widget.appointmentCode!.isNotEmpty) {
+        try {
+          await Supabase.instance.client
+              .from('dat_lich_xem_phong')
+              .update({'trang_thai': 'Đã xác nhận'})
+              .eq('ma_lich_hen', widget.appointmentCode!);
+        } catch (eApp) {
+          debugPrint('Lỗi cập nhật dat_lich_xem_phong: $eApp');
+        }
+      }
+
       _onPaymentSuccess();
     } catch (e) {
       if (mounted) {
@@ -259,7 +282,7 @@ class _ManHinhThanhToanTheChanState extends State<ManHinhThanhToanTheChan>
             const SizedBox(height: 20),
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton(
+              child: ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _primary,
                   padding: const EdgeInsets.symmetric(vertical: 13),
@@ -269,14 +292,28 @@ class _ManHinhThanhToanTheChanState extends State<ManHinhThanhToanTheChan>
                 ),
                 onPressed: () {
                   Navigator.pop(ctx);
-                  Navigator.pushAndRemoveUntil(
+                  Navigator.pushReplacement(
                     context,
-                    MaterialPageRoute(builder: (_) => const GuestHomeScreen()),
-                    (route) => false,
+                    MaterialPageRoute(
+                      builder: (_) => BookingSuccessScreen(
+                        appointmentCode: widget.appointmentCode ?? widget.giuCho.maGiuCho,
+                        room: widget.room,
+                        customerName: widget.customerName,
+                        customerPhone: widget.customerPhone,
+                        appointmentDate: widget.appointmentDate ??
+                            (widget.giuCho.ngayDuKienO != null
+                                ? DateFormat('dd/MM/yyyy').format(widget.giuCho.ngayDuKienO!)
+                                : 'Hôm nay'),
+                        timeSlot: widget.timeSlot ?? 'Khung giờ linh hoạt',
+                        guestCount: widget.guestCount ?? widget.giuCho.soNguoiO,
+                        note: widget.note ?? (widget.giuCho.ghiChu ?? ''),
+                      ),
+                    ),
                   );
                 },
-                child: const Text(
-                  'Về Trang Chủ Khách',
+                icon: const Icon(Icons.check_circle_outline_rounded, size: 20, color: Colors.white),
+                label: const Text(
+                  'Xem Xác Nhận Đặt Lịch',
                   style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
@@ -284,6 +321,18 @@ class _ManHinhThanhToanTheChanState extends State<ManHinhThanhToanTheChan>
                   ),
                 ),
               ),
+            ),
+            const SizedBox(height: 10),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (_) => const GuestHomeScreen()),
+                  (route) => false,
+                );
+              },
+              child: const Text('Về Trang Chủ Khách', style: TextStyle(color: Color(0xFF64748B))),
             ),
           ],
         ),
@@ -703,7 +752,8 @@ class _ManHinhThanhToanTheChanState extends State<ManHinhThanhToanTheChan>
                     maGiuCho: widget.giuCho.maGiuCho,
                     maPhong: widget.room.maPhong,
                   );
-                  if (mounted) Navigator.pop(context);
+                  if (!context.mounted) return;
+                  Navigator.pop(context);
                 }
               },
               child: const Text('Hủy giữ chỗ này', style: TextStyle(color: Color(0xFF64748B))),

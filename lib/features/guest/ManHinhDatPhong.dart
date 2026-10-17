@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:nhatro_kieugiang/data/models/MoHinhPhong.dart';
-import 'package:nhatro_kieugiang/features/guest/ManHinhDatPhongThanhCong.dart';
 import 'package:nhatro_kieugiang/features/guest/ManHinhLichSuDatPhong.dart';
 import 'package:nhatro_kieugiang/core/services/DichVuLuuDatPhong.dart';
 import 'package:nhatro_kieugiang/core/services/DichVuDatCoc.dart';
@@ -242,10 +241,22 @@ class _BookingScreenState extends State<BookingScreen> {
 
     setState(() => _isSubmitting = true);
 
-    final appointmentCode = 'KG-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
+    final tsStr = DateTime.now().millisecondsSinceEpoch.toString();
+    final appointmentCode = 'KG${tsStr.substring(tsStr.length - 7)}';
     final dateStr = '${_getVietnameseDayName(selDay)}, ${selDay.day.toString().padLeft(2, '0')}/${selDay.month.toString().padLeft(2, '0')}/${selDay.year}';
 
     try {
+      // 1. Tiến hành đặt cọc giữ chỗ và lấy phiếu cọc thế chân 100k
+      final giuCho = await DepositService.tienHanhDatCoc(
+        room: _selectedRoom!,
+        hoTen: name,
+        soDt: phoneClean,
+        ngayDuKienO: selDay,
+        soNguoiO: _guestCount,
+        ghiChu: 'Hẹn xem $_selectedTimeSlot ngày $dateStr. ${_noteController.text.trim()}'.trim(),
+      );
+
+      // 2. Lưu lịch hẹn vào bảng dat_lich_xem_phong với trạng thái Chờ thanh toán thế chân
       await Supabase.instance.client.from('dat_lich_xem_phong').insert({
         'ma_lich_hen': appointmentCode,
         'ma_phong': _selectedRoom!.maPhong,
@@ -255,46 +266,67 @@ class _BookingScreenState extends State<BookingScreen> {
         'khung_gio': _selectedTimeSlot,
         'so_nguoi': _guestCount,
         'ghi_chu': _noteController.text.trim(),
-        'trang_thai': 'Chờ xác nhận',
+        'trang_thai': 'Chờ thanh toán thế chân',
       });
       await BookingStorageService.saveLastBooking(
         phone: phoneClean,
         appointmentCode: appointmentCode,
       );
       debugPrint('Lưu lịch hẹn thành công vào bảng dat_lich_xem_phong');
-    } catch (e) {
-      debugPrint('Lỗi lưu lịch hẹn vào Supabase: $e');
+
       if (!mounted) return;
       setState(() => _isSubmitting = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Không thể đặt lịch: Có lỗi kết nối máy chủ ($e)'),
-          backgroundColor: Colors.redAccent,
-          duration: const Duration(seconds: 4),
+
+      // 3. MỞ MÀN HÌNH CÓ MÃ QR ĐỂ THANH TOÁN TIỀN THẾ TRƯỚC KHI XÁC NHẬN ĐẶT LỊCH
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ManHinhThanhToanTheChan(
+            giuCho: giuCho,
+            room: _selectedRoom!,
+            customerName: name,
+            customerPhone: phoneClean,
+            appointmentCode: appointmentCode,
+            appointmentDate: dateStr,
+            timeSlot: _selectedTimeSlot,
+            guestCount: _guestCount,
+            note: _noteController.text.trim(),
+          ),
+        ),
+      );
+    } catch (e) {
+      debugPrint('Lỗi đặt lịch hẹn hoặc tạo cọc thế chân: $e');
+      if (!mounted) return;
+      setState(() => _isSubmitting = false);
+      final errorMsg = e.toString().replaceAll('Exception: ', '');
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: const [
+              Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 26),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Không Thể Đặt Lịch',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+              ),
+            ],
+          ),
+          content: Text(errorMsg, style: const TextStyle(fontSize: 13.5, height: 1.4)),
+          actions: [
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF09638E)),
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Đã hiểu', style: TextStyle(color: Colors.white)),
+            ),
+          ],
         ),
       );
       return;
     }
-
-    if (!mounted) return;
-    setState(() => _isSubmitting = false);
-
-    // MỞ MÀN HÌNH ĐẶT LỊCH THÀNH CÔNG
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => BookingSuccessScreen(
-          appointmentCode: appointmentCode,
-          room: _selectedRoom!,
-          customerName: name,
-          customerPhone: phoneClean,
-          appointmentDate: dateStr,
-          timeSlot: _selectedTimeSlot!,
-          guestCount: _guestCount,
-          note: _noteController.text.trim(),
-        ),
-      ),
-    );
   }
 
   /// TIẾN HÀNH ĐẶT CỌC GIỮ CHỖ (100K - Tối đa 5 ngày)
@@ -370,6 +402,12 @@ class _BookingScreenState extends State<BookingScreen> {
             room: _selectedRoom!,
             customerName: name,
             customerPhone: phoneClean,
+            appointmentCode: giuCho.maGiuCho,
+            appointmentDate:
+                '${_getVietnameseDayName(selDay)}, ${selDay.day.toString().padLeft(2, '0')}/${selDay.month.toString().padLeft(2, '0')}/${selDay.year}',
+            timeSlot: 'Giữ chỗ 5 ngày',
+            guestCount: _guestCount,
+            note: _noteController.text.trim(),
           ),
         ),
       );
@@ -545,12 +583,10 @@ class _BookingScreenState extends State<BookingScreen> {
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Text(
-                              _isDepositTab ? 'Thế chân 100k • Giữ 5 ngày' : 'Miễn phí 100%',
+                              'Thế chân 100k • Khóa phòng',
                               style: TextStyle(
                                 fontSize: 11,
-                                color: _isDepositTab
-                                    ? const Color(0xFFB45309)
-                                    : const Color(0xFF16A34A),
+                                color: Color(0xFFB45309),
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -1470,7 +1506,7 @@ class _BookingScreenState extends State<BookingScreen> {
                               ? 'Đang xử lý...'
                               : (_isDepositTab
                                   ? 'Tiến Hành Đặt Cọc (100.000đ)'
-                                  : 'Xác Nhận Đặt Lịch Hẹn Ngay'),
+                                  : 'Xác Nhận & Thanh Toán Thế Chân (100k)'),
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 15.5,
@@ -1494,7 +1530,7 @@ class _BookingScreenState extends State<BookingScreen> {
                   Text(
                     _isDepositTab
                         ? 'Phiếu giữ chỗ có hiệu lực 15 phút để hoàn tất thanh toán cọc thế chân.\nSau 15 phút không thanh toán, phòng sẽ tự động mở lại cho khách khác.'
-                        : 'Ban Quản lý Kiêu Giang sẽ gọi hoặc gửi tin nhắn Zalo\nxác nhận trước khi bạn khởi hành đến xem.',
+                        : 'Thanh toán tiền thế chân 100.000đ qua mã QR để khóa phòng và xác nhận lịch hẹn.\nBan Quản lý Kiêu Giang sẽ gọi hoặc gửi Zalo hỗ trợ bạn.',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       fontSize: 11,
