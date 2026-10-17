@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!--
+    If you are serving your web app in a path other than the root, change the
+    href value below to reflect the base path you are serving from.
+
+    The path provided below has to start and end with a slash "/" in order for
+    it to work correctly.
+
+    For more details:
+    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
+
+    This is a placeholder for base href that will be replaced by the value of
+    the `--base-href` argument provided to `flutter build`.
+  -->
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="A new Flutter project.">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="nhatro_kieugiang">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>nhatro_kieugiang</title>
+  <link rel="manifest" href="manifest.json">
+</head>
+  <script>
+    // Phát âm thanh chuông ngân thanh toán thành công (Fintech Success Chime)
+    window.playPaymentSuccessSound = function() {
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
+        const ctx = new AudioContext();
+        if (ctx.state === 'suspended') {
+          ctx.resume();
+        }
+
+        // Hợp âm ngân vang 4 nốt liên hoàn: C5 (523.25Hz), E5 (659.25Hz), G5 (783.99Hz), C6 (1046.50Hz)
+        const notes = [
+          { f: 523.25, start: 0.00, dur: 0.9, vol: 0.25 },
+          { f: 659.25, start: 0.08, dur: 1.1, vol: 0.28 },
+          { f: 783.99, start: 0.16, dur: 1.3, vol: 0.30 },
+          { f: 1046.50, start: 0.24, dur: 1.6, vol: 0.35 }
+        ];
+
+        notes.forEach(function(n) {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(n.f, ctx.currentTime + n.start);
+
+          // Âm ngân: bùng lên nhanh rồi ngân vang giảm dần mềm mại
+          gain.gain.setValueAtTime(0.001, ctx.currentTime + n.start);
+          gain.gain.exponentialRampToValueAtTime(n.vol, ctx.currentTime + n.start + 0.04);
+          gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + n.start + n.dur);
+
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+
+          osc.start(ctx.currentTime + n.start);
+          osc.stop(ctx.currentTime + n.start + n.dur);
+        });
+
+        // Nốt trầm ấm bên dưới làm nền sang trọng
+        const sub = ctx.createOscillator();
+        const subGain = ctx.createGain();
+        sub.type = 'triangle';
+        sub.frequency.setValueAtTime(261.63, ctx.currentTime);
+        subGain.gain.setValueAtTime(0.20, ctx.currentTime);
+        subGain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.8);
+        sub.connect(subGain);
+        subGain.connect(ctx.destination);
+        sub.start(ctx.currentTime);
+        sub.stop(ctx.currentTime + 0.8);
+
+      } catch (err) {
+        console.warn('Audio chime error:', err);
+      }
+    };
+
+    // Đăng ký Service Worker hỗ trợ Push Notification trên điện thoại di động (Android / iOS / PWA)
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function() {
+        navigator.serviceWorker.register('sw.js').then(function(reg) {
+          console.log('[Mobile Notif] Service Worker đã đăng ký thành công:', reg.scope);
+        }).catch(function(err) {
+          console.warn('[Mobile Notif] Không thể đăng ký Service Worker:', err);
+        });
+      });
+    }
+
+    // Biến lưu tiêu đề gốc của trang và bộ đếm nhấp nháy tab
+    let originalDocTitle = document.title || 'Nhà Trọ Kiêu Giang';
+    let titleBlinkInterval = null;
+
+    // 1. Xin quyền thông báo hệ thống (Notification API)
+    window.requestSystemNotificationPermission = function() {
+      try {
+        if (!("Notification" in window)) {
+          console.warn("Trình duyệt không hỗ trợ Web Notification API.");
+          return;
+        }
+        if (Notification.permission === "default") {
+          Notification.requestPermission().then(function(perm) {
+            console.log("Quyền thông báo hệ thống:", perm);
+          });
+        }
+      } catch (err) {
+        console.warn("Lỗi xin quyền thông báo:", err);
+      }
+    };
+
+    // 2. Bắn thông báo ngoài hệ thống (chuẩn cho cả Điện thoại & Máy tính)
+    window.showSystemNotification = function(title, body, tag) {
+      try {
+        // A. Rung điện thoại (Vibration API) chuẩn app di động thực tế!
+        if (navigator.vibrate) {
+          try {
+            navigator.vibrate([200, 100, 200, 100, 300]);
+          } catch (_) {}
+        }
+
+        // B. Phát chuông âm thanh
+        if (window.playPaymentSuccessSound) {
+          window.playPaymentSuccessSound();
+        }
+
+        // C. Nhấp nháy tiêu đề tab nếu người dùng đang ở tab khác hoặc ẩn ứng dụng
+        if (document.hidden) {
+          if (titleBlinkInterval) clearInterval(titleBlinkInterval);
+          let isBlink = false;
+          titleBlinkInterval = setInterval(function() {
+            document.title = isBlink ? '🔔 ' + title : originalDocTitle;
+            isBlink = !isBlink;
+          }, 1000);
+
+          const stopBlink = function() {
+            if (titleBlinkInterval) {
+              clearInterval(titleBlinkInterval);
+              titleBlinkInterval = null;
+            }
+            document.title = originalDocTitle;
+            window.removeEventListener('focus', stopBlink);
+          };
+          window.addEventListener('focus', stopBlink);
+        }
+
+        // D. Tùy chọn thông báo chuẩn điện thoại di động
+        const notifOptions = {
+          body: body || '',
+          icon: 'icons/Icon-192.png',
+          badge: 'icons/Icon-192.png',
+          vibrate: [200, 100, 200, 100, 300],
+          tag: tag || 'kieugiang_status',
+          renotify: true,
+          requireInteraction: true,
+          data: { url: window.location.href }
+        };
+
+        const dispatchNotification = function() {
+          // Ưu tiên 1: Dùng Service Worker (BẮT BUỘC TRÊN ĐIỆN THOẠI ANDROID/iOS để hiện ở thanh trạng thái / status bar)
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.ready.then(function(reg) {
+              if (reg && reg.showNotification) {
+                return reg.showNotification(title, notifOptions);
+              }
+              return Promise.reject('No showNotification on reg');
+            }).catch(function() {
+              // Fallback qua new Notification() nếu trên máy tính PC/Mac
+              tryDirectNotification(title, notifOptions);
+            });
+          } else {
+            tryDirectNotification(title, notifOptions);
+          }
+        };
+
+        const tryDirectNotification = function(t, opts) {
+          try {
+            const notif = new Notification(t, opts);
+            notif.onclick = function() {
+              window.focus();
+              this.close();
+            };
+          } catch (e) {
+            console.warn("Direct Notification error:", e);
+          }
+        };
+
+        if (!("Notification" in window)) return;
+        if (Notification.permission === "granted") {
+          dispatchNotification();
+        } else if (Notification.permission !== "denied") {
+          Notification.requestPermission().then(function(perm) {
+            if (perm === "granted") {
+              dispatchNotification();
+            }
+          });
+        }
+      } catch (err) {
+        console.error("Lỗi showSystemNotification:", err);
+      }
+    };
+  </script>
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>
