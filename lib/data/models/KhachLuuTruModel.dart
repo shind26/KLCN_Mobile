@@ -9,6 +9,7 @@ class KhachLuuTruModel {
   final String moiQuanHe;
   final String trangThai; // 'Chờ duyệt', 'Đã duyệt', 'Hoàn tất', 'Từ chối'
   final String? maPhong;
+  final String? maKhachDangKy;
   final String? anhMatTruoc;
   final String? anhMatSau;
   final String ngayDangKy;
@@ -24,6 +25,7 @@ class KhachLuuTruModel {
     required this.moiQuanHe,
     required this.trangThai,
     this.maPhong,
+    this.maKhachDangKy,
     this.anhMatTruoc,
     this.anhMatSau,
     required this.ngayDangKy,
@@ -57,7 +59,8 @@ class KhachLuuTruModel {
       phiLuuTru: phiFormat,
       moiQuanHe: 'Khách lưu trú',
       trangThai: map['trang_thai']?.toString() ?? 'Chờ duyệt',
-      maPhong: map['ma_phong']?.toString() ?? 'P302',
+      maPhong: map['ma_phong']?.toString() ?? 'P203',
+      maKhachDangKy: map['ma_khach_dang_ky']?.toString(),
       ngayDangKy: tuNgay,
     );
   }

@@ -818,7 +818,7 @@ class _ManHinhDangKyKhachQuaDemState extends State<ManHinhDangKyKhachQuaDem>
                   builder: (_) => ManHinhLichSuLuuTru(
                     tenPhong: widget.tenPhong,
                     toaNha: widget.toaNha,
-                    initialTabIndex: 1, // Mặc định mở tab Chờ duyệt
+                    initialTabIndex: 0, // Mặc định mở tab Tất cả
                   ),
                 ),
               );
@@ -914,7 +914,7 @@ class _ManHinhDangKyKhachQuaDemState extends State<ManHinhDangKyKhachQuaDem>
                   builder: (_) => ManHinhLichSuLuuTru(
                     tenPhong: widget.tenPhong,
                     toaNha: widget.toaNha,
-                    initialTabIndex: 1, // Tab Chờ duyệt
+                    initialTabIndex: 0, // Tab Tất cả
                   ),
                 ),
               );

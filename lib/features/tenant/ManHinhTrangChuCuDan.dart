@@ -1,14 +1,18 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:nhatro_kieugiang/core/services/DichVuQuetCccd.dart';
 import 'package:nhatro_kieugiang/core/services/DichVuThongBaoHeThong.dart';
 import 'package:nhatro_kieugiang/core/services/DichVuXacThuc.dart';
 import 'package:nhatro_kieugiang/core/utils/ThongBaoHelper.dart';
 import 'package:nhatro_kieugiang/core/utils/TienIchDinhDang.dart';
 import 'package:nhatro_kieugiang/data/models/MoHinhHopDong.dart';
 import 'package:nhatro_kieugiang/data/models/MoHinhPhong.dart';
+import 'package:nhatro_kieugiang/data/models/KhachLuuTruModel.dart';
 import 'package:nhatro_kieugiang/features/guest/ManHinhTrangChuKhach.dart';
 import 'package:nhatro_kieugiang/features/tenant/ManHinhBaoSuCo.dart';
 import 'package:nhatro_kieugiang/features/tenant/ManHinhChamDutHopDong.dart';
@@ -79,6 +83,10 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
   Map<String, dynamic>? _khachThueData; // thông tin cư dân chi tiết
   List<Map<String, dynamic>> _danhSachTaiSan =
       []; // danh sách tài sản phòng từ Supabase
+  List<Map<String, dynamic>> _danhSachPhuongTien =
+      []; // danh sách phương tiện từ bảng phuong_tien Supabase
+  List<KhachLuuTruModel> _danhSachKhachQuaDem =
+      []; // danh sách khách lưu trú qua đêm từ Supabase
   bool _thongBaoUngDung = true; // Trạng thái nhận thông báo ứng dụng
 
   // ─── Realtime & Đồng Bộ Phê Duyệt Tự Động ──────────────────
@@ -762,8 +770,57 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
             .eq('ma_phong', hd.maPhong);
         taiSanList = List<Map<String, dynamic>>.from(tsRows as List);
       } catch (err) {
-        debugPrint('Lỗi tải tai_san: rr');
+        debugPrint('Lỗi tải tai_san: $err');
       }
+
+      // ── 9. Tải danh sách phương tiện (bảng phuong_tien) từ Supabase ──
+      List<Map<String, dynamic>> phuongTienList = [];
+      try {
+        final curMaKhach = khachThueRow?['ma_khach']?.toString() ?? hd.maKhachDaiDien;
+        var ptQuery = db.from('phuong_tien').select();
+        if (curMaKhach.isNotEmpty) {
+          ptQuery = ptQuery.or('ma_khach.eq.$curMaKhach,ma_phong.eq.${hd.maPhong}');
+        } else {
+          ptQuery = ptQuery.eq('ma_phong', hd.maPhong);
+        }
+        final ptRows = await ptQuery.order('ngay_dang_ky', ascending: false);
+        phuongTienList = List<Map<String, dynamic>>.from(ptRows as List);
+      } catch (err) {
+        debugPrint('Lỗi tải phuong_tien: $err');
+        // Thử query fallback không order
+        try {
+          final ptFallback = await db.from('phuong_tien').select().eq('ma_phong', hd.maPhong);
+          phuongTienList = List<Map<String, dynamic>>.from(ptFallback as List);
+        } catch (_) {}
+      }
+
+      // ── 9. Tải danh sách khách lưu trú qua đêm từ Supabase ──
+      List<KhachLuuTruModel> khachQuaDemList = [];
+      try {
+        final curMaKhach = khachThueRow?['ma_khach']?.toString() ?? 'KH_DUYEN';
+        final pDigits = hd.maPhong.replaceAll(RegExp(r'[^0-9]'), '');
+        final kqRows = await db
+            .from('dang_ky_khach_qua_dem')
+            .select()
+            .or('ma_khach_dang_ky.eq.$curMaKhach,ma_phong.eq.${hd.maPhong},ma_phong.eq.P$pDigits,ma_phong.eq.$pDigits')
+            .order('tu_ngay', ascending: false);
+        khachQuaDemList = (kqRows as List)
+            .map((m) => KhachLuuTruModel.fromSupabase(m as Map<String, dynamic>))
+            .toList();
+      } catch (e) {
+        debugPrint('Lỗi tải dang_ky_khach_qua_dem: $e');
+        try {
+          final fallbackKq = await db
+              .from('dang_ky_khach_qua_dem')
+              .select()
+              .order('tu_ngay', ascending: false);
+          khachQuaDemList = (fallbackKq as List)
+              .map((m) => KhachLuuTruModel.fromSupabase(m as Map<String, dynamic>))
+              .toList();
+        } catch (_) {}
+      }
+      KhachLuuTruModel.danhSachLuuTru.clear();
+      KhachLuuTruModel.danhSachLuuTru.addAll(khachQuaDemList);
 
       if (!mounted) return;
       setState(() {
@@ -778,6 +835,8 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
         _danhSachSuCo = suCoList;
         _khachThueData = khachThueRow;
         _danhSachTaiSan = taiSanList;
+        _danhSachPhuongTien = phuongTienList;
+        _danhSachKhachQuaDem = khachQuaDemList;
         _isLoading = false;
       });
       await _dongBoDanhSachThongBao();
@@ -3267,11 +3326,18 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                 iconBg: const Color(0xFFE0F2FE),
                 title: 'Khách qua đêm',
                 subtitle: 'Đăng ký & chờ duyệt',
-                onTap: () => _showLuaChonKhachQuaDem(
-                  context,
-                  'Phòng 302',
-                  'Kiêu Giang 2',
-                ),
+                onTap: () {
+                  final curRoom = _phong?.tenHienThi ??
+                      'Phòng ${_phong?.maPhong ?? maPhong}';
+                  final curToaNha = _phong?.toaNha.isNotEmpty == true
+                      ? _phong!.toaNha
+                      : 'Kiêu Giang 2';
+                  _showLuaChonKhachQuaDem(
+                    context,
+                    curRoom,
+                    curToaNha,
+                  );
+                },
               ),
             ),
           ],
@@ -3536,7 +3602,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                         toaNha: toaNhaName,
                       ),
                     ),
-                  );
+                  ).then((_) => _fetchTenantData());
                 },
                 borderRadius: BorderRadius.circular(16),
                 child: Container(
@@ -3593,20 +3659,25 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                 ),
               ),
               const SizedBox(height: 12),
-              // Nút 2: Xem danh sách & Chờ duyệt
+              // Nút 2: Xem danh sách khách & tiến độ duyệt
               InkWell(
                 onTap: () {
                   Navigator.pop(ctx);
+                  final maKhach =
+                      _khachThueData?['ma_khach']?.toString() ?? 'KH_DUYEN';
+                  final pCode = _phong?.maPhong ?? maPhong;
                   Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (_) => ManHinhLichSuLuuTru(
                         tenPhong: roomName,
                         toaNha: toaNhaName,
-                        initialTabIndex: 1, // Mở thẳng Tab Chờ duyệt
+                        maKhach: maKhach,
+                        maPhong: pCode,
+                        initialTabIndex: 0, // Mặc định mở Tab TẤT CẢ
                       ),
                     ),
-                  );
+                  ).then((_) => _fetchTenantData());
                 },
                 borderRadius: BorderRadius.circular(16),
                 child: Container(
@@ -4965,6 +5036,57 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
           ),
           const SizedBox(height: 20),
 
+          // 4.5. SECTION: KHÁCH LƯU TRÚ QUA ĐÊM
+          Row(
+            children: [
+              const Icon(
+                Icons.night_shelter_outlined,
+                color: Color(0xFF09638E),
+                size: 20,
+              ),
+              const SizedBox(width: 6),
+              const Text(
+                'Khách lưu trú qua đêm',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+              const Spacer(),
+              GestureDetector(
+                onTap: () {
+                  final curMaKhach =
+                      _khachThueData?['ma_khach']?.toString() ?? 'KH_DUYEN';
+                  final pCode = _phong?.maPhong ?? maPhong;
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ManHinhLichSuLuuTru(
+                        tenPhong: roomName,
+                        toaNha: toaNhaName,
+                        maKhach: curMaKhach,
+                        maPhong: pCode,
+                        initialTabIndex: 0,
+                      ),
+                    ),
+                  ).then((_) => _fetchTenantData());
+                },
+                child: const Text(
+                  'Xem tất cả',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF0284C7),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _buildOvernightGuestSection(roomName, toaNhaName),
+          const SizedBox(height: 20),
+
           // 5. SECTION: THIẾT BỊ & TIỆN NGHI
           Row(
             children: [
@@ -5105,6 +5227,266 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildOvernightGuestSection(String roomName, String toaNhaName) {
+    if (_danhSachKhachQuaDem.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            const Icon(
+              Icons.bedtime_outlined,
+              size: 34,
+              color: Color(0xFF94A3B8),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Chưa có khách lưu trú qua đêm nào',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF64748B),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 38,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ManHinhDangKyKhachQuaDem(
+                        tenPhong: roomName,
+                        toaNha: toaNhaName,
+                      ),
+                    ),
+                  ).then((_) => _fetchTenantData());
+                },
+                icon: const Icon(Icons.person_add_alt_1_rounded, size: 16),
+                label: const Text(
+                  'Đăng ký khách qua đêm',
+                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF09638E),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  elevation: 0,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final displayGuests = _danhSachKhachQuaDem.take(3).toList();
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          for (int i = 0; i < displayGuests.length; i++) ...[
+            if (i > 0) const Divider(height: 20, color: Color(0xFFF1F5F9)),
+            Builder(builder: (_) {
+              final g = displayGuests[i];
+              final st = g.trangThai.toLowerCase();
+              final isChoDuyet = st.contains('chờ') || st.contains('đang');
+              final isDaDuyet = st.contains('duyệt') ||
+                  st.contains('xác nhận') ||
+                  st.contains('hoàn tất') ||
+                  st.contains('đồng ý') ||
+                  st.contains('chấp nhận') ||
+                  st.contains('hợp lệ');
+
+              final badgeBg = isChoDuyet
+                  ? const Color(0xFFFFFBEB)
+                  : (isDaDuyet
+                      ? const Color(0xFFF0FDF4)
+                      : const Color(0xFFFEF2F2));
+              final badgeBorder = isChoDuyet
+                  ? const Color(0xFFFDE68A)
+                  : (isDaDuyet
+                      ? const Color(0xFFBBF7D0)
+                      : const Color(0xFFFECACA));
+              final badgeText = isChoDuyet
+                  ? const Color(0xFFB45309)
+                  : (isDaDuyet
+                      ? const Color(0xFF15803D)
+                      : const Color(0xFFDC2626));
+              final badgeIcon = isChoDuyet
+                  ? Icons.schedule_rounded
+                  : (isDaDuyet
+                      ? Icons.check_circle_rounded
+                      : Icons.cancel_rounded);
+
+              return InkWell(
+                onTap: () {
+                  final curMaKhach =
+                      _khachThueData?['ma_khach']?.toString() ?? 'KH_DUYEN';
+                  final pCode = _phong?.maPhong ?? maPhong;
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ManHinhLichSuLuuTru(
+                        tenPhong: roomName,
+                        toaNha: toaNhaName,
+                        maKhach: curMaKhach,
+                        maPhong: pCode,
+                        initialTabIndex: 0,
+                      ),
+                    ),
+                  ).then((_) => _fetchTenantData());
+                },
+                child: Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE0F2FE),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Center(
+                        child: Icon(
+                          Icons.person_rounded,
+                          color: Color(0xFF0284C7),
+                          size: 22,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            g.hoTen,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF0F172A),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            'CCCD: ${g.cccd} • ${g.thoiGian}',
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              color: Color(0xFF64748B),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: badgeBg,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: badgeBorder),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(badgeIcon, size: 12, color: badgeText),
+                          const SizedBox(width: 4),
+                          Text(
+                            g.trangThai,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: badgeText,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
+          const SizedBox(height: 12),
+          const Divider(height: 1, color: Color(0xFFF1F5F9)),
+          const SizedBox(height: 10),
+          InkWell(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ManHinhDangKyKhachQuaDem(
+                    tenPhong: roomName,
+                    toaNha: toaNhaName,
+                  ),
+                ),
+              ).then((_) => _fetchTenantData());
+            },
+            borderRadius: BorderRadius.circular(10),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              alignment: Alignment.center,
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.add_circle_outline_rounded,
+                    size: 16,
+                    color: Color(0xFF0284C7),
+                  ),
+                  SizedBox(width: 6),
+                  Text(
+                    'Đăng ký thêm khách lưu trú',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF0284C7),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -6466,6 +6848,8 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
         _khachThueData?['ho_ten_khach']?.toString().isNotEmpty == true
         ? _khachThueData!['ho_ten_khach'].toString()
         : displayName;
+    final String soCccd =
+        (_khachThueData?['cccd'] ?? _khachThueData?['so_cccd'])?.toString() ?? '';
 
     // Bạn cùng phòng (loại trừ chính mình nếu có)
     String banCungPhongTen = 'Phượng Uyên';
@@ -6707,6 +7091,90 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                               ),
                             ],
                           ),
+                          const SizedBox(height: 6),
+                          // ── Nút & Trạng thái Quét CCCD ngay dưới tên & phòng ──
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 7,
+                                  vertical: 2.5,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: soCccd.isNotEmpty
+                                      ? const Color(0xFFF0FDF4)
+                                      : const Color(0xFFFEF3C7),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                    color: soCccd.isNotEmpty
+                                        ? const Color(0xFFBBF7D0)
+                                        : const Color(0xFFFDE68A),
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      soCccd.isNotEmpty
+                                          ? Icons.verified_user_rounded
+                                          : Icons.badge_outlined,
+                                      size: 11,
+                                      color: soCccd.isNotEmpty
+                                          ? const Color(0xFF16A34A)
+                                          : const Color(0xFFD97706),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      soCccd.isNotEmpty
+                                          ? 'CCCD: $soCccd'
+                                          : 'Chưa quét CCCD',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w700,
+                                        color: soCccd.isNotEmpty
+                                            ? const Color(0xFF15803D)
+                                            : const Color(0xFFB45309),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              InkWell(
+                                onTap: () => _chonAnhVaQuetCccdCuDan(),
+                                borderRadius: BorderRadius.circular(6),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 2.5,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF09638E),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.qr_code_scanner_rounded,
+                                        size: 11,
+                                        color: Colors.white,
+                                      ),
+                                      SizedBox(width: 3),
+                                      Text(
+                                        'Quét CCCD',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ],
                       ),
                     ),
@@ -6811,7 +7279,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
               ],
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
 
           // ── Section 1: CĂN HỘ & HỢP ĐỒNG ───────────────────
           Row(
@@ -6936,6 +7404,78 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
           ),
           const SizedBox(height: 20),
 
+          // ── Section: PHƯƠNG TIỆN ĐI LẠI (bảng phuong_tien Supabase) ──
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  const Text(
+                    'PHƯƠNG TIỆN ĐI LẠI',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF475569),
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                  if (_danhSachPhuongTien.isNotEmpty) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE0F2FE),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        '${_danhSachPhuongTien.length} xe',
+                        style: const TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF0284C7),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              GestureDetector(
+                onTap: () => _showModalThemHoacSuaXeCuDan(),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFDBEAFE)),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.add_rounded, size: 14, color: Color(0xFF0284C7)),
+                      SizedBox(width: 4),
+                      Text(
+                        'Thêm xe',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF0284C7),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          // Hiển thị danh sách phương tiện
+          _buildVehicleSection(),
+          const SizedBox(height: 20),
+
           // ── Section 2: TIỆN ÍCH NHANH ───────────────────────
           const Text(
             'TIỆN ÍCH NHANH',
@@ -6958,16 +7498,15 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                   title: 'Tạm trú',
                   subtitle: 'Khách qua đêm',
                   onTap: () {
-                    final curRoom =
-                        _hopDong?.maPhong ?? widget.roomNumber ?? 'P302';
-                    Navigator.push(
+                    final curRoom = _phong?.tenHienThi ??
+                        'Phòng ${_phong?.maPhong ?? maPhong}';
+                    final curToaNha = _phong?.toaNha.isNotEmpty == true
+                        ? _phong!.toaNha
+                        : 'Kiêu Giang 2';
+                    _showLuaChonKhachQuaDem(
                       context,
-                      MaterialPageRoute(
-                        builder: (_) => ManHinhDangKyKhachQuaDem(
-                          tenPhong: _phong?.tenHienThi ?? 'Phòng $curRoom',
-                          toaNha: _phong?.toaNha ?? 'Kiêu Giang 2',
-                        ),
-                      ),
+                      curRoom,
+                      curToaNha,
                     );
                   },
                 ),
@@ -7222,6 +7761,978 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
         ],
       ),
     );
+  }
+
+  Widget _buildVehicleSection() {
+    if (_danhSachPhuongTien.isEmpty) {
+      return GestureDetector(
+        onTap: () => _showModalThemHoacSuaXeCuDan(),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: const Color(0xFFF1F5F9)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFF1F5F9),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.two_wheeler_outlined,
+                  size: 22,
+                  color: Color(0xFF64748B),
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Chưa có phương tiện đăng ký',
+                      style: TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Bấm để thêm biển số xe & nhận thẻ giữ xe',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: Color(0xFF64748B),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 14,
+                color: Color(0xFF94A3B8),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFF1F5F9)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          for (int i = 0; i < _danhSachPhuongTien.length; i++) ...[
+            _buildVehicleTile(_danhSachPhuongTien[i]),
+            if (i < _danhSachPhuongTien.length - 1)
+              const Divider(height: 1, indent: 56, color: Color(0xFFF1F5F9)),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVehicleTile(Map<String, dynamic> pt) {
+    final loaiXe = pt['loai_xe']?.toString() ?? 'Xe máy';
+    final bienSoXe = pt['bien_so_xe']?.toString() ?? '';
+    final maTheXe = pt['ma_the_xe']?.toString();
+    final trangThai = pt['trang_thai']?.toString() ?? 'Đang sử dụng';
+
+    IconData vehicleIcon = Icons.two_wheeler_rounded;
+    final lower = loaiXe.toLowerCase();
+    if (lower.contains('ô tô') || lower.contains('car')) {
+      vehicleIcon = Icons.directions_car_rounded;
+    } else if (lower.contains('đạp')) {
+      vehicleIcon = Icons.pedal_bike_rounded;
+    }
+
+    return InkWell(
+      onTap: () => _showModalThemHoacSuaXeCuDan(xeCu: pt),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0FDF4),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(vehicleIcon, size: 20, color: const Color(0xFF16A34A)),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        loaiXe,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF334155),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 1,
+                        ),
+                        decoration: BoxDecoration(
+                          color: trangThai == 'Đang sử dụng'
+                              ? const Color(0xFFDCFCE7)
+                              : const Color(0xFFFEF3C7),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          trangThai,
+                          style: TextStyle(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w700,
+                            color: trangThai == 'Đang sử dụng'
+                                ? const Color(0xFF16A34A)
+                                : const Color(0xFFD97706),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: const Color(0xFF0F172A),
+                            width: 1.1,
+                          ),
+                        ),
+                        child: Text(
+                          bienSoXe,
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.8,
+                            color: Color(0xFF0F172A),
+                          ),
+                        ),
+                      ),
+                      if (maTheXe != null && maTheXe.isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        Text(
+                          'Thẻ: $maTheXe',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF64748B),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right_rounded,
+              size: 18,
+              color: Color(0xFFCBD5E1),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// ── MODAL ĐĂNG KÝ PHƯƠNG TIỆN RIÊNG BIỆT (CHỈ XE & BIỂN SỐ) ──
+  void _showModalThemHoacSuaXeCuDan({Map<String, dynamic>? xeCu}) {
+    final bool isEdit = xeCu != null;
+    String selectedLoaiXe = xeCu?['loai_xe']?.toString() ?? 'Xe máy';
+    final bienSoCtrl = TextEditingController(text: xeCu?['bien_so_xe']?.toString() ?? '');
+    final theXeCtrl = TextEditingController(text: xeCu?['ma_the_xe']?.toString() ?? '');
+    String selectedTrangThai = xeCu?['trang_thai']?.toString() ?? 'Đang sử dụng';
+
+    final List<String> danhSachLoaiXe = [
+      'Xe máy',
+      'Xe tay ga',
+      'Xe số',
+      'Xe đạp điện',
+      'Ô tô 4-7 chỗ',
+      'Xe đạp',
+      'Khác',
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (modalCtx, setModalState) => Padding(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 20,
+            bottom: MediaQuery.of(modalCtx).viewInsets.bottom + 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE0F2FE),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(
+                          Icons.two_wheeler_rounded,
+                          color: Color(0xFF0284C7),
+                          size: 22,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        isEdit ? 'Chỉnh Sửa Phương Tiện' : 'Đăng Ký Xe Đi Lại',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                    ],
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(modalCtx),
+                    icon: const Icon(Icons.close_rounded, color: Color(0xFF94A3B8)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Loại xe Dropdown
+              const Text(
+                'Loại phương tiện',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF334155),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: danhSachLoaiXe.contains(selectedLoaiXe)
+                        ? selectedLoaiXe
+                        : danhSachLoaiXe.first,
+                    isExpanded: true,
+                    icon: const Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      color: Color(0xFF09638E),
+                    ),
+                    items: danhSachLoaiXe.map((lx) {
+                      return DropdownMenuItem<String>(
+                        value: lx,
+                        child: Text(
+                          lx,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF0F172A),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (val) {
+                      if (val != null) {
+                        setModalState(() => selectedLoaiXe = val);
+                      }
+                    },
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // Biển số xe
+              const Text(
+                'Biển số xe',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF334155),
+                ),
+              ),
+              const SizedBox(height: 6),
+              TextFormField(
+                controller: bienSoCtrl,
+                textCapitalization: TextCapitalization.characters,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.0,
+                  color: Color(0xFF0F172A),
+                ),
+                decoration: InputDecoration(
+                  hintText: 'Ví dụ: 59-X1 123.45',
+                  hintStyle: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF94A3B8),
+                    fontWeight: FontWeight.normal,
+                    letterSpacing: 0,
+                  ),
+                  prefixIcon: const Icon(
+                    Icons.tag_rounded,
+                    size: 20,
+                    color: Color(0xFF09638E),
+                  ),
+                  filled: true,
+                  fillColor: const Color(0xFFF8FAFC),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(
+                      color: Color(0xFF09638E),
+                      width: 1.5,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // Mã thẻ xe (tùy chọn)
+              const Text(
+                'Mã thẻ xe (nếu BQL đã cấp)',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF334155),
+                ),
+              ),
+              const SizedBox(height: 6),
+              TextFormField(
+                controller: theXeCtrl,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF0F172A),
+                ),
+                decoration: InputDecoration(
+                  hintText: 'Để trống nếu chưa nhận thẻ xe',
+                  hintStyle: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF94A3B8),
+                    fontWeight: FontWeight.normal,
+                  ),
+                  prefixIcon: const Icon(
+                    Icons.credit_card_rounded,
+                    size: 18,
+                    color: Color(0xFF09638E),
+                  ),
+                  filled: true,
+                  fillColor: const Color(0xFFF8FAFC),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(
+                      color: Color(0xFF09638E),
+                      width: 1.5,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Nút bấm Lưu & Xóa
+              Row(
+                children: [
+                  if (isEdit) ...[
+                    Expanded(
+                      flex: 1,
+                      child: SizedBox(
+                        height: 48,
+                        child: OutlinedButton(
+                          onPressed: () async {
+                            Navigator.pop(modalCtx);
+                            await _xoaPhuongTienCuDan(xeCu);
+                          },
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFFDC2626),
+                            side: const BorderSide(color: Color(0xFFFCA5A5)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: const Icon(Icons.delete_outline_rounded, size: 20),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                  ],
+                  Expanded(
+                    flex: 3,
+                    child: SizedBox(
+                      height: 48,
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          final bienSo = bienSoCtrl.text.trim().toUpperCase();
+                          if (bienSo.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Vui lòng nhập biển số xe')),
+                            );
+                            return;
+                          }
+
+                          Navigator.pop(modalCtx);
+                          await _luuPhuongTienCuDanLenSupabase(
+                            xeCu: xeCu,
+                            loaiXe: selectedLoaiXe,
+                            bienSoXe: bienSo,
+                            maTheXe: theXeCtrl.text.trim().isEmpty ? null : theXeCtrl.text.trim(),
+                            trangThai: selectedTrangThai,
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF09638E),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 0,
+                        ),
+                        child: Text(
+                          isEdit ? 'Cập Nhật Phương Tiện' : 'Lưu Phương Tiện',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _luuPhuongTienCuDanLenSupabase({
+    Map<String, dynamic>? xeCu,
+    required String loaiXe,
+    required String bienSoXe,
+    String? maTheXe,
+    required String trangThai,
+  }) async {
+    final db = Supabase.instance.client;
+    final isEdit = xeCu != null;
+    final maPt = isEdit
+        ? xeCu['ma_phuong_tien']?.toString() ?? 'PT_${DateTime.now().millisecondsSinceEpoch}'
+        : 'PT_${DateTime.now().millisecondsSinceEpoch}';
+
+    final curMaKhach = _khachThueData?['ma_khach']?.toString() ??
+        _hopDong?.maKhachDaiDien ??
+        'KH_MACDINH';
+    final curMaPhong = _hopDong?.maPhong ?? widget.roomNumber ?? 'P302';
+
+    final payload = {
+      'ma_phuong_tien': maPt,
+      'ma_khach': curMaKhach,
+      'ma_phong': curMaPhong,
+      'loai_xe': loaiXe,
+      'bien_so_xe': bienSoXe,
+      if (maTheXe != null && maTheXe.isNotEmpty) 'ma_the_xe': maTheXe,
+      'trang_thai': trangThai,
+      'ngay_dang_ky': isEdit && xeCu['ngay_dang_ky'] != null
+          ? xeCu['ngay_dang_ky'].toString()
+          : DateTime.now().toIso8601String(),
+    };
+
+    try {
+      if (isEdit) {
+        await db.from('phuong_tien').update(payload).eq('ma_phuong_tien', maPt);
+      } else {
+        await db.from('phuong_tien').insert(payload);
+      }
+
+      await _fetchTenantData();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(isEdit ? 'Đã cập nhật xe $bienSoXe!' : 'Đã đăng ký phương tiện $bienSoXe thành công!'),
+            backgroundColor: const Color(0xFF16A34A),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('[PHUONG_TIEN] Lỗi lưu Supabase: $e');
+      setState(() {
+        if (isEdit) {
+          final idx = _danhSachPhuongTien.indexWhere((p) => p['ma_phuong_tien'] == maPt);
+          if (idx != -1) _danhSachPhuongTien[idx] = payload;
+        } else {
+          _danhSachPhuongTien.insert(0, payload);
+        }
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Đã lưu xe $bienSoXe vào danh sách!'),
+            backgroundColor: const Color(0xFF16A34A),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _xoaPhuongTienCuDan(Map<String, dynamic> xe) async {
+    final maPt = xe['ma_phuong_tien']?.toString() ?? '';
+    final bienSo = xe['bien_so_xe']?.toString() ?? '';
+    try {
+      final db = Supabase.instance.client;
+      if (maPt.isNotEmpty) {
+        await db.from('phuong_tien').delete().eq('ma_phuong_tien', maPt);
+      }
+      await _fetchTenantData();
+    } catch (e) {
+      setState(() {
+        _danhSachPhuongTien.removeWhere((p) => p['ma_phuong_tien'] == maPt);
+      });
+    }
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Đã xóa phương tiện $bienSo')),
+      );
+    }
+  }
+
+  /// ── QUÉT CCCD TRỰC TIẾP TẠI TAB CÁ NHÂN ──
+  Future<void> _chonAnhVaQuetCccdCuDan() async {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE0F2FE),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.document_scanner_rounded,
+                      color: Color(0xFF0284C7),
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Quét Căn Cước Công Dân (CCCD)',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF0F172A),
+                          ),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'Tự động điền họ tên, số CCCD và địa chỉ vào hồ sơ',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF64748B),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  side: const BorderSide(color: Color(0xFFE2E8F0)),
+                ),
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF0FDF4),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.camera_alt_rounded,
+                    color: Color(0xFF16A34A),
+                  ),
+                ),
+                title: const Text(
+                  'Chụp ảnh mặt trước CCCD',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                ),
+                subtitle: const Text(
+                  'Dùng camera chụp rõ nét thẻ CCCD gắn chip',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                ),
+                trailing: const Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 16,
+                  color: Color(0xFF94A3B8),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _xuLyQuetCccdCuDan(ImageSource.camera);
+                },
+              ),
+              const SizedBox(height: 10),
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  side: const BorderSide(color: Color(0xFFE2E8F0)),
+                ),
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.photo_library_rounded,
+                    color: Color(0xFF2563EB),
+                  ),
+                ),
+                title: const Text(
+                  'Chọn ảnh CCCD từ Thư viện',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                ),
+                subtitle: const Text(
+                  'Chọn ảnh chụp thẻ CCCD đã lưu trong máy',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                ),
+                trailing: const Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 16,
+                  color: Color(0xFF94A3B8),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _xuLyQuetCccdCuDan(ImageSource.gallery);
+                },
+              ),
+              const SizedBox(height: 12),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _xuLyQuetCccdCuDan(ImageSource source) async {
+    try {
+      final picker = ImagePicker();
+      final picked = await picker.pickImage(source: source, imageQuality: 90);
+      if (picked == null) return;
+
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => PopScope(
+            canPop: false,
+            child: AlertDialog(
+              backgroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+              ),
+              content: const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Row(
+                  children: [
+                    CircularProgressIndicator(color: Color(0xFF09638E)),
+                    SizedBox(width: 20),
+                    Expanded(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Đang quét CCCD...',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                            ),
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            'AI đang nhận diện họ tên, số định danh...',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF64748B),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      }
+
+      final result = await DichVuQuetCccd.quetAnhCccd(File(picked.path));
+
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+
+      if (result != null && result.hopLe) {
+        HapticFeedback.mediumImpact();
+
+        if (!mounted) return;
+        final xacNhanLuu = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+            ),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFDCFCE7),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.check_circle_rounded,
+                    color: Color(0xFF16A34A),
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text(
+                    'Kết Quả Quét CCCD',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (result.hoTen.isNotEmpty) ...[
+                  const Text(
+                    'HỌ VÀ TÊN:',
+                    style: TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.bold),
+                  ),
+                  Text(
+                    result.hoTen,
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+                if (result.soCccd.isNotEmpty) ...[
+                  const Text(
+                    'SỐ CCCD / ĐỊNH DANH:',
+                    style: TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.bold),
+                  ),
+                  Text(
+                    result.soCccd,
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0284C7)),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+                if (result.ngaySinh != null && result.ngaySinh!.isNotEmpty) ...[
+                  const Text(
+                    'NGÀY SINH:',
+                    style: TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.bold),
+                  ),
+                  Text(
+                    result.ngaySinh!,
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+                if (result.diaChi != null && result.diaChi!.isNotEmpty) ...[
+                  const Text(
+                    'ĐỊA CHỈ THƯỜNG TRÚ:',
+                    style: TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.bold),
+                  ),
+                  Text(
+                    result.diaChi!,
+                    style: const TextStyle(fontSize: 13, color: Color(0xFF334155)),
+                  ),
+                ],
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Hủy', style: TextStyle(color: Color(0xFF64748B))),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF09638E),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                child: const Text('Cập nhật hồ sơ', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        );
+
+        if (xacNhanLuu == true) {
+          final db = Supabase.instance.client;
+          final curMaKhach = _khachThueData?['ma_khach']?.toString() ??
+              _hopDong?.maKhachDaiDien ??
+              '';
+          final updateData = <String, dynamic>{
+            if (result.hoTen.isNotEmpty) 'ho_ten_khach': result.hoTen,
+            if (result.soCccd.isNotEmpty) 'cccd': result.soCccd,
+            if (result.ngaySinh != null) 'ngay_sinh': result.ngaySinh,
+            if (result.gioiTinh != null) 'gioi_tinh': result.gioiTinh,
+            if (result.diaChi != null) 'dia_chi_thuong_tru': result.diaChi,
+          };
+
+          if (curMaKhach.isNotEmpty) {
+            await db.from('khach_thue').update(updateData).eq('ma_khach', curMaKhach);
+          }
+          final user = AuthService.currentUser;
+          if (user != null && user.maTaiKhoan.isNotEmpty) {
+            try {
+              await db.from('khach_thue').update(updateData).eq('ma_tai_khoan', user.maTaiKhoan);
+              if (result.hoTen.isNotEmpty) {
+                await db.from('tai_khoan').update({'ho_ten': result.hoTen}).eq('ma_tai_khoan', user.maTaiKhoan);
+              }
+            } catch (_) {}
+          }
+
+          await _fetchTenantData();
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Đã cập nhật thông tin CCCD (${result.soCccd}) vào hồ sơ!'),
+                backgroundColor: const Color(0xFF16A34A),
+              ),
+            );
+          }
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Không nhận diện được rõ CCCD. Vui lòng chụp thẳng và đủ sáng!'),
+              backgroundColor: Color(0xFFEA580C),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Lỗi quét CCCD: $e');
+      if (mounted) {
+        try {
+          Navigator.of(context, rootNavigator: true).pop();
+        } catch (_) {}
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi quét CCCD: $e'), backgroundColor: Colors.redAccent),
+        );
+      }
+    }
   }
 
   Widget _buildContractItem({

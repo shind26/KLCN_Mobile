@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:nhatro_kieugiang/core/services/DichVuXacThuc.dart';
 import 'package:nhatro_kieugiang/data/models/KhachLuuTruModel.dart';
 import 'package:nhatro_kieugiang/features/tenant/ManHinhDangKyKhachQuaDem.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -10,12 +11,16 @@ class ManHinhLichSuLuuTru extends StatefulWidget {
   final String tenPhong;
   final String toaNha;
   final int initialTabIndex;
+  final String? maKhach;
+  final String? maPhong;
 
   const ManHinhLichSuLuuTru({
     super.key,
-    this.tenPhong = 'Phòng 302',
+    this.tenPhong = 'Phòng 203',
     this.toaNha = 'Kiêu Giang 2',
     this.initialTabIndex = 0,
+    this.maKhach,
+    this.maPhong,
   });
 
   @override
@@ -50,17 +55,74 @@ class _ManHinhLichSuLuuTruState extends State<ManHinhLichSuLuuTru> {
     setState(() => _isLoading = true);
     try {
       final db = Supabase.instance.client;
-      var query = db.from('dang_ky_khach_qua_dem').select();
-      final pDigits = widget.tenPhong.replaceAll(RegExp(r'[^0-9]'), '');
-      if (pDigits.isNotEmpty) {
-        query = query.or(
-          'ma_phong.eq.P$pDigits,ma_phong.eq.$pDigits,ma_phong.eq.${widget.tenPhong}',
-        );
-      }
-      final res = await query.order('tu_ngay', ascending: false);
+      final user = AuthService.currentUser;
 
-      final listMoi = (res as List)
-          .map((m) => KhachLuuTruModel.fromSupabase(m))
+      String maKhach = widget.maKhach ?? '';
+      if (maKhach.isEmpty && user != null && user.maTaiKhoan.isNotEmpty) {
+        try {
+          final kt = await db
+              .from('khach_thue')
+              .select('ma_khach')
+              .eq('ma_tai_khoan', user.maTaiKhoan)
+              .maybeSingle();
+          if (kt != null && kt['ma_khach'] != null) {
+            maKhach = kt['ma_khach'].toString();
+          }
+        } catch (_) {}
+      }
+
+      final pDigits =
+          (widget.maPhong ?? widget.tenPhong).replaceAll(RegExp(r'[^0-9]'), '');
+
+      List<dynamic> res = [];
+      try {
+        if (maKhach.isNotEmpty && pDigits.isNotEmpty) {
+          res = await db
+              .from('dang_ky_khach_qua_dem')
+              .select()
+              .or('ma_khach_dang_ky.eq.$maKhach,ma_phong.eq.P$pDigits,ma_phong.eq.$pDigits')
+              .order('tu_ngay', ascending: false);
+        } else if (maKhach.isNotEmpty) {
+          res = await db
+              .from('dang_ky_khach_qua_dem')
+              .select()
+              .eq('ma_khach_dang_ky', maKhach)
+              .order('tu_ngay', ascending: false);
+        } else if (pDigits.isNotEmpty) {
+          res = await db
+              .from('dang_ky_khach_qua_dem')
+              .select()
+              .or('ma_phong.eq.P$pDigits,ma_phong.eq.$pDigits,ma_phong.eq.${widget.tenPhong}')
+              .order('tu_ngay', ascending: false);
+        } else {
+          res = await db
+              .from('dang_ky_khach_qua_dem')
+              .select()
+              .order('tu_ngay', ascending: false);
+        }
+      } catch (err) {
+        debugPrint('[LICH_SU] Lỗi query lọc, tải toàn bộ: $err');
+        res = await db
+            .from('dang_ky_khach_qua_dem')
+            .select()
+            .order('tu_ngay', ascending: false);
+      }
+
+      // Nếu lọc xong mà không có bản ghi nào nhưng bảng có dữ liệu của khách, fallback tải toàn bộ
+      if (res.isEmpty) {
+        try {
+          final fallbackRes = await db
+              .from('dang_ky_khach_qua_dem')
+              .select()
+              .order('tu_ngay', ascending: false);
+          if (fallbackRes.isNotEmpty) {
+            res = fallbackRes;
+          }
+        } catch (_) {}
+      }
+
+      final listMoi = res
+          .map((m) => KhachLuuTruModel.fromSupabase(m as Map<String, dynamic>))
           .toList();
       setState(() {
         KhachLuuTruModel.danhSachLuuTru.clear();
@@ -142,22 +204,29 @@ class _ManHinhLichSuLuuTruState extends State<ManHinhLichSuLuuTru> {
 
     // Lọc theo Tab
     if (_selectedTabIndex == 1) {
-      // Chờ duyệt
+      // Chờ duyệt / Chờ xác nhận
       list = list.where((x) {
         final st = x.trangThai.toLowerCase();
-        return st.contains('chờ') || st.contains('đang chờ');
+        return st.contains('chờ') || st.contains('đang');
       }).toList();
     } else if (_selectedTabIndex == 2) {
-      // Đã duyệt
+      // Đã duyệt / Xác nhận / Hoàn tất
       list = list.where((x) {
         final st = x.trangThai.toLowerCase();
-        return st.contains('đã duyệt') || st.contains('hoàn tất');
+        return st.contains('duyệt') ||
+            st.contains('xác nhận') ||
+            st.contains('hoàn tất') ||
+            st.contains('đồng ý') ||
+            st.contains('chấp nhận') ||
+            st.contains('hợp lệ');
       }).toList();
     } else if (_selectedTabIndex == 3) {
-      // Từ chối
+      // Từ chối / Hủy
       list = list.where((x) {
         final st = x.trangThai.toLowerCase();
-        return st.contains('từ chối') || st.contains('hủy');
+        return st.contains('từ chối') ||
+            st.contains('hủy') ||
+            st.contains('không');
       }).toList();
     }
 
@@ -175,19 +244,26 @@ class _ManHinhLichSuLuuTruState extends State<ManHinhLichSuLuuTru> {
   }
 
   int get _countChoDuyet => KhachLuuTruModel.danhSachLuuTru.where((x) {
-    final st = x.trangThai.toLowerCase();
-    return st.contains('chờ') || st.contains('đang chờ');
-  }).length;
+        final st = x.trangThai.toLowerCase();
+        return st.contains('chờ') || st.contains('đang');
+      }).length;
 
   int get _countDaDuyet => KhachLuuTruModel.danhSachLuuTru.where((x) {
-    final st = x.trangThai.toLowerCase();
-    return st.contains('đã duyệt') || st.contains('hoàn tất');
-  }).length;
+        final st = x.trangThai.toLowerCase();
+        return st.contains('duyệt') ||
+            st.contains('xác nhận') ||
+            st.contains('hoàn tất') ||
+            st.contains('đồng ý') ||
+            st.contains('chấp nhận') ||
+            st.contains('hợp lệ');
+      }).length;
 
   int get _countTuChoi => KhachLuuTruModel.danhSachLuuTru.where((x) {
-    final st = x.trangThai.toLowerCase();
-    return st.contains('từ chối') || st.contains('hủy');
-  }).length;
+        final st = x.trangThai.toLowerCase();
+        return st.contains('từ chối') ||
+            st.contains('hủy') ||
+            st.contains('không');
+      }).length;
 
   // Bảng chi tiết khách lưu trú
   void _xemChiTiet(KhachLuuTruModel item) {
@@ -260,9 +336,11 @@ class _ManHinhLichSuLuuTruState extends State<ManHinhLichSuLuuTru> {
                 item.trangThai,
                 valueColor: isChoDuyet
                     ? const Color(0xFFD97706)
-                    : (item.trangThai == 'Đã duyệt'
-                          ? const Color(0xFF16A34A)
-                          : const Color(0xFFDC2626)),
+                    : (item.trangThai.toLowerCase().contains('duyệt') ||
+                            item.trangThai.toLowerCase().contains('xác nhận') ||
+                            item.trangThai.toLowerCase().contains('hoàn tất')
+                        ? const Color(0xFF16A34A)
+                        : const Color(0xFFDC2626)),
               ),
               _buildModalRow('Ngày đăng ký:', item.ngayDangKy),
               const SizedBox(height: 14),
@@ -846,8 +924,13 @@ class _ManHinhLichSuLuuTruState extends State<ManHinhLichSuLuuTru> {
 
   Widget _buildTheKhachLuuTru(KhachLuuTruModel item) {
     final String st = item.trangThai.toLowerCase();
-    final bool isChoDuyet = st.contains('chờ') || st.contains('đang chờ');
-    final bool isDaDuyet = st.contains('đã duyệt') || st.contains('hoàn tất');
+    final bool isChoDuyet = st.contains('chờ') || st.contains('đang');
+    final bool isDaDuyet = st.contains('duyệt') ||
+        st.contains('xác nhận') ||
+        st.contains('hoàn tất') ||
+        st.contains('đồng ý') ||
+        st.contains('chấp nhận') ||
+        st.contains('hợp lệ');
 
     final Color badgeBg = isChoDuyet
         ? const Color(0xFFFFFBEB)
