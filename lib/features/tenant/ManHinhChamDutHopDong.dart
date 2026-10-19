@@ -10,6 +10,8 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:nhatro_kieugiang/core/widgets/LoadingMeoMeo.dart';
+import 'package:nhatro_kieugiang/core/services/DichVuXacThuc.dart';
 
 class ManHinhChamDutHopDong extends StatefulWidget {
   final HopDongModel? hopDong;
@@ -398,9 +400,26 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
   }
 
   Future<void> _xacNhanThanhLyHopDong() async {
+    final user = AuthService.currentUser;
+    if (user != null) {
+      final role = user.vaiTro.toLowerCase();
+      if (role.contains('thanhvien') || role.contains('banocung') || role.contains('ocung')) {
+        ThongBaoHelper.hienThongBao(
+          context,
+          tieuDe: 'Không Có Quyền Thực Hiện',
+          noiDung: 'Bạn đang đăng nhập với tư cách Thành viên phòng (Bạn cùng phòng). Thủ tục chấm dứt hợp đồng chỉ có Người đại diện (Trưởng phòng) mới có thẩm quyền thực hiện!',
+          type: ThongBaoType.canhBao,
+        );
+        return;
+      }
+    }
+
     if (_isHetHanHopDong && _tienCocHoanLai > 0 && _soTaiKhoanController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng nhập Số tài khoản ngân hàng để nhận hoàn tiền cọc!')),
+      ThongBaoHelper.hienToast(
+        context,
+        tieuDe: 'Thiếu thông tin',
+        noiDung: 'Vui lòng nhập Số tài khoản ngân hàng để nhận hoàn tiền cọc!',
+        type: ThongBaoType.canhBao,
       );
       setState(() => _currentStep = 0);
       return;
@@ -499,8 +518,11 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
       debugPrint('Lỗi thanh lý hợp đồng: $e');
       if (mounted) {
         setState(() => _isSubmitting = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi thực hiện thanh lý: $e')),
+        ThongBaoHelper.hienToast(
+          context,
+          tieuDe: 'Lỗi thực hiện',
+          noiDung: 'Lỗi thực hiện thanh lý: $e',
+          type: ThongBaoType.thatBai,
         );
       }
     }
@@ -666,8 +688,9 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
     if (_isLoading) {
       return const Scaffold(
         backgroundColor: _bgLight,
-        body: Center(
-          child: CircularProgressIndicator(color: _primary),
+        body: LoadingMeoMeo(
+          message: 'Đang tải thông tin thanh lý...',
+          subMessage: 'Mèo con đang kiểm tra biên bản bàn giao~ 🐾',
         ),
       );
     }
@@ -1747,8 +1770,11 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
                         ? null
                         : () {
                             if (_isHetHanHopDong && _tienDatCoc > 0 && _soTaiKhoanController.text.trim().isEmpty) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Vui lòng nhập Số tài khoản ngân hàng để nhận hoàn tiền cọc!')),
+                              ThongBaoHelper.hienToast(
+                                context,
+                                tieuDe: 'Thiếu thông tin',
+                                noiDung: 'Vui lòng nhập Số tài khoản ngân hàng để nhận hoàn tiền cọc!',
+                                type: ThongBaoType.canhBao,
                               );
                               return;
                             }

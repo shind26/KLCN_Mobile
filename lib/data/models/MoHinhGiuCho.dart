@@ -16,7 +16,7 @@ class GiuChoModel {
     required this.maGiuCho,
     required this.maPhong,
     required this.maKhach,
-    this.soTienTheChan = 100000,
+    this.soTienTheChan = 0,
     this.thoiGianGiuCho,
     this.ngayHetHan,
     this.trangThai = 'ChoThanhToan',
@@ -31,7 +31,7 @@ class GiuChoModel {
       maGiuCho: json['ma_giu_cho']?.toString() ?? '',
       maPhong: json['ma_phong']?.toString() ?? '',
       maKhach: json['ma_khach']?.toString() ?? '',
-      soTienTheChan: num.tryParse(json['so_tien_the_chan']?.toString() ?? '100000') ?? 100000,
+      soTienTheChan: num.tryParse(json['so_tien_the_chan']?.toString() ?? '0') ?? 0,
       thoiGianGiuCho: json['thoi_gian_giu_cho'] != null
           ? DateTime.tryParse(json['thoi_gian_giu_cho'].toString())
           : null,

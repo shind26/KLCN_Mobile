@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:nhatro_kieugiang/core/widgets/BangKyTay.dart';
 import 'package:nhatro_kieugiang/core/widgets/ChuKyBenAMacDinh.dart';
+import 'package:nhatro_kieugiang/core/widgets/LoadingMeoMeo.dart';
+import 'package:nhatro_kieugiang/core/utils/ThongBaoHelper.dart';
 import 'package:nhatro_kieugiang/core/utils/TienIchDinhDang.dart';
 import 'package:nhatro_kieugiang/data/models/MoHinhDichVu.dart';
 import 'package:nhatro_kieugiang/data/models/MoHinhHopDong.dart';
@@ -15,6 +17,7 @@ import 'package:printing/printing.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:nhatro_kieugiang/features/tenant/ManHinhGiaHanHopDong.dart';
 import 'package:nhatro_kieugiang/features/tenant/ManHinhChamDutHopDong.dart';
+import 'package:nhatro_kieugiang/core/services/DichVuXacThuc.dart';
 
 class ContractDetailScreen extends StatefulWidget {
   final String maHopDong;
@@ -47,9 +50,162 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
   // Bên A: Chữ ký số mặc định do BQL phê duyệt, Bên B không được ký
   // Bên B: Người thuê vẽ chữ ký tay xác nhận
   final ChuKyController _controlBenB = ChuKyController();
+  final ScrollController _scrollController = ScrollController();
   String? _urlChuKyBenA; // URL ảnh chữ ký Bên A đã lưu trên Supabase (nếu có)
   String? _urlChuKyBenB; // URL ảnh chữ ký Bên B đã lưu trên Supabase
   bool _dangLuuKyBenB = false;
+
+  /// Kiểm tra xem tài khoản đang đăng nhập có phải là Người đại diện hợp đồng hay không
+  bool get _isNguoiDaiDien {
+    final user = AuthService.currentUser;
+    if (user == null) return true;
+
+    // 0. Quản trị viên hoặc Chủ trọ luôn có toàn quyền
+    final authRole = user.vaiTro.toLowerCase();
+    if (authRole.contains('admin') || authRole.contains('chutro') || authRole.contains('quanly')) {
+      return true;
+    }
+
+    // 1. So khớp với khách đại diện hợp đồng
+    if (_khachDaiDien != null) {
+      if (_khachDaiDien!.maTaiKhoan != null &&
+          _khachDaiDien!.maTaiKhoan!.isNotEmpty &&
+          user.maTaiKhoan.isNotEmpty) {
+        if (_khachDaiDien!.maTaiKhoan == user.maTaiKhoan) return true;
+      }
+      if (_khachDaiDien!.soDt.isNotEmpty && user.tenDangNhap.isNotEmpty) {
+        final dtKhach = _khachDaiDien!.soDt.replaceAll(RegExp(r'\D'), '');
+        final dtUser = user.tenDangNhap.replaceAll(RegExp(r'\D'), '');
+        if (dtKhach.isNotEmpty && dtKhach == dtUser) return true;
+      }
+      if (_khachDaiDien!.hoTenKhach.isNotEmpty && user.tenHienThi.isNotEmpty) {
+        if (_khachDaiDien!.hoTenKhach.trim().toLowerCase() == user.tenHienThi.trim().toLowerCase()) {
+          return true;
+        }
+      }
+    }
+
+    // 2. Nếu người dùng trùng khớp với bất kỳ ai trong danh sách ở cùng -> chắc chắn không phải đại diện
+    if (_danhSachOCung.isNotEmpty) {
+      final isOCung = _danhSachOCung.any((oc) {
+        if (oc.maTaiKhoan != null && oc.maTaiKhoan!.isNotEmpty && oc.maTaiKhoan == user.maTaiKhoan) return true;
+        if (oc.soDt.isNotEmpty && user.tenDangNhap.isNotEmpty) {
+          final dt1 = oc.soDt.replaceAll(RegExp(r'\D'), '');
+          final dt2 = user.tenDangNhap.replaceAll(RegExp(r'\D'), '');
+          if (dt1.isNotEmpty && dt1 == dt2) return true;
+        }
+        if (oc.hoTenKhach.trim().toLowerCase() == user.tenHienThi.trim().toLowerCase()) return true;
+        return false;
+      });
+      if (isOCung) return false;
+    }
+
+    // 3. Vai trò từ bảng tài khoản
+    if (authRole.contains('truongphong') || authRole.contains('daidien')) return true;
+    if (authRole.contains('thanhvien') || authRole.contains('banocung') || authRole.contains('ocung')) return false;
+
+    // 4. Nếu phòng chỉ có 1 người ở
+    if (_danhSachOCung.isEmpty && _khachDaiDien != null) return true;
+
+    return false;
+  }
+
+  /// Hộp thoại thông báo khi bạn cùng phòng cố tình thực hiện thao tác dành riêng cho người đại diện
+  void _thongBaoKhongCoQuyen({required String hanhDong}) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF3C7),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.admin_panel_settings_outlined,
+                color: Color(0xFFD97706),
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                'Quyền Hạn Đại Diện',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Bạn đang đăng nhập với tư cách Thành viên phòng (Bạn cùng phòng).',
+              style: TextStyle(fontSize: 13.5, color: Colors.grey.shade700, height: 1.4),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.info_outline, size: 18, color: Color(0xFF09638E)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Theo quy định hợp đồng, thủ tục "$hanhDong" chỉ có Người đại diện (Trưởng phòng đứng tên trên hợp đồng) mới có thẩm quyền thực hiện.',
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF1E293B),
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Vui lòng báo cho Người đại diện của phòng bạn để tiến hành thủ tục này nhé!',
+              style: TextStyle(fontSize: 13, color: Colors.grey.shade600, height: 1.3),
+            ),
+          ],
+        ),
+        actions: [
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () => Navigator.pop(ctx),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF09638E),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              child: const Text('Đã hiểu', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -60,6 +216,7 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
   @override
   void dispose() {
     _controlBenB.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -224,53 +381,35 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
   Future<void> _luuChuKy({required bool isBenA}) async {
     // Ràng buộc bảo mật: Bên B (người thuê) không được phép ký thay cho Bên A
     if (isBenA) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Row(
-            children: [
-              Icon(Icons.shield_rounded, color: Colors.white, size: 20),
-              SizedBox(width: 8),
-              Expanded(
-                child: Text('Chữ ký số Bên A đã được Ban Quản Lý xác thực sẵn và khóa bảo mật!'),
-              ),
-            ],
-          ),
-          backgroundColor: _primary,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
+      ThongBaoHelper.hienToast(
+        context,
+        tieuDe: 'Chữ ký Bên A bảo mật',
+        noiDung:
+            'Chữ ký số Bên A đã được Ban Quản Lý xác thực sẵn và khóa bảo mật!',
+        type: ThongBaoType.thongTin,
       );
       return;
     }
 
     // Ràng buộc pháp lý: Chữ ký Bên B đã ký và lưu rồi thì không cho phép ký lại
     if (_urlChuKyBenB != null && _urlChuKyBenB!.isNotEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Row(
-            children: [
-              Icon(Icons.lock_rounded, color: Colors.white, size: 20),
-              SizedBox(width: 8),
-              Expanded(
-                child: Text('Hợp đồng đã có chữ ký Bên B được xác thực và khóa bảo mật, không thể ký lại!'),
-              ),
-            ],
-          ),
-          backgroundColor: const Color(0xFF0F172A),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
+      ThongBaoHelper.hienToast(
+        context,
+        tieuDe: 'Hợp đồng đã ký',
+        noiDung:
+            'Hợp đồng đã có chữ ký Bên B được xác thực và khóa bảo mật, không thể ký lại!',
+        type: ThongBaoType.canhBao,
       );
       return;
     }
 
     final ctrl = _controlBenB;
     if (!ctrl.isFilled) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Vui lòng ký vào ô chữ ký trước khi xác nhận!'),
-          backgroundColor: Colors.orange,
-        ),
+      ThongBaoHelper.hienToast(
+        context,
+        tieuDe: 'Chưa có chữ ký',
+        noiDung: 'Vui lòng ký vào ô chữ ký trước khi xác nhận!',
+        type: ThongBaoType.canhBao,
       );
       return;
     }
@@ -320,11 +459,11 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
     } catch (e) {
       debugPrint('Lỗi lưu chữ ký: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Lỗi lưu chữ ký: $e'),
-            backgroundColor: Colors.red,
-          ),
+        ThongBaoHelper.hienToast(
+          context,
+          tieuDe: 'Lỗi lưu chữ ký',
+          noiDung: 'Lỗi lưu chữ ký: $e',
+          type: ThongBaoType.thatBai,
         );
       }
     } finally {
@@ -563,28 +702,12 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
   // ─── Xuất file PDF hợp đồng chuẩn hóa pháp lý ───
   Future<void> _xuatPdfHopDong() async {
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Row(
-            children: [
-              SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-              ),
-              SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Đang xuất file PDF hợp đồng, vui lòng chờ...',
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-          duration: const Duration(seconds: 2),
-          behavior: SnackBarBehavior.floating,
-        ),
+      ThongBaoHelper.hienToast(
+        context,
+        tieuDe: 'Đang tạo PDF',
+        noiDung: 'Đang xuất file PDF hợp đồng, vui lòng chờ...',
+        type: ThongBaoType.thongTin,
+        duration: const Duration(seconds: 2),
       );
     }
 
@@ -733,7 +856,7 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                   ),
                   pw.SizedBox(height: 3),
                   pw.Text('Đại diện quản lý: TRỊNH MỸ DUYÊN', style: const pw.TextStyle(fontSize: 9.5)),
-                  pw.Text('Số điện thoại / Hotline BQL: 0865 109 632', style: const pw.TextStyle(fontSize: 9.5)),
+                  pw.Text('Số điện thoại / Hotline BQL: 0328 004 663', style: const pw.TextStyle(fontSize: 9.5)),
                   pw.Text('Địa chỉ: Kiêu Giang House, Phường Hiệp Bình Chánh, TP. Thủ Đức, TP.HCM', style: const pw.TextStyle(fontSize: 9.5)),
                 ],
               ),
@@ -873,12 +996,11 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
   } catch (e, stack) {
     debugPrint('Lỗi xuất PDF hợp đồng: $e\n$stack');
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Lỗi xuất file PDF: $e'),
-          backgroundColor: Colors.redAccent,
-          behavior: SnackBarBehavior.floating,
-        ),
+      ThongBaoHelper.hienToast(
+        context,
+        tieuDe: 'Lỗi xuất file',
+        noiDung: 'Lỗi xuất file PDF: $e',
+        type: ThongBaoType.thatBai,
       );
     }
   }
@@ -890,18 +1012,9 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
       return Scaffold(
         backgroundColor: _bg,
         appBar: _buildTopAppBar(),
-        body: const Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CircularProgressIndicator(color: _primary),
-              SizedBox(height: 14),
-              Text(
-                'Đang tải dữ liệu...',
-                style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
-              ),
-            ],
-          ),
+        body: const LoadingMeoMeo(
+          message: 'Đang tải hợp đồng...',
+          subMessage: 'Đợi mèo con kiểm tra hồ sơ xíu nha~ 🐾',
         ),
       );
     }
@@ -945,6 +1058,7 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
           onRefresh: _fetchContractData,
           color: _primary,
           child: SingleChildScrollView(
+            controller: _scrollController,
             physics: const AlwaysScrollableScrollPhysics(
               parent: BouncingScrollPhysics(),
             ),
@@ -954,6 +1068,10 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
               children: [
                 _buildHeaderTitleRow(),
                 const SizedBox(height: 14),
+                // Thông báo khi khách chưa ký hợp đồng (nếu đã ký thì ẩn)
+                if (_urlChuKyBenB == null || _urlChuKyBenB!.isEmpty) ...[
+                  _buildThongBaoChuaKyHopDongBanner(),
+                ],
                 _buildCardHopDongDienTu(),
                 const SizedBox(height: 12),
                 _buildGiaVaTienCocRow(),
@@ -1075,6 +1193,132 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
     );
   }
 
+  /// Banner thông báo nổi bật khi Bên B (khách thuê) chưa hoàn tất ký hợp đồng
+  Widget _buildThongBaoChuaKyHopDongBanner() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFBEB), // Amber-50
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFFCD34D), width: 1.2), // Amber-300
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFD97706).withValues(alpha: 0.08),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF3C7),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.edit_document,
+                  size: 20,
+                  color: Color(0xFFD97706),
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Hợp đồng chưa được ký kết!',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF92400E),
+                      ),
+                    ),
+                    Text(
+                      'Quý khách chưa ký xác nhận Bên B',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFFB45309),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF59E0B),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Text(
+                  'CHƯA KÝ',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'Bên A (Ban Quản Lý) đã ký xác thực sẵn. Quý khách vui lòng vẽ chữ ký tay tại ô "Chữ ký Bên B" bên dưới và bấm "Xác nhận ký Bên B" để hợp đồng chính thức có hiệu lực pháp lý.',
+            style: TextStyle(
+              fontSize: 11.5,
+              color: Color(0xFF78350F),
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 10),
+          InkWell(
+            onTap: () {
+              if (_scrollController.hasClients) {
+                _scrollController.animateTo(
+                  _scrollController.position.maxScrollExtent,
+                  duration: const Duration(milliseconds: 600),
+                  curve: Curves.easeInOutCubic,
+                );
+              }
+            },
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF3C7),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFFDE68A)),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.draw_rounded, size: 14, color: Color(0xFFB45309)),
+                  SizedBox(width: 6),
+                  Text(
+                    'Kéo xuống ký tên ngay',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFFB45309),
+                    ),
+                  ),
+                  SizedBox(width: 4),
+                  Icon(Icons.arrow_downward_rounded, size: 13, color: Color(0xFFB45309)),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ─── 3. CARD HỢP ĐỒNG ĐIỆN TỬ (TIẾN ĐỘ THỜI HẠN) ───
   Widget _buildCardHopDongDienTu() {
     final hd = _hopDong;
@@ -1152,8 +1396,18 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Ngày ký: $ngayKy • Đã xác thực điện tử',
-                      style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                      _urlChuKyBenB != null && _urlChuKyBenB!.isNotEmpty
+                          ? 'Ngày ký: $ngayKy • Đã xác thực điện tử'
+                          : 'Ngày ký: $ngayKy • Chờ Bên B ký tên',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: _urlChuKyBenB != null && _urlChuKyBenB!.isNotEmpty
+                            ? const Color(0xFF64748B)
+                            : const Color(0xFFD97706),
+                        fontWeight: _urlChuKyBenB != null && _urlChuKyBenB!.isNotEmpty
+                            ? FontWeight.normal
+                            : FontWeight.w600,
+                      ),
                     ),
                   ],
                 ),
@@ -1168,21 +1422,37 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                       vertical: 5,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFDCFCE7),
+                      color: _urlChuKyBenB != null && _urlChuKyBenB!.isNotEmpty
+                          ? const Color(0xFFDCFCE7)
+                          : const Color(0xFFFEF3C7),
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFFBBF7D0)),
+                      border: Border.all(
+                        color: _urlChuKyBenB != null && _urlChuKyBenB!.isNotEmpty
+                            ? const Color(0xFFBBF7D0)
+                            : const Color(0xFFFDE68A),
+                      ),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.circle, size: 6, color: Color(0xFF16A34A)),
+                        Icon(
+                          Icons.circle,
+                          size: 6,
+                          color: _urlChuKyBenB != null && _urlChuKyBenB!.isNotEmpty
+                              ? const Color(0xFF16A34A)
+                              : const Color(0xFFD97706),
+                        ),
                         const SizedBox(width: 5),
                         Text(
-                          trangThai,
-                          style: const TextStyle(
+                          _urlChuKyBenB != null && _urlChuKyBenB!.isNotEmpty
+                              ? trangThai
+                              : 'Chờ Bên B ký',
+                          style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF15803D),
+                            color: _urlChuKyBenB != null && _urlChuKyBenB!.isNotEmpty
+                                ? const Color(0xFF15803D)
+                                : const Color(0xFFB45309),
                           ),
                         ),
                       ],
@@ -1572,7 +1842,7 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                 const SizedBox(height: 8),
                 _buildRowTwoCol('Đại diện chủ trọ:', 'TRỊNH MỸ DUYÊN'),
                 const SizedBox(height: 4),
-                _buildRowTwoCol('Hotline quản lý:', '0865 109 632 (24/7)', valColor: const Color(0xFF0284C7)),
+                _buildRowTwoCol('Hotline quản lý:', '0328 004 663 (24/7)', valColor: const Color(0xFF0284C7)),
                 const SizedBox(height: 4),
                 _buildRowTwoCol('Địa chỉ cơ sở:', 'Kiêu Giang House, P. Hiệp Bình Chánh, TP. Thủ Đức, TP.HCM'),
               ],
@@ -2874,16 +3144,20 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Row(
-                    children: [
+                  Row(
+                    children: const [
                       Icon(Icons.touch_app_rounded, size: 13, color: Color(0xFF15803D)),
                       SizedBox(width: 4),
-                      Text(
-                        'Người thuê vui lòng vẽ chữ ký tay vào ô bên dưới',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF15803D),
+                      Expanded(
+                        child: Text(
+                          'Người thuê vui lòng vẽ chữ ký tay vào ô bên dưới',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF15803D),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
@@ -2998,6 +3272,31 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
   Widget _buildActionButtons() {
     final bool isTerminated = _hopDong?.trangThai == 'Đã thanh lý';
 
+    // Bạn ở cùng phòng không hiển thị các chức năng gia hạn hay chấm dứt/thanh lý
+    if (!_isNguoiDaiDien) {
+      return SizedBox(
+        width: double.infinity,
+        height: 48,
+        child: ElevatedButton.icon(
+          onPressed: _xuatPdfHopDong,
+          icon: const Icon(Icons.file_download_outlined, size: 18),
+          label: const Text(
+            'Tải File PDF Hợp Đồng',
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFFE0F2FE),
+            foregroundColor: _primary,
+            elevation: 0,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+          ),
+        ),
+      );
+    }
+
     return Column(
       children: [
         Row(
@@ -3033,6 +3332,27 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                 height: 48,
                 child: ElevatedButton.icon(
                   onPressed: () {
+                    if (!_isNguoiDaiDien) {
+                      _thongBaoKhongCoQuyen(hanhDong: 'Gia hạn hợp đồng');
+                      return;
+                    }
+                    int daysLeft = 999;
+                    if (_hopDong?.ngayKt != null && _hopDong!.ngayKt.isNotEmpty) {
+                      try {
+                        final dt = DateTime.parse(_hopDong!.ngayKt);
+                        daysLeft = dt.difference(DateTime.now()).inDays;
+                      } catch (_) {}
+                    }
+                    if (daysLeft > 30) {
+                      ThongBaoHelper.hienToast(
+                        context,
+                        tieuDe: 'Chưa Đến Hạn Gia Hạn',
+                        noiDung:
+                            'Hợp đồng còn $daysLeft ngày. Theo quy định, chỉ được gửi đơn gia hạn khi hợp đồng sắp hết hạn (trong vòng 30 ngày cuối / còn 1 tháng)!',
+                        type: ThongBaoType.canhBao,
+                      );
+                      return;
+                    }
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -3072,6 +3392,10 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
           height: 48,
           child: OutlinedButton.icon(
             onPressed: () async {
+              if (!isTerminated && !_isNguoiDaiDien) {
+                _thongBaoKhongCoQuyen(hanhDong: 'Chấm dứt hợp đồng & Trả phòng');
+                return;
+              }
               final result = await Navigator.push<bool>(
                 context,
                 MaterialPageRoute(

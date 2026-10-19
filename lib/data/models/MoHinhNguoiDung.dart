@@ -52,4 +52,26 @@ class UserModel {
 
   bool get isAdmin => vaiTro.toLowerCase() == 'admin';
   bool get isActive => trangThai.toLowerCase() == 'hoatdong';
+
+  UserModel copyWith({
+    String? maTaiKhoan,
+    String? tenDangNhap,
+    String? matKhau,
+    String? vaiTro,
+    String? coSoVanHanh,
+    String? ngayTao,
+    String? trangThai,
+    String? hoTen,
+  }) {
+    return UserModel(
+      maTaiKhoan: maTaiKhoan ?? this.maTaiKhoan,
+      tenDangNhap: tenDangNhap ?? this.tenDangNhap,
+      matKhau: matKhau ?? this.matKhau,
+      vaiTro: vaiTro ?? this.vaiTro,
+      coSoVanHanh: coSoVanHanh ?? this.coSoVanHanh,
+      ngayTao: ngayTao ?? this.ngayTao,
+      trangThai: trangThai ?? this.trangThai,
+      hoTen: hoTen ?? this.hoTen,
+    );
+  }
 }

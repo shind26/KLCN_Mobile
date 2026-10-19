@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:nhatro_kieugiang/data/models/MoHinhPhong.dart';
+import 'package:nhatro_kieugiang/core/utils/ThongBaoHelper.dart';
 import 'package:nhatro_kieugiang/features/guest/ManHinhTrangChuKhach.dart';
 import 'package:nhatro_kieugiang/features/guest/ManHinhLichSuDatPhong.dart';
 
@@ -34,17 +35,20 @@ class BookingSuccessScreen extends StatelessWidget {
 
   void _copyToClipboard(BuildContext context) {
     Clipboard.setData(ClipboardData(text: appointmentCode));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Đã sao chép mã lịch hẹn vào bộ nhớ tạm!'),
-        backgroundColor: Color(0xFF09638E),
-        duration: Duration(seconds: 2),
-      ),
+    ThongBaoHelper.hienToast(
+      context,
+      tieuDe: 'Đã sao chép',
+      noiDung: 'Đã sao chép mã lịch hẹn #$appointmentCode vào bộ nhớ tạm!',
+      type: ThongBaoType.thongTin,
+      duration: const Duration(milliseconds: 1500),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final theChan = room.giaThue > 0 ? (room.giaThue * 0.1).round() : 300000;
+    final theChanStr = _formatCurrency(theChan);
+
     return Scaffold(
       backgroundColor: const Color(0xFFF4F8FA),
       appBar: AppBar(
@@ -52,7 +56,7 @@ class BookingSuccessScreen extends StatelessWidget {
         elevation: 0.5,
         automaticallyImplyLeading: false,
         title: const Text(
-          'Xác Nhận Đặt Lịch',
+          'Xác Nhận Giữ Chỗ',
           style: TextStyle(
             fontSize: 17,
             fontWeight: FontWeight.bold,
@@ -94,7 +98,7 @@ class BookingSuccessScreen extends StatelessWidget {
                     const SizedBox(height: 14),
 
                     const Text(
-                      'Đặt Lịch Xem Phòng Thành Công!',
+                      'Đặt Giữ Chỗ Phòng Thành Công!',
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -104,7 +108,7 @@ class BookingSuccessScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
 
-                    // MÃ PHIẾU HẸN (COPYABLE)
+                    // MÃ PHIẾU GIỮ CHỖ (COPYABLE)
                     GestureDetector(
                       onTap: () => _copyToClipboard(context),
                       child: Container(
@@ -118,7 +122,7 @@ class BookingSuccessScreen extends StatelessWidget {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             const Text(
-                              'Mã phiếu hẹn: ',
+                              'Mã phiếu giữ chỗ: ',
                               style: TextStyle(
                                 fontSize: 13,
                                 color: Color(0xFF09638E),
@@ -281,7 +285,14 @@ class BookingSuccessScreen extends StatelessWidget {
                                   icon: Icons.verified_user_rounded,
                                   iconColor: const Color(0xFF16A34A),
                                   label: 'Tiền thế chân',
-                                  value: '100.000 đ (Đã thanh toán)',
+                                  value: '$theChanStr (10% tiền phòng - Đã thanh toán)',
+                                ),
+                                const SizedBox(height: 12),
+                                _buildDetailRow(
+                                  icon: Icons.check_circle_rounded,
+                                  iconColor: const Color(0xFF16A34A),
+                                  label: 'Trạng thái giữ chỗ',
+                                  value: 'Đã giữ chỗ thành công',
                                 ),
                               ],
                             ),
@@ -320,20 +331,20 @@ class BookingSuccessScreen extends StatelessWidget {
                           const SizedBox(height: 14),
                           _buildStepItem(
                             step: '1',
-                            title: 'Xác nhận lịch hẹn',
-                            desc: 'Ban Quản Lý sẽ gọi điện thoại hoặc gửi tin nhắn Zalo xác nhận trong 15-30 phút.',
+                            title: 'Thanh toán giữ chỗ thành công',
+                            desc: 'Tiền thế chân $theChanStr (10% giá thuê phòng) đã thanh toán thành công. Phòng đã được chốt giữ chỗ cho bạn trên hệ thống.',
                           ),
                           const SizedBox(height: 12),
                           _buildStepItem(
                             step: '2',
-                            title: 'Đón tiếp tại nhà trọ',
-                            desc: 'Đến đúng giờ hẹn, bảo vệ và quản lý sẽ trực tiếp đón và dẫn bạn xem phòng.',
+                            title: 'Thời hạn giữ phòng 5 ngày',
+                            desc: 'Phòng được giữ độc quyền cho bạn trong vòng 5 ngày để bạn sắp xếp đến nhận phòng hoặc làm thủ tục thuê.',
                           ),
                           const SizedBox(height: 12),
                           _buildStepItem(
                             step: '3',
-                            title: 'Ưu tiên giữ phòng',
-                            desc: 'Nếu ưng ý, bạn được ưu tiên giữ phòng miễn phí trong 24h trước khi mở cho khách khác.',
+                            title: 'Đón tiếp tại nhà trọ',
+                            desc: 'Đến đúng giờ hẹn, quản lý sẽ trực tiếp đón tiếp và dẫn bạn xem phòng thực tế.',
                           ),
                         ],
                       ),
@@ -426,16 +437,16 @@ class BookingSuccessScreen extends StatelessWidget {
                     children: const [
                       Icon(Icons.phone_in_talk_rounded, size: 14, color: Color(0xFF64748B)),
                       SizedBox(width: 6),
-                      Text(
-                        'Hotline hỗ trợ 24/7: ',
-                        style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
-                      ),
-                      Text(
-                        '0987.654.321',
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF09638E),
+                      Flexible(
+                        child: Text(
+                          'Hotline hỗ trợ 24/7: 0328.004.663',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF09638E),
+                          ),
                         ),
                       ),
                     ],

@@ -1,10 +1,14 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:nhatro_kieugiang/data/models/MoHinhPhong.dart';
 import 'package:nhatro_kieugiang/features/guest/ManHinhLichSuDatPhong.dart';
 import 'package:nhatro_kieugiang/core/services/DichVuLuuDatPhong.dart';
 import 'package:nhatro_kieugiang/core/services/DichVuDatCoc.dart';
+import 'package:nhatro_kieugiang/core/utils/ThongBaoHelper.dart';
+import 'package:nhatro_kieugiang/core/utils/TienIchDinhDang.dart';
 import 'package:nhatro_kieugiang/features/guest/ManHinhThanhToanTheChan.dart';
+import 'package:nhatro_kieugiang/core/widgets/LoadingMeoMeo.dart';
 
 class BookingScreen extends StatefulWidget {
   final RoomModel? room;
@@ -39,6 +43,38 @@ class _BookingScreenState extends State<BookingScreen> {
   final _nameController   = TextEditingController();
   final _phoneController  = TextEditingController();
   final _noteController   = TextEditingController();
+
+  Timer? _phoneDebounceTimer;
+  String? _phoneAccountError;
+
+  void _onPhoneChanged(String val) {
+    _phoneDebounceTimer?.cancel();
+    String clean = val.replaceAll(RegExp(r'[\s\.\-\(\)]+'), '');
+    if (clean.startsWith('+84')) {
+      clean = '0${clean.substring(3)}';
+    } else if (clean.startsWith('84') && clean.length >= 10) {
+      clean = '0${clean.substring(2)}';
+    }
+
+    if (clean.length == 10 && RegExp(r'^0[35789][0-9]{8}$').hasMatch(clean)) {
+      _phoneDebounceTimer = Timer(const Duration(milliseconds: 300), () async {
+        final hasAcc = await DepositService.hasExistingAccount(clean);
+        if (mounted) {
+          setState(() {
+            _phoneAccountError = hasAcc
+                ? 'Số điện thoại này đã có tài khoản trên hệ thống. Vui lòng dùng số khác!'
+                : null;
+          });
+        }
+      });
+    } else {
+      if (_phoneAccountError != null) {
+        setState(() {
+          _phoneAccountError = null;
+        });
+      }
+    }
+  }
 
   // ===== SLOT DEFINITIONS: [label, startHour, startMinute] =====
   static const List<Map<String, dynamic>> _allSlots = [
@@ -90,18 +126,16 @@ class _BookingScreenState extends State<BookingScreen> {
     final day = _displayDays[index];
     setState(() {
       _selectedDayIndex = index;
-      if (!_isDepositTab) {
-        if (_selectedTimeSlot != null) {
-          final currentSlot = _allSlots.firstWhere(
-            (s) => s['label'] == _selectedTimeSlot,
-            orElse: () => _allSlots.first,
-          );
-          if (!_isSlotAvailable(day, currentSlot)) {
-            _selectedTimeSlot = _firstAvailableSlot(day);
-          }
-        } else {
+      if (_selectedTimeSlot != null) {
+        final currentSlot = _allSlots.firstWhere(
+          (s) => s['label'] == _selectedTimeSlot,
+          orElse: () => _allSlots.first,
+        );
+        if (!_isSlotAvailable(day, currentSlot)) {
           _selectedTimeSlot = _firstAvailableSlot(day);
         }
+      } else {
+        _selectedTimeSlot = _firstAvailableSlot(day);
       }
     });
   }
@@ -109,51 +143,126 @@ class _BookingScreenState extends State<BookingScreen> {
   @override
   void initState() {
     super.initState();
-    _isDepositTab = widget.isDepositMode;
+    _isDepositTab = true;
     final now = DateTime.now();
     // Ràng buộc tối đa 5 ngày và không chọn quá khứ (Hôm nay đến +5 ngày)
     _displayDays = List.generate(6, (i) => now.add(Duration(days: i)));
 
     int firstValidIndex = 0;
     for (int i = 0; i < _displayDays.length; i++) {
-      if (_isDepositTab || _dayHasAnySlot(_displayDays[i])) {
+      if (_dayHasAnySlot(_displayDays[i])) {
         firstValidIndex = i;
         break;
       }
     }
     _selectedDayIndex = firstValidIndex;
-    _selectedTimeSlot = _isDepositTab ? null : _firstAvailableSlot(_displayDays[firstValidIndex]);
+    _selectedTimeSlot = _firstAvailableSlot(_displayDays[firstValidIndex]);
 
     _rooms = widget.availableRooms ?? (widget.room != null ? [widget.room!] : []);
     _selectedRoom = widget.room ?? (_rooms.isNotEmpty ? _rooms.first : null);
-    if (_selectedRoom == null && _rooms.isEmpty) {
-      _fetchRooms();
-    }
+
+    // Luôn tải và đồng bộ danh sách phòng trống mới nhất từ Supabase (loại bỏ phòng đã cọc/đã xác nhận)
+    _fetchRooms(initialRoom: widget.room);
   }
 
-  Future<void> _fetchRooms() async {
+  Future<void> _fetchRooms({RoomModel? initialRoom}) async {
     try {
-      final resp = await Supabase.instance.client
+      final client = Supabase.instance.client;
+      final resp = await client
           .from('phong')
           .select()
           .eq('trang_thai', 'Trống');
-      if (resp is List && resp.isNotEmpty) {
-        final list = resp
-            .map((e) => RoomModel.fromJson(Map<String, dynamic>.from(e as Map)))
-            .where((r) => r.trangThai.trim().toLowerCase() == 'trống')
-            .toList();
-        if (mounted) {
-          setState(() {
-            _rooms = list;
-            _selectedRoom ??= list.isNotEmpty ? list.first : null;
-          });
+
+      final List<RoomModel> list = (resp as List)
+          .map((e) => RoomModel.fromJson(Map<String, dynamic>.from(e as Map)))
+          .where((r) => r.trangThai.trim().toLowerCase() == 'trống')
+          .toList();
+
+      // Kiểm tra toàn diện danh sách phòng đang có người ở (hợp đồng), giữ chỗ hoặc lịch hẹn
+      final Set<String> lockedRoomCodes = {};
+      try {
+        final nowUtc = DateTime.now().toUtc();
+
+        // 1. Loại bỏ các phòng đang có người thuê / hợp đồng còn hạn
+        final hdRows = await client
+            .from('hop_dong')
+            .select('ma_phong')
+            .inFilter('trang_thai', ['Đang thuê', 'Còn hạn', 'HieuLuc']);
+        for (final row in (hdRows as List)) {
+          final p = row['ma_phong']?.toString();
+          if (p != null && p.isNotEmpty) lockedRoomCodes.add(p);
         }
+
+        // 2. Loại bỏ các phòng đang giữ chỗ (DangGiu, DaDatCoc, hoặc ChoThanhToan chưa hết hạn)
+        final giuChoRows = await client
+            .from('giu_cho')
+            .select('ma_phong, trang_thai, expires_at');
+        for (final row in (giuChoRows as List)) {
+          final p = row['ma_phong']?.toString();
+          final st = row['trang_thai']?.toString();
+          final expStr = row['expires_at']?.toString();
+          if (p == null || p.isEmpty) continue;
+          if (st == 'Đã thanh toán' || st == 'DangGiu' || st == 'DaDatCoc') {
+            lockedRoomCodes.add(p);
+          } else if (st == 'ChoThanhToan' && expStr != null && expStr.isNotEmpty) {
+            final exp = DateTime.tryParse(expStr)?.toUtc();
+            if (exp != null && exp.isAfter(nowUtc)) {
+              lockedRoomCodes.add(p);
+            }
+          }
+        }
+
+      } catch (eLock) {
+        debugPrint('Lỗi fetch locked rooms trong BookingScreen: $eLock');
+      }
+
+      final available = list.where((r) => !lockedRoomCodes.contains(r.maPhong)).toList();
+
+      if (mounted) {
+        RoomModel? newSelected;
+        if (initialRoom != null) {
+          final isInitialLocked = lockedRoomCodes.contains(initialRoom.maPhong) ||
+              !available.any((r) => r.maPhong == initialRoom.maPhong);
+          if (isInitialLocked) {
+            // Phòng được chọn ban đầu đã bị cọc hoặc có người ở!
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                ThongBaoHelper.hienThongBao(
+                  context,
+                  tieuDe: 'Phòng Đã Có Người / Đã Cọc',
+                  noiDung:
+                      'Phòng ${initialRoom.tenHienThi} hiện đang có người ở hoặc đã được khách khác cọc giữ chỗ. Vui lòng chọn phòng trống khác bạn nhé!',
+                  type: ThongBaoType.canhBao,
+                );
+              }
+            });
+            newSelected = available.isNotEmpty ? available.first : null;
+          } else {
+            newSelected = available.firstWhere(
+              (r) => r.maPhong == initialRoom.maPhong,
+              orElse: () => available.isNotEmpty ? available.first : initialRoom,
+            );
+          }
+        } else if (_selectedRoom != null) {
+          newSelected = available.firstWhere(
+            (r) => r.maPhong == _selectedRoom!.maPhong,
+            orElse: () => available.isNotEmpty ? available.first : _selectedRoom!,
+          );
+        } else {
+          newSelected = available.isNotEmpty ? available.first : null;
+        }
+
+        setState(() {
+          _rooms = available;
+          _selectedRoom = newSelected;
+        });
       }
     } catch (_) {}
   }
 
   @override
   void dispose() {
+    _phoneDebounceTimer?.cancel();
     _nameController.dispose();
     _phoneController.dispose();
     _noteController.dispose();
@@ -177,75 +286,131 @@ class _BookingScreenState extends State<BookingScreen> {
     return 'Trong tuần';
   }
 
+  static bool _isGlobalBookingInProgress = false;
+
   Future<void> _confirmBooking() async {
-    if (_selectedRoom == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Vui lòng chọn phòng trọ bạn muốn đặt lịch xem!'),
-          backgroundColor: Colors.orangeAccent,
-        ),
-      );
-      return;
-    }
-
-    final name = _nameController.text.trim();
-    final phone = _phoneController.text.trim();
-
-    if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Vui lòng nhập họ và tên của bạn!'),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
-      return;
-    }
-
-    final phoneClean = phone.replaceAll(RegExp(r'\s+'), '');
-    final phoneRegExp = RegExp(r'^(0[3|5|7|8|9])+([0-9]{8})$');
-    if (phoneClean.isEmpty || !phoneRegExp.hasMatch(phoneClean)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Vui lòng nhập số điện thoại Việt Nam hợp lệ (10 chữ số)!'),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
-      return;
-    }
-
-    if (_selectedTimeSlot == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Vui lòng chọn khung giờ hẹn xem!'),
-          backgroundColor: Colors.orangeAccent,
-        ),
-      );
-      return;
-    }
-
-    final selDay = _displayDays[_selectedDayIndex];
-    final selSlotDef = _allSlots.firstWhere(
-      (s) => s['label'] == _selectedTimeSlot,
-      orElse: () => <String, dynamic>{},
-    );
-    if (selSlotDef.isNotEmpty && !_isSlotAvailable(selDay, selSlotDef)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Khung giờ đã không còn khả dụng, vui lòng chọn giờ khác!'),
-          backgroundColor: Colors.orangeAccent,
-          duration: Duration(seconds: 3),
-        ),
-      );
-      return;
-    }
-
+    // Chống bấm nhiều lần / double tap
+    if (_isSubmitting || _isGlobalBookingInProgress) return;
     setState(() => _isSubmitting = true);
-
-    final tsStr = DateTime.now().millisecondsSinceEpoch.toString();
-    final appointmentCode = 'KG${tsStr.substring(tsStr.length - 7)}';
-    final dateStr = '${_getVietnameseDayName(selDay)}, ${selDay.day.toString().padLeft(2, '0')}/${selDay.month.toString().padLeft(2, '0')}/${selDay.year}';
+    _isGlobalBookingInProgress = true;
 
     try {
+      if (_selectedRoom == null) {
+        ThongBaoHelper.hienThongBao(
+          context,
+          tieuDe: 'Nhắc nhở',
+          noiDung: 'Vui lòng chọn phòng trọ bạn muốn đặt lịch xem!',
+          type: ThongBaoType.canhBao,
+        );
+        return;
+      }
+
+      final name = _nameController.text.trim();
+      final phone = _phoneController.text.trim();
+
+      if (name.isEmpty) {
+        ThongBaoHelper.hienThongBao(
+          context,
+          tieuDe: 'Nhắc nhở',
+          noiDung: 'Vui lòng nhập họ và tên của bạn!',
+          type: ThongBaoType.canhBao,
+        );
+        return;
+      }
+
+      String phoneClean = phone.replaceAll(RegExp(r'[\s\.\-\(\)]+'), '');
+      if (phoneClean.startsWith('+84')) {
+        phoneClean = '0${phoneClean.substring(3)}';
+      } else if (phoneClean.startsWith('84') && phoneClean.length >= 10) {
+        phoneClean = '0${phoneClean.substring(2)}';
+      }
+
+      final phoneRegExp = RegExp(r'^0[35789][0-9]{8}$');
+      if (phoneClean.isEmpty || !phoneRegExp.hasMatch(phoneClean)) {
+        ThongBaoHelper.hienThongBao(
+          context,
+          tieuDe: 'Nhắc nhở',
+          noiDung: 'Vui lòng nhập số điện thoại Việt Nam hợp lệ (10 chữ số, ví dụ 0912345678)!',
+          type: ThongBaoType.canhBao,
+        );
+        return;
+      }
+
+      // RÀNG BUỘC: Nếu số điện thoại đã có tài khoản trên hệ thống thì không cho giữ chỗ
+      final hasAcc = await DepositService.hasExistingAccount(phoneClean);
+      if (hasAcc) {
+        setState(() {
+          _phoneAccountError = 'Số điện thoại này đã có tài khoản trên hệ thống. Vui lòng dùng số khác!';
+        });
+        if (!mounted) return;
+        ThongBaoHelper.hienThongBao(
+          context,
+          tieuDe: 'Không Thể Giữ Chỗ',
+          noiDung:
+              'Số điện thoại $phoneClean đã có tài khoản trên hệ thống. Theo quy định, số điện thoại đã đăng ký tài khoản không thể đặt giữ chỗ mới. Vui lòng đăng nhập hoặc sử dụng số điện thoại khác bạn nhé!',
+          type: ThongBaoType.canhBao,
+        );
+        return;
+      }
+
+      if (!mounted) return;
+
+      if (_selectedTimeSlot == null) {
+        ThongBaoHelper.hienThongBao(
+          context,
+          tieuDe: 'Nhắc nhở',
+          noiDung: 'Vui lòng chọn khung giờ hẹn xem phòng!',
+          type: ThongBaoType.canhBao,
+        );
+        return;
+      }
+
+      final selDay = _displayDays[_selectedDayIndex];
+      final selSlotDef = _allSlots.firstWhere(
+        (s) => s['label'] == _selectedTimeSlot,
+        orElse: () => <String, dynamic>{},
+      );
+      if (selSlotDef.isNotEmpty && !_isSlotAvailable(selDay, selSlotDef)) {
+        ThongBaoHelper.hienThongBao(
+          context,
+          tieuDe: 'Khung giờ không khả dụng',
+          noiDung: 'Khung giờ đã không còn khả dụng, vui lòng chọn giờ khác!',
+          type: ThongBaoType.canhBao,
+        );
+        return;
+      }
+
+      final dateCheck = DepositService.validateExpectedDate(selDay);
+      if (!dateCheck.isValid) {
+        ThongBaoHelper.hienThongBao(
+          context,
+          tieuDe: 'Ngày coi phòng',
+          noiDung: dateCheck.error ?? 'Ngày coi phòng không hợp lệ (tối đa 5 ngày tới)!',
+          type: ThongBaoType.canhBao,
+        );
+        return;
+      }
+
+      // Kiểm tra trực tiếp realtime database xem phòng có bị khóa / có người thuê / có ai cọc chưa
+      final isLocked = await DepositService.isRoomLocked(
+        _selectedRoom!.maPhong,
+        excludePhone: phoneClean,
+      );
+      if (isLocked) {
+        if (!mounted) return;
+        ThongBaoHelper.hienThongBao(
+          context,
+          tieuDe: 'Phòng Không Khả Dụng',
+          noiDung:
+              'Phòng ${_selectedRoom!.tenHienThi} vừa có người thuê hoặc đã được khách khác cọc giữ chỗ. Vui lòng chọn phòng trống khác bạn nhé!',
+          type: ThongBaoType.canhBao,
+        );
+        _fetchRooms();
+        return;
+      }
+
+      final dateStr = '${_getVietnameseDayName(selDay)}, ${selDay.day.toString().padLeft(2, '0')}/${selDay.month.toString().padLeft(2, '0')}/${selDay.year}';
+
       // 1. Tiến hành đặt cọc giữ chỗ và lấy phiếu cọc thế chân 100k
       final giuCho = await DepositService.tienHanhDatCoc(
         room: _selectedRoom!,
@@ -256,29 +421,16 @@ class _BookingScreenState extends State<BookingScreen> {
         ghiChu: 'Hẹn xem $_selectedTimeSlot ngày $dateStr. ${_noteController.text.trim()}'.trim(),
       );
 
-      // 2. Lưu lịch hẹn vào bảng dat_lich_xem_phong với trạng thái Chờ thanh toán thế chân
-      await Supabase.instance.client.from('dat_lich_xem_phong').insert({
-        'ma_lich_hen': appointmentCode,
-        'ma_phong': _selectedRoom!.maPhong,
-        'ten_khach_hang': name,
-        'so_dien_thoai': phoneClean,
-        'ngay_hen': selDay.toIso8601String().substring(0, 10),
-        'khung_gio': _selectedTimeSlot,
-        'so_nguoi': _guestCount,
-        'ghi_chu': _noteController.text.trim(),
-        'trang_thai': 'Chờ thanh toán thế chân',
-      });
+      // Lưu thông tin giữ chỗ gần nhất
       await BookingStorageService.saveLastBooking(
         phone: phoneClean,
-        appointmentCode: appointmentCode,
+        appointmentCode: giuCho.maGiuCho,
       );
-      debugPrint('Lưu lịch hẹn thành công vào bảng dat_lich_xem_phong');
 
       if (!mounted) return;
-      setState(() => _isSubmitting = false);
 
       // 3. MỞ MÀN HÌNH CÓ MÃ QR ĐỂ THANH TOÁN TIỀN THẾ TRƯỚC KHI XÁC NHẬN ĐẶT LỊCH
-      Navigator.push(
+      await Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => ManHinhThanhToanTheChan(
@@ -286,7 +438,7 @@ class _BookingScreenState extends State<BookingScreen> {
             room: _selectedRoom!,
             customerName: name,
             customerPhone: phoneClean,
-            appointmentCode: appointmentCode,
+            appointmentCode: giuCho.maGiuCho,
             appointmentDate: dateStr,
             timeSlot: _selectedTimeSlot,
             guestCount: _guestCount,
@@ -297,186 +449,32 @@ class _BookingScreenState extends State<BookingScreen> {
     } catch (e) {
       debugPrint('Lỗi đặt lịch hẹn hoặc tạo cọc thế chân: $e');
       if (!mounted) return;
-      setState(() => _isSubmitting = false);
-      final errorMsg = e.toString().replaceAll('Exception: ', '');
-      showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Row(
-            children: const [
-              Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 26),
-              SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Không Thể Đặt Lịch',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-              ),
-            ],
-          ),
-          content: Text(errorMsg, style: const TextStyle(fontSize: 13.5, height: 1.4)),
-          actions: [
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF09638E)),
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Đã hiểu', style: TextStyle(color: Colors.white)),
-            ),
-          ],
-        ),
-      );
-      return;
-    }
-  }
+      String errorMsg = e.toString().replaceAll('Exception: ', '').trim();
+      errorMsg = errorMsg.replaceAll(RegExp(r'HTTP \d+ \([^)]+\):\s*'), '');
+      errorMsg = errorMsg.replaceAll('Phòng Phòng ', 'Phòng ');
 
-  /// TIẾN HÀNH ĐẶT CỌC GIỮ CHỖ (100K - Tối đa 5 ngày)
-  Future<void> _tienHanhDatCoc() async {
-    if (_selectedRoom == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Vui lòng chọn phòng trọ bạn muốn đặt cọc giữ chỗ!'),
-          backgroundColor: Colors.orangeAccent,
-        ),
-      );
-      return;
-    }
+      // Tải lại danh sách phòng trống thực tế để khách chọn phòng khác
+      _fetchRooms();
 
-    final name = _nameController.text.trim();
-    final phone = _phoneController.text.trim();
-
-    if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Vui lòng nhập họ và tên của bạn!'),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
-      return;
-    }
-
-    final phoneClean = phone.replaceAll(RegExp(r'\s+'), '');
-    final phoneRegExp = RegExp(r'^(0[3|5|7|8|9])+([0-9]{8})$');
-    if (phoneClean.isEmpty || !phoneRegExp.hasMatch(phoneClean)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Vui lòng nhập số điện thoại Việt Nam hợp lệ (10 chữ số)!'),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
-      return;
-    }
-
-    final selDay = _displayDays[_selectedDayIndex];
-    final dateCheck = DepositService.validateExpectedDate(selDay);
-    if (!dateCheck.isValid) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(dateCheck.error ?? 'Ngày dự kiến vào ở không hợp lệ!'),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
-      return;
-    }
-
-    setState(() => _isSubmitting = true);
-
-    try {
-      final giuCho = await DepositService.tienHanhDatCoc(
-        room: _selectedRoom!,
-        hoTen: name,
-        soDt: phoneClean,
-        ngayDuKienO: selDay,
-        soNguoiO: _guestCount,
-        ghiChu: _noteController.text.trim(),
-      );
-
-      if (!mounted) return;
-      setState(() => _isSubmitting = false);
-
-      // Chuyển sang màn hình thanh toán thế chân Napas 24/7 VietQR
-      Navigator.push(
+      ThongBaoHelper.hienThongBao(
         context,
-        MaterialPageRoute(
-          builder: (_) => ManHinhThanhToanTheChan(
-            giuCho: giuCho,
-            room: _selectedRoom!,
-            customerName: name,
-            customerPhone: phoneClean,
-            appointmentCode: giuCho.maGiuCho,
-            appointmentDate:
-                '${_getVietnameseDayName(selDay)}, ${selDay.day.toString().padLeft(2, '0')}/${selDay.month.toString().padLeft(2, '0')}/${selDay.year}',
-            timeSlot: 'Giữ chỗ 5 ngày',
-            guestCount: _guestCount,
-            note: _noteController.text.trim(),
-          ),
-        ),
+        tieuDe: 'Phòng Đã Có Khách Giữ Chỗ',
+        noiDung: errorMsg,
+        type: ThongBaoType.canhBao,
       );
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _isSubmitting = false);
-
-      final errorMsg = e.toString().replaceAll('Exception: ', '');
-      showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Row(
-            children: const [
-              Icon(Icons.error_outline_rounded, color: Color(0xFFDC2626), size: 26),
-              SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Không Thể Đặt Cọc',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-              ),
-            ],
-          ),
-          content: Text(errorMsg, style: const TextStyle(fontSize: 14, height: 1.45)),
-          actions: [
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF09638E),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-              onPressed: () {
-                Navigator.pop(ctx);
-                _fetchRooms(); // Tải lại danh sách phòng trống
-              },
-              child: const Text('Đã hiểu / Tải lại phòng', style: TextStyle(color: Colors.white)),
-            ),
-          ],
-        ),
-      );
+    } finally {
+      _isGlobalBookingInProgress = false;
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
     }
-  }
-
-  Widget _buildSummaryRow(IconData icon, String label, String value) {
-    return Row(
-      children: [
-        Icon(icon, size: 14, color: const Color(0xFF09638E)),
-        const SizedBox(width: 6),
-        Text(
-          label,
-          style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
-        ),
-        const SizedBox(width: 6),
-        Expanded(
-          child: Text(
-            value,
-            style: const TextStyle(fontSize: 11.5, color: Color(0xFF0F172A), fontWeight: FontWeight.bold),
-            textAlign: TextAlign.right,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      ],
-    );
   }
 
   @override
   Widget build(BuildContext context) {
     final room = _selectedRoom;
+    final theChan = DepositService.getDepositAmount(room?.giaThue ?? 0);
+    final theChanStr = FormatUtils.currency(theChan);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F8FA),
@@ -573,163 +571,37 @@ class _BookingScreenState extends State<BookingScreen> {
                               ),
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                            decoration: BoxDecoration(
-                              color: _isDepositTab
-                                  ? const Color(0xFFFEF3C7)
-                                  : const Color(0xFFDCFCE7),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(
-                              'Thế chân 100k • Khóa phòng',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Color(0xFFB45309),
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
                         ],
                       ),
                     ),
 
-                    // ====== BỘ CHUYỂN ĐỔI: HẸN XEM PHÒNG VS ĐẶT CỌC GIỮ CHỖ ======
-                    Container(
-                      color: Colors.white,
-                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF1F5F9),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: GestureDetector(
-                                onTap: () => setState(() {
-                                  _isDepositTab = false;
-                                  if (_selectedTimeSlot == null && _displayDays.isNotEmpty) {
-                                    _selectedTimeSlot = _firstAvailableSlot(_displayDays[_selectedDayIndex]);
-                                  }
-                                }),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(vertical: 9),
-                                  decoration: BoxDecoration(
-                                    color: !_isDepositTab ? Colors.white : Colors.transparent,
-                                    borderRadius: BorderRadius.circular(10),
-                                    boxShadow: !_isDepositTab
-                                        ? [
-                                            BoxShadow(
-                                              color: Colors.black.withValues(alpha: 0.05),
-                                              blurRadius: 4,
-                                              offset: const Offset(0, 2),
-                                            ),
-                                          ]
-                                        : null,
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(
-                                        Icons.calendar_today_rounded,
-                                        size: 14,
-                                        color: !_isDepositTab ? const Color(0xFF09638E) : const Color(0xFF64748B),
-                                      ),
-                                      const SizedBox(width: 5),
-                                      Flexible(
-                                        child: Text(
-                                          'Hẹn Xem Phòng',
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(
-                                            fontSize: 12.5,
-                                            fontWeight: FontWeight.bold,
-                                            color: !_isDepositTab ? const Color(0xFF09638E) : const Color(0xFF64748B),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              child: GestureDetector(
-                                onTap: () => setState(() => _isDepositTab = true),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(vertical: 9),
-                                  decoration: BoxDecoration(
-                                    color: _isDepositTab ? const Color(0xFF09638E) : Colors.transparent,
-                                    borderRadius: BorderRadius.circular(10),
-                                    boxShadow: _isDepositTab
-                                        ? [
-                                            BoxShadow(
-                                              color: const Color(0xFF09638E).withValues(alpha: 0.25),
-                                              blurRadius: 6,
-                                              offset: const Offset(0, 2),
-                                            ),
-                                          ]
-                                        : null,
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(
-                                        Icons.security_rounded,
-                                        size: 14,
-                                        color: _isDepositTab ? Colors.white : const Color(0xFF64748B),
-                                      ),
-                                      const SizedBox(width: 5),
-                                      Flexible(
-                                        child: Text(
-                                          'Cọc Giữ Chỗ (100k)',
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(
-                                            fontSize: 12.5,
-                                            fontWeight: FontWeight.bold,
-                                            color: _isDepositTab ? Colors.white : const Color(0xFF64748B),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
 
-                    // ====== BANNER THÔNG TIN ĐẶT CỌC 100K & QUY ĐỊNH 5 NGÀY ======
+
+                    // ====== BANNER THÔNG TIN ĐẶT CỌC 10% & QUY ĐỊNH 5 NGÀY ======
                     Container(
                       color: Colors.white,
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                       child: Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFEFF6FF),
+                          color: const Color(0xFFF0F7FF),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFBFDBFE)),
+                          border: Border.all(color: const Color(0xFFBAE6FD)),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
-                              children: const [
-                                Icon(Icons.shield_outlined, color: Color(0xFF1D4ED8), size: 17),
-                                SizedBox(width: 6),
+                              children: [
+                                const Icon(Icons.verified_user_outlined, color: Color(0xFF0284C7), size: 16),
+                                const SizedBox(width: 6),
                                 Expanded(
                                   child: Text(
-                                    'Chính sách đặt lịch & cọc thế chân giữ chỗ',
-                                    style: TextStyle(
+                                    'Quy định giữ phòng ($theChanStr - 10% tiền phòng)',
+                                    style: const TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.bold,
-                                      color: Color(0xFF1E3A8A),
+                                      color: Color(0xFF0369A1),
                                     ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
@@ -738,12 +610,10 @@ class _BookingScreenState extends State<BookingScreen> {
                               ],
                             ),
                             const SizedBox(height: 6),
-                            const Text(
-                              '• Tiền thế chân giữ chỗ: 100.000 VNĐ.\n'
-                              '• Thời hạn coi phòng: Giữ chỗ tối đa trong vòng 5 ngày tới (không chọn ngày quá khứ). Nếu sau 5 ngày không đến coi hoặc nhận phòng thì sẽ mất cọc.\n'
-                              '• Đảm bảo: Ngay sau khi cọc, phòng được chuyển sang trạng thái "Đã cọc" để khóa khách khác.\n'
-                              '• Sau khi ấn "Tiến hành đặt cọc", hệ thống hiển thị mã VietQR chuẩn Napas 24/7 có hiệu lực trong 15 phút để chuyển khoản cho chủ nhà.',
-                              style: TextStyle(fontSize: 11.5, color: Color(0xFF1E40AF), height: 1.45),
+                            Text(
+                              '• Khóa phòng độc quyền: Giữ chỗ trong 5 ngày tới, không cho khách khác thuê.\n'
+                              '• Trừ vào tiền cọc: Được trừ $theChanStr vào hợp đồng khi bạn nhận phòng.',
+                              style: const TextStyle(fontSize: 12, color: Color(0xFF0C4A6E), height: 1.45),
                             ),
                           ],
                         ),
@@ -922,9 +792,13 @@ class _BookingScreenState extends State<BookingScreen> {
                     else
                       Container(
                         color: Colors.white,
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.symmetric(vertical: 20),
                         child: const Center(
-                          child: CircularProgressIndicator(color: Color(0xFF09638E)),
+                          child: LoadingMeoMeo(
+                            compact: true,
+                            size: 65,
+                            message: 'Đang tải thông tin...',
+                          ),
                         ),
                       ),
 
@@ -989,7 +863,7 @@ class _BookingScreenState extends State<BookingScreen> {
                                 final day = _displayDays[index];
                                 final isSelected   = _selectedDayIndex == index;
                                 final isSunday     = day.weekday == DateTime.sunday;
-                                final hasSlots     = _isDepositTab ? true : _dayHasAnySlot(day);
+                                final hasSlots     = _dayHasAnySlot(day);
                                 final isDisabled   = !hasSlots;
                                 final isToday      = index == 0;
                                 final dayLabel     = isToday ? 'H.nay'
@@ -1073,8 +947,7 @@ class _BookingScreenState extends State<BookingScreen> {
                       ),
                     ),
 
-                    if (!_isDepositTab) ...[
-                      const SizedBox(height: 10),
+                    const SizedBox(height: 10),
 
                       // ====== KHUNG GIỜ PHÙ HỢP ======
                       Container(
@@ -1202,7 +1075,6 @@ class _BookingScreenState extends State<BookingScreen> {
                         ],
                       ),
                     ),
-                    ],
 
                     const SizedBox(height: 10),
 
@@ -1216,14 +1088,14 @@ class _BookingScreenState extends State<BookingScreen> {
                           Row(
                             children: [
                               Icon(
-                                _isDepositTab ? Icons.assignment_ind_rounded : Icons.person_outline_rounded,
+                                Icons.assignment_ind_rounded,
                                 size: 18,
                                 color: const Color(0xFF09638E),
                               ),
                               const SizedBox(width: 6),
                               Expanded(
                                 child: Text(
-                                  _isDepositTab ? 'Thông tin người đặt cọc giữ chỗ' : 'Thông tin người xem',
+                                  'Thông tin người đặt lịch & giữ chỗ',
                                   style: const TextStyle(
                                     fontSize: 15,
                                     fontWeight: FontWeight.bold,
@@ -1268,23 +1140,36 @@ class _BookingScreenState extends State<BookingScreen> {
                           TextField(
                             controller: _phoneController,
                             keyboardType: TextInputType.phone,
+                            onChanged: _onPhoneChanged,
                             decoration: InputDecoration(
                               hintText: '0912 345 678',
                               hintStyle: const TextStyle(color: Color(0xFFCBD5E1)),
                               labelText: 'Số điện thoại liên hệ (Zalo)',
                               labelStyle: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+                              errorText: _phoneAccountError,
+                              errorMaxLines: 2,
                               prefixIcon: const Icon(Icons.phone_outlined,
                                   size: 18, color: Color(0xFF94A3B8)),
                               filled: true,
-                              fillColor: const Color(0xFFF8FAFC),
+                              fillColor: _phoneAccountError != null
+                                  ? const Color(0xFFFEF2F2)
+                                  : const Color(0xFFF8FAFC),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                                borderSide: BorderSide(
+                                  color: _phoneAccountError != null
+                                      ? const Color(0xFFEF4444)
+                                      : const Color(0xFFE2E8F0),
+                                ),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(
-                                    color: Color(0xFF09638E), width: 1.5),
+                                borderSide: BorderSide(
+                                  color: _phoneAccountError != null
+                                      ? const Color(0xFFEF4444)
+                                      : const Color(0xFF09638E),
+                                  width: 1.5,
+                                ),
                               ),
                               contentPadding: const EdgeInsets.symmetric(
                                   horizontal: 14, vertical: 12),
@@ -1437,7 +1322,7 @@ class _BookingScreenState extends State<BookingScreen> {
                                         fontSize: 13, color: Color(0xFF475569)),
                                     children: const [
                                       TextSpan(
-                                        text: '0987.654.321',
+                                        text: '0328.004.663',
                                         style: TextStyle(
                                           fontSize: 13.5,
                                           fontWeight: FontWeight.bold,
@@ -1457,7 +1342,7 @@ class _BookingScreenState extends State<BookingScreen> {
                     ),
 
                     // Bottom padding for the sticky button
-                    const SizedBox(height: 100),
+                    const SizedBox(height: 130),
                   ],
                 ),
               ),
@@ -1470,7 +1355,6 @@ class _BookingScreenState extends State<BookingScreen> {
             right: 0,
             bottom: 0,
             child: Container(
-              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: Colors.white,
                 border: Border(top: BorderSide(color: const Color(0xFFE2E8F0))),
@@ -1482,54 +1366,86 @@ class _BookingScreenState extends State<BookingScreen> {
                   ),
                 ],
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: _isSubmitting
-                          ? null
-                          : (_isDepositTab ? _tienHanhDatCoc : _confirmBooking),
-                      icon: Icon(
-                        _isDepositTab ? Icons.security_rounded : Icons.calendar_today_rounded,
-                        size: 18,
-                        color: Colors.white,
-                      ),
-                      label: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text(
-                          _isSubmitting
-                              ? 'Đang xử lý...'
-                              : 'Tiến Hành Đặt Cọc (100.000đ)',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 15.5,
-                            fontWeight: FontWeight.bold,
+              child: SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: (_isSubmitting || _phoneAccountError != null)
+                              ? null
+                              : _confirmBooking,
+                          icon: _isSubmitting
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : Icon(
+                                  _phoneAccountError != null
+                                      ? Icons.block_rounded
+                                      : Icons.security_rounded,
+                                  size: 18,
+                                  color: Colors.white,
+                                ),
+                          label: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              _isSubmitting
+                                  ? 'Đang tạo phiếu giữ chỗ...'
+                                  : (_phoneAccountError != null
+                                      ? 'SĐT đã có tài khoản (Không thể cọc)'
+                                      : 'Tiến Hành Đặt Cọc ($theChanStr)'),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 15.5,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _phoneAccountError != null
+                                ? const Color(0xFFEF4444)
+                                : const Color(0xFF09638E),
+                            disabledBackgroundColor: _phoneAccountError != null
+                                ? const Color(0xFFF87171)
+                                : const Color(0xFFCBD5E1),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            elevation: 0,
                           ),
                         ),
                       ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF09638E),
-                        padding: const EdgeInsets.symmetric(vertical: 15),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
+                      const SizedBox(height: 6),
+                      Text(
+                        _phoneAccountError != null
+                            ? 'Số điện thoại này đã có tài khoản trên hệ thống. Vui lòng dùng số khác!'
+                            : 'Nhấn để tạo mã QR thanh toán giữ chỗ $theChanStr (10% giá thuê phòng) nhanh chóng & an toàn.',
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          color: _phoneAccountError != null
+                              ? const Color(0xFFEF4444)
+                              : const Color(0xFF64748B),
+                          fontWeight: _phoneAccountError != null
+                              ? FontWeight.w600
+                              : FontWeight.normal,
                         ),
-                        elevation: 0,
                       ),
-                    ),
+                    ],
                   ),
-                  const SizedBox(height: 6),
-                  const Text(
-                    'Khi ấn "Tiến hành đặt cọc", phòng sẽ được chuyển sang Đã cọc và mã VietQR chuẩn Napas 24/7 có hiệu lực 15 phút để bạn chuyển tiền thế chân 100k tới chủ nhà.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Color(0xFF94A3B8),
-                      height: 1.4,
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           ),

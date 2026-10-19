@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:nhatro_kieugiang/core/utils/ThongBaoHelper.dart';
 import 'package:nhatro_kieugiang/core/utils/TienIchDinhDang.dart';
 import 'package:nhatro_kieugiang/data/models/MoHinhHopDong.dart';
 import 'package:nhatro_kieugiang/features/tenant/ManHinhThanhToanXong.dart';
@@ -207,30 +208,11 @@ class _UploadReceiptScreenState extends State<UploadReceiptScreen> {
         });
 
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(
-                  Icons.check_circle_rounded,
-                  color: Colors.white,
-                  size: 18,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Đã tải lên: $_imageFileName ($sizeStr)',
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: const Color(0xFF16A34A),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
+        ThongBaoHelper.hienToast(
+          context,
+          tieuDe: 'Đã tải lên ảnh',
+          noiDung: 'Đã chọn ảnh: $_imageFileName ($sizeStr)',
+          type: ThongBaoType.thanhCong,
         );
       }
     } catch (e) {
@@ -308,30 +290,11 @@ class _UploadReceiptScreenState extends State<UploadReceiptScreen> {
   }
 
   void _showWarningToast(String msg) {
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(
-              Icons.warning_amber_rounded,
-              color: Colors.white,
-              size: 20,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                msg,
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: const Color(0xFFE11D48),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        duration: const Duration(seconds: 3),
-      ),
+    ThongBaoHelper.hienToast(
+      context,
+      tieuDe: 'Lưu ý',
+      noiDung: msg,
+      type: ThongBaoType.canhBao,
     );
   }
 

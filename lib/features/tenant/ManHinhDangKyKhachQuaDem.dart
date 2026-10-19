@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:nhatro_kieugiang/core/services/DichVuQuetCccd.dart';
 import 'package:nhatro_kieugiang/core/services/DichVuXacThuc.dart';
+import 'package:nhatro_kieugiang/core/utils/ThongBaoHelper.dart';
 import 'package:nhatro_kieugiang/data/models/KhachLuuTruModel.dart';
 import 'package:nhatro_kieugiang/features/tenant/ManHinhLichSuLuuTru.dart';
 import 'package:nhatro_kieugiang/features/tenant/ManHinhXacNhanDangKyKhach.dart';
@@ -17,7 +18,7 @@ class ManHinhDangKyKhachQuaDem extends StatefulWidget {
 
   const ManHinhDangKyKhachQuaDem({
     super.key,
-    this.tenPhong = 'Phòng 302',
+    this.tenPhong = 'Phòng 203',
     this.toaNha = 'Kiêu Giang 2',
   });
 
@@ -245,14 +246,13 @@ class _ManHinhDangKyKhachQuaDemState extends State<ManHinhDangKyKhachQuaDem>
       _hienThiPopupQuetThanhCong(ketQua.hoTen, ketQua.soCccd);
     } else {
       // Trường hợp ảnh mờ hoặc không nhận diện được
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
+      ThongBaoHelper.hienToast(
+        context,
+        tieuDe: 'Ảnh chưa rõ nét',
+        noiDung:
             'Ảnh chụp chưa rõ hoặc không tìm thấy CCCD. Bạn vui lòng chụp lại mặt trước CCCD rõ nét hơn để AI quét thông tin nhé!',
-          ),
-          backgroundColor: Color(0xFFD97706),
-          behavior: SnackBarBehavior.floating,
-        ),
+        type: ThongBaoType.canhBao,
+        duration: const Duration(seconds: 3),
       );
     }
   }
@@ -554,12 +554,11 @@ class _ManHinhDangKyKhachQuaDemState extends State<ManHinhDangKyKhachQuaDem>
     } catch (e) {
       debugPrint('[GUEST] Lỗi lưu Supabase: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Lỗi lưu Supabase: $e'),
-            backgroundColor: const Color(0xFFDC2626),
-            duration: const Duration(seconds: 4),
-          ),
+        ThongBaoHelper.hienToast(
+          context,
+          tieuDe: 'Lỗi lưu thông tin',
+          noiDung: 'Lỗi lưu Supabase: $e',
+          type: ThongBaoType.thatBai,
         );
       }
       return;
@@ -818,7 +817,7 @@ class _ManHinhDangKyKhachQuaDemState extends State<ManHinhDangKyKhachQuaDem>
                   builder: (_) => ManHinhLichSuLuuTru(
                     tenPhong: widget.tenPhong,
                     toaNha: widget.toaNha,
-                    initialTabIndex: 1, // Mặc định mở tab Chờ duyệt
+                    initialTabIndex: 0, // Mở tab Tất cả để luôn thấy đầy đủ khách đã duyệt & chờ duyệt
                   ),
                 ),
               );
@@ -834,10 +833,10 @@ class _ManHinhDangKyKhachQuaDemState extends State<ManHinhDangKyKhachQuaDem>
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: const [
-                  Icon(Icons.hourglass_top_rounded, size: 15, color: _primary),
+                  Icon(Icons.history_edu_rounded, size: 15, color: _primary),
                   SizedBox(width: 4),
                   Text(
-                    'Chờ duyệt',
+                    'Lịch sử lưu trú',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
@@ -914,7 +913,7 @@ class _ManHinhDangKyKhachQuaDemState extends State<ManHinhDangKyKhachQuaDem>
                   builder: (_) => ManHinhLichSuLuuTru(
                     tenPhong: widget.tenPhong,
                     toaNha: widget.toaNha,
-                    initialTabIndex: 1, // Tab Chờ duyệt
+                    initialTabIndex: 0, // Tab Tất cả (hiển thị cả đã duyệt và chờ duyệt)
                   ),
                 ),
               );
@@ -930,14 +929,14 @@ class _ManHinhDangKyKhachQuaDemState extends State<ManHinhDangKyKhachQuaDem>
               child: Row(
                 children: const [
                   Icon(
-                    Icons.pending_actions_rounded,
+                    Icons.history_edu_rounded,
                     size: 16,
                     color: Color(0xFF0284C7),
                   ),
                   SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Xem danh sách khách & các đơn đang chờ duyệt 👉',
+                      'Xem lịch sử & danh sách khách lưu trú (đã duyệt & chờ duyệt) 👉',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
@@ -1806,13 +1805,12 @@ class _ManHinhDangKyKhachQuaDemState extends State<ManHinhDangKyKhachQuaDem>
                         : () async {
                             if (_tenController.text.trim().isEmpty ||
                                 _cccdController.text.trim().isEmpty) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
+                              ThongBaoHelper.hienToast(
+                                context,
+                                tieuDe: 'Thiếu thông tin',
+                                noiDung:
                                     'Vui lòng quét CCCD ở màn hình trước để có đủ Họ tên và CCCD!',
-                                  ),
-                                  backgroundColor: Color(0xFFDC2626),
-                                ),
+                                type: ThongBaoType.canhBao,
                               );
                               return;
                             }
@@ -1856,21 +1854,20 @@ class _ManHinhDangKyKhachQuaDemState extends State<ManHinhDangKyKhachQuaDem>
 
                               if (!mounted) return;
                               Navigator.pop(ctx);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
+                              ThongBaoHelper.hienToast(
+                                context,
+                                tieuDe: 'Gửi hồ sơ thành công',
+                                noiDung:
                                     'Đã gửi hồ sơ tạm trú dài hạn ($soThangChon tháng) lên BQL thành công!',
-                                  ),
-                                  backgroundColor: const Color(0xFF16A34A),
-                                ),
+                                type: ThongBaoType.thanhCong,
                               );
                             } catch (e) {
                               setModalState(() => isDangGui = false);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Lỗi gửi hồ sơ: $e'),
-                                  backgroundColor: const Color(0xFFDC2626),
-                                ),
+                              ThongBaoHelper.hienToast(
+                                context,
+                                tieuDe: 'Lỗi gửi hồ sơ',
+                                noiDung: 'Lỗi gửi hồ sơ: $e',
+                                type: ThongBaoType.thatBai,
                               );
                             }
                           },

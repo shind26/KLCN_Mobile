@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -7,10 +7,13 @@ import 'package:nhatro_kieugiang/core/services/DichVuThongBaoHeThong.dart';
 import 'package:nhatro_kieugiang/core/services/DichVuXacThuc.dart';
 import 'package:nhatro_kieugiang/core/utils/ThongBaoHelper.dart';
 import 'package:nhatro_kieugiang/core/utils/TienIchDinhDang.dart';
+import 'package:nhatro_kieugiang/core/widgets/LoadingMeoMeo.dart';
+import 'package:nhatro_kieugiang/core/utils/LienHeHelper.dart';
 import 'package:nhatro_kieugiang/data/models/MoHinhHopDong.dart';
 import 'package:nhatro_kieugiang/data/models/MoHinhPhong.dart';
 import 'package:nhatro_kieugiang/features/guest/ManHinhTrangChuKhach.dart';
 import 'package:nhatro_kieugiang/features/tenant/ManHinhBaoSuCo.dart';
+import 'package:nhatro_kieugiang/features/tenant/ManHinhBienBanBanGiaoTaiSan.dart';
 import 'package:nhatro_kieugiang/features/tenant/ManHinhChamDutHopDong.dart';
 import 'package:nhatro_kieugiang/features/tenant/ManHinhChiSoDienNuoc.dart';
 import 'package:nhatro_kieugiang/features/tenant/ManHinhChiTietHopDong.dart';
@@ -79,7 +82,10 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
   Map<String, dynamic>? _khachThueData; // thông tin cư dân chi tiết
   List<Map<String, dynamic>> _danhSachTaiSan =
       []; // danh sách tài sản phòng từ Supabase
+  List<Map<String, dynamic>> _danhSachPhuongTien =
+      []; // danh sách phương tiện xe của cư dân từ Supabase
   bool _thongBaoUngDung = true; // Trạng thái nhận thông báo ứng dụng
+  bool _isEkycExpanded = false; // Thu gọn/mở rộng chi tiết hồ sơ định danh cá nhân
 
   // ─── Realtime & Đồng Bộ Phê Duyệt Tự Động ──────────────────
   RealtimeChannel? _tenantRealtimeChannel;
@@ -88,6 +94,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
   String? _lastPhuLucStatus;
   String? _lastYccpStatus;
   final Map<String, String> _lastSuCoStatuses = {};
+  final Map<String, String> _lastGuestStatuses = {};
 
   // ─── Thông báo nổi Heads-Up (Dynamic Island) & Trung tâm thông báo ───
   late AnimationController _bannerAnimController;
@@ -126,8 +133,167 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
         : 'Đang tải...';
   }
 
-  String get maPhong => _hopDong?.maPhong ?? widget.roomNumber ?? 'P302';
+  String get maPhong => _hopDong?.maPhong ?? widget.roomNumber ?? 'P203';
   String get maHopDong => _hopDong?.maHopDong ?? '';
+
+  /// Kiểm tra xem tài khoản đang đăng nhập có phải là Người đại diện (Trưởng phòng) hay không
+  bool get _isNguoiDaiDien {
+    final user = AuthService.currentUser;
+    // 0. Quản trị viên hoặc Chủ trọ luôn có toàn quyền
+    final authRole = (user?.vaiTro ?? '').toLowerCase();
+    if (authRole.contains('admin') || authRole.contains('chutro') || authRole.contains('quanly')) {
+      return true;
+    }
+
+    // 1. So khớp mã khách đang đăng nhập với mã khách đại diện của hợp đồng
+    final currentMaKhach = _khachThueData?['ma_khach']?.toString();
+    final maDaiDien = _hopDong?.maKhachDaiDien;
+    if (currentMaKhach != null && currentMaKhach.isNotEmpty &&
+        maDaiDien != null && maDaiDien.isNotEmpty) {
+      return currentMaKhach == maDaiDien;
+    }
+
+    // 2. Kiểm tra vai trò từ chi_tiet_hop_dong_khach_thue (_thanhVienPhong)
+    final String tenCuDan = _khachThueData?['ho_ten_khach']?.toString().isNotEmpty == true
+        ? _khachThueData!['ho_ten_khach'].toString()
+        : displayName;
+
+    final myMember = _thanhVienPhong.where((tv) =>
+        (currentMaKhach != null && currentMaKhach.isNotEmpty && tv.maKhach == currentMaKhach) ||
+        (user != null && tv.maTaiKhoan != null && tv.maTaiKhoan == user.maTaiKhoan) ||
+        (tv.hoTenKhach.trim().toLowerCase() == tenCuDan.trim().toLowerCase())
+    ).firstOrNull;
+
+    if (myMember != null && myMember.vaiTro.isNotEmpty) {
+      final v = myMember.vaiTro.toLowerCase();
+      if (v.contains('đại diện') || v.contains('daidien') || v.contains('trưởng phòng') || v.contains('truongphong') || v.contains('landlord')) {
+        return true;
+      }
+      if (v.contains('ở cùng') || v.contains('ocung') || v.contains('thành viên') || v.contains('thanhvien')) {
+        return false;
+      }
+    }
+
+    // 3. Kiểm tra vai trò từ bảng tài khoản
+    if (authRole.contains('truongphong') || authRole.contains('daidien')) {
+      return true;
+    }
+    if (authRole.contains('thanhvien') || authRole.contains('banocung') || authRole.contains('ocung')) {
+      return false;
+    }
+
+    // 4. Nếu phòng chỉ có 1 người ở thì người đó chính là người đại diện
+    if (_thanhVienPhong.length == 1) return true;
+
+    // 5. Nếu phòng có nhiều hơn 1 người và trong phòng đã xác định có người khác làm đại diện
+    if (_thanhVienPhong.length > 1) {
+      final hasOtherDaiDien = _thanhVienPhong.any((tv) =>
+          (maDaiDien != null && maDaiDien.isNotEmpty && tv.maKhach == maDaiDien) ||
+          tv.vaiTro.toLowerCase().contains('đại diện') ||
+          tv.vaiTro.toLowerCase().contains('trưởng phòng')
+      );
+      if (hasOtherDaiDien) return false;
+    }
+
+    return true;
+  }
+
+  /// Hộp thoại thông báo khi bạn cùng phòng cố tình thực hiện thao tác dành riêng cho người đại diện
+  void _thongBaoKhongCoQuyen({required String hanhDong}) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF3C7),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.admin_panel_settings_outlined,
+                color: Color(0xFFD97706),
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                'Quyền Hạn Đại Diện',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Bạn đang đăng nhập với tư cách Thành viên phòng (Bạn cùng phòng).',
+              style: TextStyle(fontSize: 13.5, color: Colors.grey.shade700, height: 1.4),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.info_outline, size: 18, color: Color(0xFF09638E)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Theo quy định của Ban Quản Lý, thủ tục "$hanhDong" chỉ có Người đại diện (Trưởng phòng đứng tên trên hợp đồng) mới có thẩm quyền thực hiện.',
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF1E293B),
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Vui lòng báo cho Người đại diện của phòng bạn để tiến hành thủ tục này nhé!',
+              style: TextStyle(fontSize: 13, color: Colors.grey.shade600, height: 1.3),
+            ),
+          ],
+        ),
+        actions: [
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () => Navigator.pop(ctx),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF09638E),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              child: const Text('Đã hiểu', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -378,47 +544,103 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
         final daDoc = _danhSachIdDaDoc.contains(idHd);
         final isOverdue = _hoaDonMoiNhat!.soNgayConLai < 0;
         final overdueDays = -_hoaDonMoiNhat!.soNgayConLai;
-
-        final phiPhat = isOverdue ? overdueDays * 50000 : 0;
-        final tongTienGomPhat = _hoaDonMoiNhat!.tongTien + phiPhat;
+        final isPartialDebt = _hoaDonMoiNhat!.trangThai == 'Thanh toán một phần';
 
         if (isOverdue) {
           // Bắn thông báo chuông và banner hệ thống nhắc nhở quá hạn
-          SystemNotificationService.show(
-            title:
-                '⚠️ Hóa đơn quá hạn $overdueDays ngày (+${FormatUtils.currency(phiPhat)} phạt)',
-            body:
-                'Hóa đơn ${_hoaDonMoiNhat!.maHoaDon} đã trễ hạn từ ${_hoaDonMoiNhat!.hanDongTienFormatted}. Đã áp dụng phí phạt trễ hạn 50k/ngày (+${FormatUtils.currency(phiPhat)}). Tổng cần đóng: ${FormatUtils.currency(tongTienGomPhat)}. Vui lòng thanh toán ngay để tránh tạm khóa dịch vụ.',
-            tag: 'bill_overdue_${_hoaDonMoiNhat!.maHoaDon}',
-            loai: 'hoa_don',
-          );
+          if (overdueDays >= 10) {
+            SystemNotificationService.show(
+              title: isPartialDebt
+                  ? '🔒 ĐÃ KHÓA VÂN TAY (Nợ Đợt 2 trễ hạn $overdueDays ngày)'
+                  : '🔒 ĐÃ KHÓA VÂN TAY (Trễ hạn $overdueDays ngày)',
+              body: isPartialDebt
+                  ? 'Vân tay của bạn ĐÃ BỊ TẠM KHÓA do nợ Đợt 2 hóa đơn ${_hoaDonMoiNhat!.maHoaDon} quá hạn $overdueDays ngày. Vui lòng thanh toán hoặc liên hệ BQL qua SĐT/Zalo ${LienHeHelper.defaultHotlineDisplay} để được hỗ trợ mở khóa.'
+                  : 'Vân tay của bạn ĐÃ BỊ TẠM KHÓA do hóa đơn ${_hoaDonMoiNhat!.maHoaDon} quá hạn $overdueDays ngày. Vui lòng thanh toán hoặc liên hệ BQL qua SĐT/Zalo ${LienHeHelper.defaultHotlineDisplay} để được hỗ trợ mở khóa.',
+              tag: 'bill_locked_${_hoaDonMoiNhat!.maHoaDon}',
+              loai: 'hoa_don',
+            );
+          } else if (overdueDays >= 5) {
+            SystemNotificationService.show(
+              title: isPartialDebt
+                  ? '⚠️ CẢNH BÁO TRỄ HẠN ĐỢT 2 $overdueDays NGÀY: SẮP KHÓA VÂN TAY'
+                  : '⚠️ CẢNH BÁO TRỄ HẠN $overdueDays NGÀY: SẮP KHÓA VÂN TAY',
+              body: isPartialDebt
+                  ? 'Khoản nợ Đợt 2 hóa đơn ${_hoaDonMoiNhat!.maHoaDon} đã quá hạn $overdueDays ngày. Nếu không tiếp tục đóng tiền, hệ thống sẽ tạm khóa vân tay ra vào phòng của bạn. Vui lòng thanh toán ngay!'
+                  : 'Hóa đơn ${_hoaDonMoiNhat!.maHoaDon} đã quá hạn $overdueDays ngày. Nếu không tiếp tục đóng tiền, hệ thống sẽ tạm khóa vân tay ra vào phòng của bạn. Vui lòng thanh toán ngay!',
+              tag: 'bill_warn_5d_${_hoaDonMoiNhat!.maHoaDon}',
+              loai: 'hoa_don',
+            );
+          } else {
+            SystemNotificationService.show(
+              title: isPartialDebt
+                  ? '⚠️ Nợ Đợt 2 quá hạn $overdueDays ngày'
+                  : '⚠️ Hóa đơn quá hạn $overdueDays ngày',
+              body: isPartialDebt
+                  ? 'Khoản nợ Đợt 2 hóa đơn ${_hoaDonMoiNhat!.maHoaDon} đã trễ hạn từ ${_hoaDonMoiNhat!.hanDongTienFormatted}. Số tiền nợ còn lại: ${FormatUtils.currency(_hoaDonMoiNhat!.tongTien)}. Vui lòng thanh toán sớm.'
+                  : 'Hóa đơn ${_hoaDonMoiNhat!.maHoaDon} đã trễ hạn từ ${_hoaDonMoiNhat!.hanDongTienFormatted}. Tổng cần đóng: ${FormatUtils.currency(_hoaDonMoiNhat!.tongTien)}. Vui lòng thanh toán sớm.',
+              tag: 'bill_overdue_${_hoaDonMoiNhat!.maHoaDon}',
+              loai: 'hoa_don',
+            );
+          }
+        }
+
+        String tieuDeNotif;
+        String noiDungNotif;
+        if (!isOverdue) {
+          tieuDeNotif = isPartialDebt
+              ? '💵 Nhắc Nợ Tiền Phòng Đợt 2'
+              : '💵 Hóa Đơn Tiền Phòng & Dịch Vụ';
+          noiDungNotif = isPartialDebt
+              ? 'Khoản nợ Đợt 2 (${FormatUtils.currency(_hoaDonMoiNhat!.tongTien)}) chưa thanh toán. Hạn nộp: ${_hoaDonMoiNhat!.hanDongTienFormatted}.'
+              : 'Hóa đơn tháng này (${FormatUtils.currency(_hoaDonMoiNhat!.tongTien)}) chưa thanh toán. Hạn nộp: ${_hoaDonMoiNhat!.hanDongTienFormatted}.';
+        } else if (overdueDays >= 10) {
+          tieuDeNotif = isPartialDebt
+              ? '🔒 ĐÃ KHÓA VÂN TAY (NỢ ĐỢT 2 QUÁ HẠN $overdueDays NGÀY)'
+              : '🔒 ĐÃ KHÓA VÂN TAY (QUÁ HẠN $overdueDays NGÀY)';
+          noiDungNotif = isPartialDebt
+              ? 'Vân tay ra vào phòng ĐÃ BỊ TẠM KHÓA do nợ Đợt 2 hóa đơn ${_hoaDonMoiNhat!.maHoaDon} trễ hạn $overdueDays ngày. Vui lòng liên hệ BQL qua SĐT hoặc Zalo: ${LienHeHelper.defaultHotlineDisplay} (hoặc thanh toán để mở lại).'
+              : 'Vân tay ra vào phòng ĐÃ BỊ TẠM KHÓA do hóa đơn ${_hoaDonMoiNhat!.maHoaDon} trễ hạn $overdueDays ngày. Vui lòng liên hệ BQL qua SĐT hoặc Zalo: ${LienHeHelper.defaultHotlineDisplay} (hoặc thanh toán để mở lại).';
+        } else if (overdueDays >= 5) {
+          tieuDeNotif = isPartialDebt
+              ? '⚠️ TRỄ HẠN ĐỢT 2 $overdueDays NGÀY (CẢNH BÁO KHÓA VÂN TAY)'
+              : '⚠️ TRỄ HẠN $overdueDays NGÀY (CẢNH BÁO KHÓA VÂN TAY)';
+          noiDungNotif = isPartialDebt
+              ? 'Khoản nợ Đợt 2 hóa đơn ${_hoaDonMoiNhat!.maHoaDon} quá hạn $overdueDays ngày. Nếu không tiếp tục đóng tiền, BQL sẽ tạm khóa vân tay ra vào. Số tiền còn nợ: ${FormatUtils.currency(_hoaDonMoiNhat!.tongTien)}. Bấm để thanh toán.'
+              : 'Hóa đơn ${_hoaDonMoiNhat!.maHoaDon} quá hạn $overdueDays ngày. Nếu không tiếp tục đóng tiền, BQL sẽ tạm khóa vân tay ra vào. Tổng tiền: ${FormatUtils.currency(_hoaDonMoiNhat!.tongTien)}. Bấm để thanh toán.';
+        } else {
+          tieuDeNotif = isPartialDebt
+              ? '⚠️ NỢ ĐỢT 2 QUÁ HẠN $overdueDays NGÀY'
+              : '⚠️ HÓA ĐƠN QUÁ HẠN $overdueDays NGÀY';
+          noiDungNotif = isPartialDebt
+              ? 'Khoản nợ Đợt 2 hóa đơn ${_hoaDonMoiNhat!.maHoaDon} quá hạn từ ${_hoaDonMoiNhat!.hanDongTienFormatted}. Số tiền còn nợ: ${FormatUtils.currency(_hoaDonMoiNhat!.tongTien)}. Bấm để thanh toán.'
+              : 'Hóa đơn ${_hoaDonMoiNhat!.maHoaDon} quá hạn từ ${_hoaDonMoiNhat!.hanDongTienFormatted}. Tổng thanh toán: ${FormatUtils.currency(_hoaDonMoiNhat!.tongTien)}. Bấm để thanh toán.';
         }
 
         danhSachMoi.add({
           'id': idHd,
-          'tieu_de': isOverdue
-              ? '⚠️ HÓA ĐƠN QUÁ HẠN $overdueDays NGÀY'
-              : '💵 Hóa Đơn Tiền Phòng & Dịch Vụ',
-          'noi_dung': isOverdue
-              ? 'Hóa đơn ${_hoaDonMoiNhat!.maHoaDon} quá hạn từ ${_hoaDonMoiNhat!.hanDongTienFormatted} (+${FormatUtils.currency(phiPhat)} phạt trễ). Tổng thanh toán: ${FormatUtils.currency(tongTienGomPhat)}. Bấm để thanh toán.'
-              : 'Hóa đơn tháng này (${FormatUtils.currency(_hoaDonMoiNhat!.tongTien)}) chưa thanh toán. Hạn nộp: ${_hoaDonMoiNhat!.hanDongTienFormatted}.',
+          'tieu_de': tieuDeNotif,
+          'noi_dung': noiDungNotif,
           'loai': 'hoa_don',
           'thoi_gian': DateTime.now().subtract(const Duration(hours: 1)),
           'da_doc': daDoc,
           'is_error': isOverdue,
           'on_xem': () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => PaymentScreen(
-                  hoaDon: _hoaDonMoiNhat!,
-                  tenPhong: 'Phòng $activeRoom',
-                  onPaymentSuccess: (_) {
-                    _fetchTenantData();
-                  },
+            if (overdueDays >= 10) {
+              _showThongBaoKhoaVanTayModal(_hoaDonMoiNhat!);
+            } else {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => PaymentScreen(
+                    hoaDon: _hoaDonMoiNhat!,
+                    tenPhong: 'Phòng $activeRoom',
+                    onPaymentSuccess: (_) {
+                      _fetchTenantData();
+                    },
+                  ),
                 ),
-              ),
-            );
+              );
+            }
           },
         });
       } else if (_hoaDonMoiNhat != null &&
@@ -473,6 +695,98 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
             'on_xem': () => setState(() => _selectedTabIndex = 3),
           });
         }
+      }
+
+      // 3.5. Đồng bộ thông báo đăng ký khách lưu trú qua đêm từ Supabase
+      try {
+        final pDigits = activeRoom.replaceAll(RegExp(r'[^0-9]'), '');
+        final guestNotifRes = await db
+            .from('dang_ky_khach_qua_dem')
+            .select()
+            .or('ma_phong.eq.P$pDigits,ma_phong.eq.$pDigits,ma_phong.eq.$activeRoom')
+            .order('tu_ngay', ascending: false)
+            .limit(5);
+
+        for (final g in (guestNotifRes as List)) {
+          final st = g['trang_thai']?.toString() ?? '';
+          final maDk = g['ma_dang_ky']?.toString() ?? '';
+          final tenKhach = g['ho_ten_khach_ngoai']?.toString() ?? 'Khách';
+          final tuNgay = g['tu_ngay']?.toString() ?? '';
+          final denNgay = g['den_ngay']?.toString() ?? '';
+          final idNotif = 'notif_guest_${maDk}_$st';
+          final daDoc = _danhSachIdDaDoc.contains(idNotif) || (st == 'Chờ duyệt');
+
+          String tieuDe = '';
+          String noiDung = '';
+          bool isError = false;
+          int targetTab = 0;
+
+          final stLower = st.toLowerCase();
+          if (st == 'Đã duyệt' || stLower.contains('duyệt') || stLower.contains('duyet')) {
+            tieuDe = '🎉 Chủ Trọ Đã Duyệt Khách Lưu Trú';
+            noiDung =
+                'Đơn đăng ký cho khách $tenKhach ($tuNgay đến $denNgay) phòng $activeRoom đã được chủ trọ duyệt thành công!';
+            targetTab = 2;
+          } else if (st == 'Từ chối' || stLower.contains('từ chối') || stLower.contains('tu choi')) {
+            tieuDe = '⚠️ Đăng Ký Khách Bị Từ Chối';
+            noiDung =
+                'Chủ trọ chưa thể phê duyệt khách $tenKhach ($tuNgay đến $denNgay). Vui lòng liên hệ BQL.';
+            isError = true;
+            targetTab = 3;
+          }
+
+          if (tieuDe.isNotEmpty) {
+            danhSachMoi.add({
+              'id': idNotif,
+              'tieu_de': tieuDe,
+              'noi_dung': noiDung,
+              'loai': 'khach_luu_tru',
+              'thoi_gian': DateTime.tryParse(tuNgay) ?? DateTime.now(),
+              'da_doc': daDoc,
+              'is_error': isError,
+              'on_xem': () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ManHinhLichSuLuuTru(
+                      tenPhong: activeRoom,
+                      toaNha: _phong?.toaNha ?? 'Kiêu Giang',
+                      initialTabIndex: targetTab,
+                    ),
+                  ),
+                );
+              },
+            });
+          }
+        }
+      } catch (e) {
+        debugPrint('[NOTIF] Lỗi tải thông báo khách lưu trú: $e');
+      }
+
+      // 3.8. Đồng bộ thông báo hợp đồng thuê chưa ký (nếu chưa ký thì hiển thị, đã ký thì thôi)
+      if (_hopDong != null && !_hopDong!.daKyBenB) {
+        final idNotif = 'hd_chua_ky_${_hopDong!.maHopDong}';
+        final daDoc = _danhSachIdDaDoc.contains(idNotif);
+        danhSachMoi.add({
+          'id': idNotif,
+          'tieu_de': '📝 Hợp Đồng Thuê Chưa Ký Xác Nhận',
+          'noi_dung':
+              'Bạn chưa ký tên vào hợp đồng điện tử phòng $activeRoom. Vui lòng bấm vào để ký tay xác nhận hoàn tất hợp đồng.',
+          'loai': 'hop_dong',
+          'thoi_gian': DateTime.tryParse(_hopDong!.ngayKy) ?? DateTime.now(),
+          'da_doc': daDoc,
+          'is_error': true,
+          'on_xem': () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ContractDetailScreen(
+                  maHopDong: _hopDong!.maHopDong,
+                ),
+              ),
+            ).then((_) => _fetchTenantData());
+          },
+        });
       }
 
       // 4. Thông báo tòa nhà mặc định
@@ -650,7 +964,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
           .firstOrNull;
       var selectedBill = unpaidBill ?? latestBill;
 
-      // ── 5. Tải chi tiết hóa đơn & Tự động đồng bộ phí phạt lên Supabase ──
+      // ── 5. Tải chi tiết hóa đơn ──
       List<Map<String, dynamic>> chiTietHD = [];
       if (selectedBill != null && selectedBill.maHoaDon.isNotEmpty) {
         final rows = await db
@@ -658,68 +972,6 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
             .select()
             .eq('ma_hoa_don', selectedBill.maHoaDon);
         chiTietHD = List<Map<String, dynamic>>.from(rows);
-
-        // Tự động kiểm tra quá hạn và đồng bộ tong_tien + cthd phí phạt lên Supabase
-        if (selectedBill.trangThai != 'Đã thanh toán') {
-          final remainingDays = selectedBill.soNgayConLai;
-          if (remainingDays < 0) {
-            final overdueDays = -remainingDays;
-            final phiPhatTre = overdueDays * 50000;
-
-            num tienGoc = 0;
-            for (final item in chiTietHD) {
-              final ten = (item['ten_khoan_thu'] ?? item['khoan_muc'] ?? '')
-                  .toString();
-              if (!ten.toLowerCase().contains('phạt')) {
-                final tien =
-                    num.tryParse(item['thanh_tien']?.toString() ?? '0') ?? 0;
-                tienGoc += tien;
-              }
-            }
-            if (tienGoc <= 0) {
-              tienGoc =
-                  selectedBill.tienPhong +
-                  selectedBill.tienDienNuoc +
-                  selectedBill.tienDichVuKhac +
-                  selectedBill.noCu;
-            }
-            if (tienGoc <= 0) tienGoc = selectedBill.tongTien;
-
-            final tongTienMoi = tienGoc + phiPhatTre;
-            if (selectedBill.tongTien != tongTienMoi) {
-              try {
-                await db
-                    .from('hoa_don')
-                    .update({'tong_tien': tongTienMoi})
-                    .eq('ma_hoa_don', selectedBill.maHoaDon);
-
-                final cthdPhat = 'CTHD_PHAT_${selectedBill.maHoaDon}';
-                await db.from('chi_tiet_hoa_don').upsert({
-                  'ma_cthd': cthdPhat,
-                  'ma_hoa_don': selectedBill.maHoaDon,
-                  'ten_khoan_thu':
-                      'Phí phạt trễ hạn ($overdueDays ngày x 50.000đ)',
-                  'so_luong': overdueDays,
-                  'don_gia': 50000,
-                  'thanh_tien': phiPhatTre,
-                });
-
-                selectedBill = selectedBill.copyWith(tongTien: tongTienMoi);
-
-                final refreshedRows = await db
-                    .from('chi_tiet_hoa_don')
-                    .select()
-                    .eq('ma_hoa_don', selectedBill.maHoaDon);
-                chiTietHD = List<Map<String, dynamic>>.from(refreshedRows);
-                debugPrint(
-                  '[BILL_OVERDUE] Đã đồng bộ số tiền $tongTienMoi VNĐ lên Supabase',
-                );
-              } catch (e) {
-                debugPrint('Lỗi cập nhật phí phạt lên Supabase: ');
-              }
-            }
-          }
-        }
       }
 
       // ── 6. Tải thành viên phòng ─────────────────────────────
@@ -762,7 +1014,24 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
             .eq('ma_phong', hd.maPhong);
         taiSanList = List<Map<String, dynamic>>.from(tsRows as List);
       } catch (err) {
-        debugPrint('Lỗi tải tai_san: rr');
+        debugPrint('Lỗi tải tai_san: $err');
+      }
+
+      // ── 9. Tải danh sách phương tiện xe của cư dân từ Supabase ──
+      List<Map<String, dynamic>> phuongTienList = [];
+      if (khachThueRow != null) {
+        final maKhach = khachThueRow['ma_khach']?.toString() ?? '';
+        if (maKhach.isNotEmpty) {
+          try {
+            final ptRows = await db
+                .from('phuong_tien')
+                .select()
+                .eq('ma_khach', maKhach);
+            phuongTienList = List<Map<String, dynamic>>.from(ptRows as List);
+          } catch (err) {
+            debugPrint('Lỗi tải phuong_tien: $err');
+          }
+        }
       }
 
       if (!mounted) return;
@@ -778,6 +1047,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
         _danhSachSuCo = suCoList;
         _khachThueData = khachThueRow;
         _danhSachTaiSan = taiSanList;
+        _danhSachPhuongTien = phuongTienList;
         _isLoading = false;
       });
       await _dongBoDanhSachThongBao();
@@ -851,6 +1121,15 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
           callback: (payload) {
             debugPrint('[REALTIME] Thay đổi hoa_don: ${payload.newRecord}');
             _checkHoaDonRealtimeUpdate(payload.newRecord);
+          },
+        )
+        ..onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'dang_ky_khach_qua_dem',
+          callback: (payload) {
+            debugPrint('[REALTIME] Thay đổi dang_ky_khach_qua_dem: ${payload.newRecord}');
+            _checkKhachQuaDemRealtimeUpdate(payload.newRecord);
           },
         )
         ..subscribe();
@@ -1784,6 +2063,95 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
     }
   }
 
+  void _checkKhachQuaDemRealtimeUpdate(Map<String, dynamic> record) {
+    if (record.isEmpty || !mounted) return;
+    final mPhong = maPhong.replaceAll('P.', '').replaceAll('P', '').trim();
+    final recMaPhong = record['ma_phong']?.toString().replaceAll('P.', '').replaceAll('P', '').trim() ?? '';
+    if (mPhong.isNotEmpty && recMaPhong.isNotEmpty && recMaPhong != mPhong) return;
+
+    final maDangKy = record['ma_dang_ky']?.toString() ?? '';
+    final status = record['trang_thai']?.toString() ?? '';
+    final tenKhach = record['ho_ten_khach_ngoai']?.toString() ?? 'Khách';
+    final tuNgay = record['tu_ngay']?.toString() ?? '';
+    final denNgay = record['den_ngay']?.toString() ?? '';
+    final approvalKey = 'guest_${maDangKy}_$status';
+
+    if (_notifiedApprovalKeys.contains(approvalKey) || ThongBaoHelper.daXem(approvalKey)) return;
+
+    final stLower = status.toLowerCase();
+    final isDaDuyet = status == 'Đã duyệt' || stLower.contains('duyệt') || stLower.contains('duyet');
+    final isTuChoi = status == 'Từ chối' || stLower.contains('từ chối') || stLower.contains('tu choi');
+
+    if (isDaDuyet) {
+      _notifiedApprovalKeys.add(approvalKey);
+      ThongBaoHelper.danhDauDaXem(approvalKey);
+      _dongBoDanhSachThongBao();
+
+      final activeRoom = _hopDong?.maPhong ?? widget.roomNumber ?? 'P203';
+      _hienThongBaoHeThong(
+        tieuDe: '🎉 Chủ Trọ Đã Duyệt Khách Qua Đêm!',
+        noiDung: 'Phiếu đăng ký cho khách $tenKhach ($tuNgay - $denNgay) phòng $activeRoom đã được chủ trọ duyệt thành công!',
+        loai: 'khach_luu_tru',
+        tag: approvalKey,
+        onXem: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ManHinhLichSuLuuTru(
+                tenPhong: activeRoom,
+                initialTabIndex: 2, // Mở tab Đã duyệt
+              ),
+            ),
+          );
+        },
+      );
+
+      ThongBaoHelper.hienThongBao(
+        context,
+        tieuDe: 'Chủ Trọ Đã Phê Duyệt Khách!',
+        noiDung: 'Phiếu đăng ký lưu trú của khách $tenKhach phòng $activeRoom ($tuNgay - $denNgay) đã được chủ trọ phê duyệt thành công!',
+        type: ThongBaoType.thanhCong,
+        nutText: 'Xem Lịch Sử Lưu Trú',
+        tag: approvalKey,
+        onConfirm: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ManHinhLichSuLuuTru(
+                tenPhong: activeRoom,
+                initialTabIndex: 2, // Mở tab Đã duyệt
+              ),
+            ),
+          );
+        },
+      );
+    } else if (isTuChoi) {
+      _notifiedApprovalKeys.add(approvalKey);
+      ThongBaoHelper.danhDauDaXem(approvalKey);
+      _dongBoDanhSachThongBao();
+
+      final activeRoom = _hopDong?.maPhong ?? widget.roomNumber ?? 'P203';
+      _hienThongBaoHeThong(
+        tieuDe: '⚠️ Yêu Cầu Lưu Trú Bị Từ Chối',
+        noiDung: 'Yêu cầu đăng ký khách qua đêm cho $tenKhach chưa được chủ trọ phê duyệt.',
+        loai: 'khach_luu_tru',
+        isError: true,
+        tag: approvalKey,
+        onXem: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ManHinhLichSuLuuTru(
+                tenPhong: activeRoom,
+                initialTabIndex: 3, // Mở tab Từ chối
+              ),
+            ),
+          );
+        },
+      );
+    }
+  }
+
   Future<void> _pollCheckApprovals() async {
     if (!mounted) return;
     final maHD = _hopDong?.maHopDong ?? maHopDong;
@@ -1878,6 +2246,32 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
           _checkHoaDonRealtimeUpdate(hdRes.first);
         }
       }
+
+      // 5. Kiểm tra đăng ký khách qua đêm từ BQL
+      final pDigits = activeRoom.replaceAll(RegExp(r'[^0-9]'), '');
+      final guestRes = await db
+          .from('dang_ky_khach_qua_dem')
+          .select()
+          .or('ma_phong.eq.P$pDigits,ma_phong.eq.$pDigits,ma_phong.eq.$activeRoom')
+          .order('tu_ngay', ascending: false)
+          .limit(3);
+
+      if (guestRes.isNotEmpty) {
+        for (final row in guestRes) {
+          final id = row['ma_dang_ky']?.toString() ?? '';
+          final st = row['trang_thai']?.toString() ?? '';
+          final lastSt = _lastGuestStatuses[id];
+          final approvalKey = 'guest_${id}_$st';
+
+          if (lastSt != null && lastSt != st) {
+            if (!_notifiedApprovalKeys.contains(approvalKey) &&
+                !ThongBaoHelper.daXem(approvalKey)) {
+              _checkKhachQuaDemRealtimeUpdate(row);
+            }
+          }
+          _lastGuestStatuses[id] = st;
+        }
+      }
     } catch (_) {}
   }
 
@@ -1905,18 +2299,9 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
   }
 
   Widget _buildLoadingState() {
-    return const Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          CircularProgressIndicator(color: Color(0xFF09638E)),
-          SizedBox(height: 16),
-          Text(
-            'Đang tải dữ liệu...',
-            style: TextStyle(color: Color(0xFF64748B)),
-          ),
-        ],
-      ),
+    return const LoadingMeoMeo(
+      message: 'Đang tải dữ liệu...',
+      subMessage: 'Đợi mèo con nạp thông tin cư dân xíu nha~ 🐾',
     );
   }
 
@@ -2635,15 +3020,8 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
     final isPartial = hd.trangThai == 'Thanh toán một phần';
     final remainingDays = hd.soNgayConLai;
     final overdueDays = remainingDays < 0 ? -remainingDays : 0;
-    final phiPhatTreHan = (!isPaid && overdueDays > 0)
-        ? overdueDays * 50000
-        : 0;
+    final phiPhatTreHan = 0;
     num tongTienThucTe = hd.tongTien;
-    final baseTotal =
-        hd.tienPhong + hd.tienDienNuoc + hd.tienDichVuKhac + hd.noCu;
-    if (baseTotal > 0 && hd.tongTien <= baseTotal && phiPhatTreHan > 0) {
-      tongTienThucTe = baseTotal + phiPhatTreHan;
-    }
 
     return Container(
       width: double.infinity,
@@ -2712,24 +3090,38 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                     vertical: 3.5,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFEF3C7),
+                    color: remainingDays < 0
+                        ? const Color(0xFFFEE2E2)
+                        : const Color(0xFFFEF3C7),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        Icons.hourglass_top_rounded,
+                        remainingDays < 0
+                            ? (overdueDays >= 10
+                                ? Icons.lock_rounded
+                                : Icons.warning_amber_rounded)
+                            : Icons.hourglass_top_rounded,
                         size: 12,
-                        color: Color(0xFFD97706),
+                        color: remainingDays < 0
+                            ? const Color(0xFFDC2626)
+                            : const Color(0xFFD97706),
                       ),
-                      SizedBox(width: 3),
+                      const SizedBox(width: 3),
                       Text(
-                        'ĐỢT 2 • CÒN NỢ',
+                        remainingDays < 0
+                            ? (overdueDays >= 10
+                                ? 'ĐỢT 2 • KHÓA VÂN TAY'
+                                : 'ĐỢT 2 • TRỄ $overdueDays NGÀY')
+                            : 'ĐỢT 2 • CÒN NỢ',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFFB45309),
+                          color: remainingDays < 0
+                              ? const Color(0xFFDC2626)
+                              : const Color(0xFFB45309),
                         ),
                       ),
                     ],
@@ -2978,9 +3370,13 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                           color: const Color(0xFFFEE2E2),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: const Icon(
-                          Icons.error_outline_rounded,
-                          color: Color(0xFFDC2626),
+                        child: Icon(
+                          overdueDays >= 10
+                              ? Icons.lock_rounded
+                              : (overdueDays >= 5
+                                  ? Icons.warning_amber_rounded
+                                  : Icons.error_outline_rounded),
+                          color: const Color(0xFFDC2626),
                           size: 18,
                         ),
                       ),
@@ -2990,7 +3386,17 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Hóa đơn đã quá hạn ${-remainingDays} ngày',
+                              overdueDays >= 10
+                                  ? (isPartial
+                                      ? '🔒 ĐÃ KHÓA VÂN TAY (Trễ Đợt 2 $overdueDays ngày)'
+                                      : '🔒 ĐÃ KHÓA VÂN TAY (Quá hạn $overdueDays ngày)')
+                                  : (overdueDays >= 5
+                                      ? (isPartial
+                                          ? '⚠️ Cảnh báo: Trễ Đợt 2 $overdueDays ngày (Sắp khóa vân tay)'
+                                          : '⚠️ Cảnh báo: Quá hạn $overdueDays ngày (Sắp khóa vân tay)')
+                                      : (isPartial
+                                          ? 'Khoản nợ Đợt 2 đã quá hạn $overdueDays ngày'
+                                          : 'Hóa đơn đã quá hạn $overdueDays ngày')),
                               style: const TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w800,
@@ -2998,7 +3404,11 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                               ),
                             ),
                             Text(
-                              'Hạn thanh toán: ${hd.hanDongTienFormatted}',
+                              overdueDays >= 10
+                                  ? 'Vân tay đã bị tạm khóa. Vui lòng thanh toán hoặc liên hệ BQL'
+                                  : (isPartial
+                                      ? 'Hạn chót Đợt 2: ${hd.hanDongTienFormatted}'
+                                      : 'Hạn thanh toán: ${hd.hanDongTienFormatted}'),
                               style: const TextStyle(
                                 fontSize: 11,
                                 color: Color(0xFF7F1D1D),
@@ -3009,39 +3419,6 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                         ),
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 10),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: const Color(0xFFFCA5A5)),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Phí phạt trễ hạn ($overdueDays ngày):',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFFB91C1C),
-                          ),
-                        ),
-                        Text(
-                          FormatUtils.currency(phiPhatTreHan),
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w900,
-                            color: Color(0xFFDC2626),
-                          ),
-                        ),
-                      ],
-                    ),
                   ),
                   const SizedBox(height: 10),
                   const Divider(height: 1, color: Color(0xFFFECACA)),
@@ -3056,16 +3433,87 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '• Nhà trọ KHÔNG áp dụng chính sách gia hạn tiền phòng.\n'
-                    '• Quá hạn sau ngày 04 áp dụng phí phạt trễ hạn 50.000đ/ngày. Đã cộng ${FormatUtils.currency(phiPhatTreHan)} vào tổng thanh toán (${FormatUtils.currency(tongTienThucTe)}).\n'
-                    '• Quá 5 ngày BQL sẽ tạm khóa dịch vụ phòng theo hợp đồng.\n'
-                    '• Hướng giải quyết: Bấm "Thanh toán / VietQR" bên dưới để hoàn tất đóng tiền ngay lập tức (gạch nợ tức thì 24/7).',
+                    overdueDays >= 10
+                        ? (isPartial
+                            ? '• QUÁ HẠN ĐỢT 2 10 NGÀY: Hệ thống ĐÃ KHÓA VÂN TAY ra vào phòng của bạn theo quy chế tòa nhà.\n'
+                              '• Vui lòng thanh toán số tiền còn lại (${FormatUtils.currency(tongTienThucTe)}) hoặc liên hệ BQL qua SĐT/Zalo: ${LienHeHelper.defaultHotlineDisplay} để được hỗ trợ mở lại vân tay.\n'
+                              '• Bấm "Thanh toán Đợt 2 / VietQR" bên dưới để gạch nợ tự động 24/7.'
+                            : '• QUÁ HẠN 10 NGÀY: Hệ thống ĐÃ KHÓA VÂN TAY ra vào phòng của bạn theo quy chế tòa nhà.\n'
+                              '• Vui lòng thanh toán tiền phòng (${FormatUtils.currency(tongTienThucTe)}) hoặc liên hệ BQL qua SĐT/Zalo: ${LienHeHelper.defaultHotlineDisplay} để được hỗ trợ mở lại vân tay.\n'
+                              '• Bấm "Thanh toán / VietQR" bên dưới để gạch nợ tự động 24/7.')
+                        : (overdueDays >= 5
+                            ? (isPartial
+                                ? '• CẢNH BÁO TRỄ HẠN ĐỢT 2 $overdueDays NGÀY: Nếu không tiếp tục đóng tiền còn lại (${FormatUtils.currency(tongTienThucTe)}), hệ thống sẽ TẠM KHÓA VÂN TAY ra vào phòng của bạn!\n'
+                                  '• Nhà trọ KHÔNG áp dụng chính sách gia hạn tiền phòng.\n'
+                                  '• Hướng giải quyết: Bấm "Thanh toán Đợt 2 / VietQR" bên dưới để đóng tiền ngay lập tức, tránh bị khóa vân tay.'
+                                : '• CẢNH BÁO QUÁ HẠN $overdueDays NGÀY: Nếu không tiếp tục đóng tiền (${FormatUtils.currency(tongTienThucTe)}), hệ thống sẽ TẠM KHÓA VÂN TAY ra vào phòng của bạn!\n'
+                                  '• Nhà trọ KHÔNG áp dụng chính sách gia hạn tiền phòng.\n'
+                                  '• Hướng giải quyết: Bấm "Thanh toán / VietQR" bên dưới để đóng tiền ngay lập tức, tránh bị khóa vân tay.')
+                            : (isPartial
+                                ? '• Khoản nợ Đợt 2 chưa được thanh toán (${FormatUtils.currency(tongTienThucTe)}).\n'
+                                  '• Trễ hạn 5 ngày: Cảnh báo sắp khóa vân tay nếu không đóng tiền.\n'
+                                  '• Trễ hạn 10 ngày: Hệ thống sẽ khóa vân tay ra vào phòng.\n'
+                                  '• Bấm "Thanh toán Đợt 2 / VietQR" bên dưới để hoàn tất đóng tiền ngay lập tức.'
+                                : '• Hóa đơn tiền phòng tháng này chưa được thanh toán (${FormatUtils.currency(tongTienThucTe)}).\n'
+                                  '• Trễ hạn 5 ngày: Cảnh báo sắp khóa vân tay nếu không đóng tiền.\n'
+                                  '• Trễ hạn 10 ngày: Hệ thống sẽ khóa vân tay ra vào phòng.\n'
+                                  '• Bấm "Thanh toán / VietQR" bên dưới để hoàn tất đóng tiền ngay lập tức.')),
                     style: const TextStyle(
                       fontSize: 11.5,
                       height: 1.45,
                       color: Color(0xFF7F1D1D),
                     ),
                   ),
+                  if (overdueDays >= 10) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: SizedBox(
+                            height: 36,
+                            child: ElevatedButton.icon(
+                              onPressed: () => LienHeHelper.moZaloChat(context),
+                              icon: const Icon(Icons.chat_bubble_rounded, size: 14),
+                              label: const Text(
+                                'Zalo BQL',
+                                style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF0284C7),
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: SizedBox(
+                            height: 36,
+                            child: OutlinedButton.icon(
+                              onPressed: () => LienHeHelper.goiDien(context),
+                              icon: const Icon(Icons.phone_in_talk_rounded, size: 14),
+                              label: const Text(
+                                'Gọi Hotline',
+                                style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: const Color(0xFFDC2626),
+                                side: const BorderSide(color: Color(0xFFF87171)),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                backgroundColor: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: 10),
                   SizedBox(
                     width: double.infinity,
@@ -3267,77 +3715,24 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                 iconBg: const Color(0xFFE0F2FE),
                 title: 'Khách qua đêm',
                 subtitle: 'Đăng ký & chờ duyệt',
-                onTap: () => _showLuaChonKhachQuaDem(
-                  context,
-                  'Phòng 302',
-                  'Kiêu Giang 2',
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-
-        Row(
-          children: [
-            Expanded(
-              child: _buildShortcutCard(
-                icon: Icons.speed_rounded,
-                iconColor: const Color(0xFF0284C7),
-                iconBg: const Color(0xFFE0F2FE),
-                title: 'Chỉ số điện nước',
-                subtitle: 'Chốt số ngày 28',
-                onTap: () => _showMeterReadingModal(),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildShortcutCard(
-                icon: Icons.assignment_outlined,
-                iconColor: const Color(0xFF8B5CF6),
-                iconBg: const Color(0xFFF3E8FF),
-                title: 'Gia hạn hợp đồng',
-                subtitle: 'Ký điện tử & cọc',
-                onTap: () => _showExtendContractModal(),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-
-        Row(
-          children: [
-            Expanded(
-              child: _buildShortcutCard(
-                icon: Icons.swap_horiz_rounded,
-                iconColor: const Color(0xFF06B6D4),
-                iconBg: const Color(0xFFCFFAFE),
-                title: 'Chuyển phòng',
-                subtitle: 'Đổi phòng trong hệ thống',
-                onTap: () => _showChangeRoomModal(),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildShortcutCard(
-                icon: Icons.history_edu_rounded,
-                iconColor: const Color(0xFF0F766E),
-                iconBg: const Color(0xFFCCFBF1),
-                title: 'Lịch sử đổi phòng',
-                subtitle: 'Theo dõi đơn & tiến độ',
                 onTap: () {
-                  final curRoom =
-                      _hopDong?.maPhong ?? widget.roomNumber ?? 'P203';
-                  Navigator.push(
+                  final curRoomDigits =
+                      maPhong.replaceAll(RegExp(r'[^0-9]'), '');
+                  final curRoomName = _phong?.tenHienThi ??
+                      (curRoomDigits.isNotEmpty
+                          ? 'Phòng $curRoomDigits'
+                          : (widget.roomNumber != null &&
+                                  widget.roomNumber!.isNotEmpty
+                              ? 'Phòng ${widget.roomNumber}'
+                              : 'Phòng 203'));
+                  final curToaNha = _phong?.toaNha.isNotEmpty == true
+                      ? _phong!.toaNha
+                      : 'Kiêu Giang 2';
+                  _showLuaChonKhachQuaDem(
                     context,
-                    MaterialPageRoute(
-                      builder: (_) => RoomTransferHistoryScreen(
-                        currentRoomNumber: curRoom,
-                        maHopDong: _hopDong?.maHopDong ?? maHopDong,
-                        hopDong: _hopDong,
-                      ),
-                    ),
-                  ).then((_) => _fetchTenantData());
+                    curRoomName,
+                    curToaNha,
+                  );
                 },
               ),
             ),
@@ -3345,35 +3740,132 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
         ),
         const SizedBox(height: 12),
 
-        Row(
-          children: [
-            Expanded(
-              child: _buildShortcutCard(
-                icon: Icons.history_edu_rounded,
-                iconColor: const Color(0xFF09638E),
-                iconBg: const Color(0xFFE0F2FE),
-                title: 'Lịch sử gia hạn',
-                subtitle: 'Phụ lục & đơn đã nộp',
-                onTap: () => _showExtendContractHistoryModal(),
+        if (_isNguoiDaiDien) ...[
+          // Giao diện đầy đủ cho Người đại diện
+          Row(
+            children: [
+              Expanded(
+                child: _buildShortcutCard(
+                  icon: Icons.speed_rounded,
+                  iconColor: const Color(0xFF0284C7),
+                  iconBg: const Color(0xFFE0F2FE),
+                  title: 'Chỉ số điện nước',
+                  subtitle: 'Chốt số ngày 28',
+                  onTap: () => _showMeterReadingModal(),
+                ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildShortcutCard(
-                icon: Icons.assignment_return_rounded,
-                iconColor: const Color(0xFFE11D48),
-                iconBg: const Color(0xFFFFE4E6),
-                title: _hopDong?.trangThai == 'Đã thanh lý'
-                    ? 'Biên bản thanh lý'
-                    : 'Trả phòng & Cọc',
-                subtitle: _hopDong?.trangThai == 'Đã thanh lý'
-                    ? 'Hợp đồng kết thúc'
-                    : 'Chốt số & hoàn cọc',
-                onTap: () => _showTerminateContractModal(),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildShortcutCard(
+                  icon: Icons.assignment_outlined,
+                  iconColor: const Color(0xFF8B5CF6),
+                  iconBg: const Color(0xFFF3E8FF),
+                  title: 'Gia hạn hợp đồng',
+                  subtitle: 'Ký điện tử & cọc',
+                  onTap: () => _showExtendContractModal(),
+                ),
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          Row(
+            children: [
+              Expanded(
+                child: _buildShortcutCard(
+                  icon: Icons.swap_horiz_rounded,
+                  iconColor: const Color(0xFF06B6D4),
+                  iconBg: const Color(0xFFCFFAFE),
+                  title: 'Chuyển phòng',
+                  subtitle: 'Đổi phòng trong hệ thống',
+                  onTap: () => _showChangeRoomModal(),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildShortcutCard(
+                  icon: Icons.history_edu_rounded,
+                  iconColor: const Color(0xFF0F766E),
+                  iconBg: const Color(0xFFCCFBF1),
+                  title: 'Lịch sử đổi phòng',
+                  subtitle: 'Theo dõi đơn & tiến độ',
+                  onTap: () {
+                    final curRoom =
+                        _hopDong?.maPhong ?? widget.roomNumber ?? 'P203';
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => RoomTransferHistoryScreen(
+                          currentRoomNumber: curRoom,
+                          maHopDong: _hopDong?.maHopDong ?? maHopDong,
+                          hopDong: _hopDong,
+                        ),
+                      ),
+                    ).then((_) => _fetchTenantData());
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          Row(
+            children: [
+              Expanded(
+                child: _buildShortcutCard(
+                  icon: Icons.history_edu_rounded,
+                  iconColor: const Color(0xFF09638E),
+                  iconBg: const Color(0xFFE0F2FE),
+                  title: 'Lịch sử gia hạn',
+                  subtitle: 'Phụ lục & đơn đã nộp',
+                  onTap: () => _showExtendContractHistoryModal(),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildShortcutCard(
+                  icon: Icons.assignment_return_rounded,
+                  iconColor: const Color(0xFFE11D48),
+                  iconBg: const Color(0xFFFFE4E6),
+                  title: _hopDong?.trangThai == 'Đã thanh lý'
+                      ? 'Biên bản thanh lý'
+                      : 'Trả phòng & Cọc',
+                  subtitle: _hopDong?.trangThai == 'Đã thanh lý'
+                      ? 'Hợp đồng kết thúc'
+                      : 'Chốt số & hoàn cọc',
+                  onTap: () => _showTerminateContractModal(),
+                ),
+              ),
+            ],
+          ),
+        ] else ...[
+          // Giao diện cho Bạn ở cùng (Thành viên): Ẩn hoàn toàn các chức năng Gia hạn, Chuyển phòng, Thanh lý
+          Row(
+            children: [
+              Expanded(
+                child: _buildShortcutCard(
+                  icon: Icons.speed_rounded,
+                  iconColor: const Color(0xFF0284C7),
+                  iconBg: const Color(0xFFE0F2FE),
+                  title: 'Chỉ số điện nước',
+                  subtitle: 'Chốt số ngày 28',
+                  onTap: () => _showMeterReadingModal(),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildShortcutCard(
+                  icon: Icons.shield_outlined,
+                  iconColor: const Color(0xFF16A34A),
+                  iconBg: const Color(0xFFDCFCE7),
+                  title: 'Nội quy tòa nhà',
+                  subtitle: 'Quy định & cam kết',
+                  onTap: () => _showRulesModal(),
+                ),
+              ),
+            ],
+          ),
+        ],
       ],
     );
   }
@@ -3603,7 +4095,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                       builder: (_) => ManHinhLichSuLuuTru(
                         tenPhong: roomName,
                         toaNha: toaNhaName,
-                        initialTabIndex: 1, // Mở thẳng Tab Chờ duyệt
+                        initialTabIndex: 0, // Mở tab Tất cả để luôn thấy đầy đủ cả khách đã duyệt & chờ duyệt
                       ),
                     ),
                   );
@@ -3625,7 +4117,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: const Icon(
-                          Icons.pending_actions_rounded,
+                          Icons.history_edu_rounded,
                           color: Color(0xFFD97706),
                           size: 22,
                         ),
@@ -3636,7 +4128,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: const [
                             Text(
-                              'Danh sách khách & Chờ duyệt',
+                              'Danh sách khách & Lịch sử lưu trú',
                               style: TextStyle(
                                 fontSize: 14.5,
                                 fontWeight: FontWeight.bold,
@@ -3645,7 +4137,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                             ),
                             SizedBox(height: 3),
                             Text(
-                              'Xem tiến độ duyệt, lịch sử lưu trú & hủy yêu cầu',
+                              'Xem danh sách khách đã duyệt, chờ duyệt & hủy yêu cầu',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: Color(0xFFB45309),
@@ -4492,72 +4984,74 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () => _showExtendContractModal(),
-                        icon: const Icon(
-                          Icons.autorenew_rounded,
-                          size: 15,
-                          color: Colors.white,
-                        ),
-                        label: const Text(
-                          'Gia hạn',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
+                    if (_isNguoiDaiDien) ...[
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () => _showExtendContractModal(),
+                          icon: const Icon(
+                            Icons.autorenew_rounded,
+                            size: 15,
                             color: Colors.white,
                           ),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white.withValues(alpha: 0.22),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 9),
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            side: BorderSide(
-                              color: Colors.white.withValues(alpha: 0.3),
+                          label: const Text(
+                            'Gia hạn',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white.withValues(alpha: 0.22),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 9),
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              side: BorderSide(
+                                color: Colors.white.withValues(alpha: 0.3),
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () => _showTerminateContractModal(),
-                        icon: const Icon(
-                          Icons.assignment_return_outlined,
-                          size: 15,
-                          color: Colors.white,
-                        ),
-                        label: Text(
-                          _hopDong?.trangThai == 'Đã thanh lý'
-                              ? 'Biên bản'
-                              : 'Trả phòng',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () => _showTerminateContractModal(),
+                          icon: const Icon(
+                            Icons.assignment_return_outlined,
+                            size: 15,
                             color: Colors.white,
                           ),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(
-                            0xFFE11D48,
-                          ).withValues(alpha: 0.55),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 9),
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            side: BorderSide(
-                              color: Colors.white.withValues(alpha: 0.3),
+                          label: Text(
+                            _hopDong?.trangThai == 'Đã thanh lý'
+                                ? 'Biên bản'
+                                : 'Trả phòng',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(
+                              0xFFE11D48,
+                            ).withValues(alpha: 0.55),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 9),
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              side: BorderSide(
+                                color: Colors.white.withValues(alpha: 0.3),
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ],
@@ -4716,145 +5210,147 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          if (_isNguoiDaiDien) ...[
+            const SizedBox(height: 10),
 
-          // Hàng 2: [Chuyển phòng] & [Lịch sử đổi phòng]
-          Row(
-            children: [
-              Expanded(
-                child: GestureDetector(
-                  onTap: () => _showChangeRoomModal(),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 14,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.03),
-                          blurRadius: 10,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFCFFAFE),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Icon(
-                            Icons.swap_horiz_rounded,
-                            color: Color(0xFF06B6D4),
-                            size: 22,
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        const Text(
-                          'Chuyển phòng',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF0F172A),
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        const Text(
-                          'Đổi phòng khác',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Color(0xFF64748B),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: GestureDetector(
-                  onTap: () {
-                    final curRoom =
-                        _hopDong?.maPhong ?? widget.roomNumber ?? 'P203';
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => RoomTransferHistoryScreen(
-                          currentRoomNumber: curRoom,
-                          maHopDong: _hopDong?.maHopDong ?? maHopDong,
-                          hopDong: _hopDong,
-                        ),
+            // Hàng 2: [Chuyển phòng] & [Lịch sử đổi phòng]
+            Row(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => _showChangeRoomModal(),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 14,
                       ),
-                    ).then((_) => _fetchTenantData());
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 14,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.03),
-                          blurRadius: 10,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFCCFBF1),
-                            borderRadius: BorderRadius.circular(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.03),
+                            blurRadius: 10,
+                            offset: const Offset(0, 3),
                           ),
-                          child: const Icon(
-                            Icons.history_edu_rounded,
-                            color: Color(0xFF0F766E),
-                            size: 22,
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFCFFAFE),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(
+                              Icons.swap_horiz_rounded,
+                              color: Color(0xFF06B6D4),
+                              size: 22,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 10),
-                        const Text(
-                          'Lịch sử đổi phòng',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF0F172A),
+                          const SizedBox(height: 10),
+                          const Text(
+                            'Chuyển phòng',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF0F172A),
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 2),
-                        const Text(
-                          'Tiến độ & biên bản',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Color(0xFF64748B),
+                          const SizedBox(height: 2),
+                          const Text(
+                            'Đổi phòng khác',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF64748B),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
-          ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () {
+                      final curRoom =
+                          _hopDong?.maPhong ?? widget.roomNumber ?? 'P203';
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => RoomTransferHistoryScreen(
+                            currentRoomNumber: curRoom,
+                            maHopDong: _hopDong?.maHopDong ?? maHopDong,
+                            hopDong: _hopDong,
+                          ),
+                        ),
+                      ).then((_) => _fetchTenantData());
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 14,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.03),
+                            blurRadius: 10,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFCCFBF1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(
+                              Icons.history_edu_rounded,
+                              color: Color(0xFF0F766E),
+                              size: 22,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          const Text(
+                            'Lịch sử đổi phòng',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF0F172A),
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          const Text(
+                            'Tiến độ & biên bản',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF64748B),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: 20),
 
           // 4. SECTION: THÀNH VIÊN PHÒNG (BỎ ICON GỌI)
@@ -6461,11 +6957,49 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
   }
 
   // ==================== TAB 5: CÁ NHÂN ====================
+  /// Chuyển đổi mã vai trò kỹ thuật → nhãn hiển thị thân thiện
+  String _formatVaiTro(String raw) {
+    final clean = raw.toLowerCase().replaceAll(' ', '').replaceAll('_', '');
+    if (clean.contains('daidien') || clean.contains('đạidiện') || clean.contains('truongphong') || clean.contains('trưởngphòng') || clean == 'landlord') {
+      return 'Người đại diện';
+    }
+    if (clean.contains('ocung') || clean.contains('ởcùng') || clean.contains('thanhvien') || clean.contains('thànhviên')) {
+      return 'Bạn ở cùng';
+    }
+    switch (clean) {
+      case 'cudan':
+      case 'khachthue':
+      case 'tenant':
+        return 'Cư dân';
+      case 'admin':
+        return 'Quản trị viên';
+      case 'quanly':
+      case 'manager':
+        return 'Quản lý';
+      default:
+        return raw.isEmpty ? 'Cư dân' : raw;
+    }
+  }
+
   Widget _buildProfileTab() {
     final String tenCuDan =
         _khachThueData?['ho_ten_khach']?.toString().isNotEmpty == true
         ? _khachThueData!['ho_ten_khach'].toString()
         : displayName;
+
+    // Lấy vai trò từ chi_tiet_hop_dong_khach_thue (ưu tiên) hoặc tài khoản
+    String vaiTroLabel;
+    {
+      final currentMaKhach = _khachThueData?['ma_khach']?.toString();
+      final myMember = _thanhVienPhong.where((tv) =>
+          (currentMaKhach != null && currentMaKhach.isNotEmpty && tv.maKhach == currentMaKhach) ||
+          (tv.hoTenKhach.trim().toLowerCase() == tenCuDan.trim().toLowerCase())
+      ).firstOrNull;
+      final rawVaiTro = (myMember != null && myMember.vaiTro.isNotEmpty)
+          ? myMember.vaiTro
+          : (AuthService.currentUser?.vaiTro ?? '');
+      vaiTroLabel = _formatVaiTro(rawVaiTro);
+    }
 
     // Bạn cùng phòng (loại trừ chính mình nếu có)
     String banCungPhongTen = 'Phượng Uyên';
@@ -6482,9 +7016,9 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
 
     final String phongVaTang = _phong != null
         ? 'P.${_phong!.maPhong} • Tầng ${_phong!.tang}'
-        : 'P.${_hopDong?.maPhong ?? '302'} • Tầng 3';
+        : 'P.${_hopDong?.maPhong ?? '203'} • Tầng 2';
 
-    final String maHdDisplay = _hopDong?.maHopDong ?? 'HD-KG2-302-2024';
+    final String maHdDisplay = _hopDong?.maHopDong ?? 'HD-KG2-203-2024';
     String hanHopDongDisplay = '15/12/2025';
     if (_hopDong != null && _hopDong!.ngayKt.isNotEmpty) {
       try {
@@ -6683,9 +7217,9 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                                   color: const Color(0xFFE0F2FE),
                                   borderRadius: BorderRadius.circular(6),
                                 ),
-                                child: const Text(
-                                  'Trưởng phòng',
-                                  style: TextStyle(
+                                child: Text(
+                                  vaiTroLabel,
+                                  style: const TextStyle(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w700,
                                     color: Color(0xFF0284C7),
@@ -6722,7 +7256,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                                   ? 'P.${_phong!.maPhong}'
                                   : 'P303',
                               maHopDong: _hopDong?.maHopDong ?? 'HD001',
-                              vaiTro: 'Trưởng phòng',
+                              vaiTro: vaiTroLabel,
                             ),
                           ),
                         );
@@ -6811,7 +7345,15 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
               ],
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 18),
+
+          // ── Section: HỒ SƠ ĐỊNH DANH CÁ NHÂN (XÁC THỰC eKYC) ──────────
+          _buildEkycProfileCard(),
+          const SizedBox(height: 18),
+
+          // ── Section: PHƯƠNG TIỆN XE ĐĂNG KÝ ─────────────────────────
+          _buildRegisteredVehiclesCard(),
+          const SizedBox(height: 18),
 
           // ── Section 1: CĂN HỘ & HỢP ĐỒNG ───────────────────
           Row(
@@ -6845,7 +7387,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
           ),
           const SizedBox(height: 10),
 
-          // Card 3 items Căn hộ & hợp đồng
+          // Card các mục Căn hộ & hợp đồng
           Container(
             decoration: BoxDecoration(
               color: Colors.white,
@@ -6867,9 +7409,13 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                   iconColor: const Color(0xFF0284C7),
                   iconBg: const Color(0xFFE0F2FE),
                   title: 'Hợp đồng thuê điện tử',
-                  badge: 'ACTIVE',
-                  badgeColor: const Color(0xFF059669),
-                  badgeBg: const Color(0xFFD1FAE5),
+                  badge: (_hopDong != null && !_hopDong!.daKyBenB) ? 'CHƯA KÝ' : 'ACTIVE',
+                  badgeColor: (_hopDong != null && !_hopDong!.daKyBenB)
+                      ? const Color(0xFFD97706)
+                      : const Color(0xFF059669),
+                  badgeBg: (_hopDong != null && !_hopDong!.daKyBenB)
+                      ? const Color(0xFFFEF3C7)
+                      : const Color(0xFFD1FAE5),
                   subtitle: '$maHdDisplay • Hết hạn: $hanHopDongDisplay',
                   onTap: () {
                     if (_hopDong != null) {
@@ -6882,11 +7428,47 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                         ),
                       ).then((_) => _fetchTenantData());
                     } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Chưa có thông tin hợp đồng'),
-                        ),
+                      ThongBaoHelper.hienToast(
+                        context,
+                        tieuDe: 'Chưa có hợp đồng',
+                        noiDung: 'Chưa có thông tin hợp đồng của bạn.',
+                        type: ThongBaoType.canhBao,
                       );
+                    }
+                  },
+                ),
+                const Divider(height: 1, indent: 56, color: Color(0xFFF1F5F9)),
+
+                // 2. Biên bản bàn giao thiết bị & tài sản phòng
+                _buildContractItem(
+                  icon: Icons.inventory_2_outlined,
+                  iconColor: const Color(0xFF16A34A),
+                  iconBg: const Color(0xFFDCFCE7),
+                  title: 'Biên bản bàn giao thiết bị & tài sản',
+                  badge: _hopDong?.daXacNhanBanGiao == true ? 'ĐÃ BÀN GIAO' : 'CHỜ XÁC NHẬN',
+                  badgeColor: _hopDong?.daXacNhanBanGiao == true ? const Color(0xFF16A34A) : const Color(0xFFD97706),
+                  badgeBg: _hopDong?.daXacNhanBanGiao == true ? const Color(0xFFDCFCE7) : const Color(0xFFFEF3C7),
+                  subtitle: _hopDong?.daXacNhanBanGiao == true
+                      ? 'Đã kiểm tra & nhận đầy đủ ${_danhSachTaiSan.length} thiết bị phòng'
+                      : 'Cần kiểm tra và ký xác nhận tài sản',
+                  onTap: () {
+                    final curRoom =
+                        _hopDong?.maPhong ?? widget.roomNumber ?? 'P203';
+                    final user = AuthService.currentUser;
+                    if (user != null && _khachThueData != null) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ManHinhBienBanBanGiaoTaiSan(
+                            user: user,
+                            maKhach: _khachThueData!['ma_khach']?.toString() ?? '',
+                            maHopDong: _hopDong?.maHopDong ?? maHopDong,
+                            maPhong: curRoom,
+                            khachThueData: _khachThueData!,
+                            daXacNhan: _hopDong?.daXacNhanBanGiao == true,
+                          ),
+                        ),
+                      ).then((_) => _fetchTenantData());
                     }
                   },
                 ),
@@ -6901,7 +7483,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                   subtitle: billSummary,
                   onTap: () {
                     final curRoom =
-                        _hopDong?.maPhong ?? widget.roomNumber ?? 'P302';
+                        _hopDong?.maPhong ?? widget.roomNumber ?? 'P203';
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -6913,24 +7495,26 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                     ).then((_) => _fetchTenantData());
                   },
                 ),
-                const Divider(height: 1, indent: 56, color: Color(0xFFF1F5F9)),
+                if (_isNguoiDaiDien) ...[
+                  const Divider(height: 1, indent: 56, color: Color(0xFFF1F5F9)),
 
-                // 4. Chấm dứt hợp đồng & Trả phòng
-                _buildContractItem(
-                  icon: Icons.assignment_return_outlined,
-                  iconColor: const Color(0xFFE11D48),
-                  iconBg: const Color(0xFFFFE4E6),
-                  title: 'Chấm dứt hợp đồng & Trả phòng',
-                  badge: _hopDong?.trangThai == 'Đã thanh lý'
-                      ? 'ĐÃ THANH LÝ'
-                      : null,
-                  badgeColor: const Color(0xFFE11D48),
-                  badgeBg: const Color(0xFFFFE4E6),
-                  subtitle: _hopDong?.trangThai == 'Đã thanh lý'
-                      ? 'Xem biên bản bàn giao & hoàn cọc'
-                      : 'Báo trả phòng, chốt điện nước & quyết toán hợp đồng',
-                  onTap: () => _showTerminateContractModal(),
-                ),
+                  // 4. Chấm dứt hợp đồng & Trả phòng
+                  _buildContractItem(
+                    icon: Icons.assignment_return_outlined,
+                    iconColor: const Color(0xFFE11D48),
+                    iconBg: const Color(0xFFFFE4E6),
+                    title: 'Chấm dứt hợp đồng & Trả phòng',
+                    badge: _hopDong?.trangThai == 'Đã thanh lý'
+                        ? 'ĐÃ THANH LÝ'
+                        : null,
+                    badgeColor: const Color(0xFFE11D48),
+                    badgeBg: const Color(0xFFFFE4E6),
+                    subtitle: _hopDong?.trangThai == 'Đã thanh lý'
+                        ? 'Xem biên bản bàn giao & hoàn cọc'
+                        : 'Báo trả phòng, chốt điện nước & quyết toán hợp đồng',
+                    onTap: () => _showTerminateContractModal(),
+                  ),
+                ],
               ],
             ),
           ),
@@ -6959,7 +7543,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                   subtitle: 'Khách qua đêm',
                   onTap: () {
                     final curRoom =
-                        _hopDong?.maPhong ?? widget.roomNumber ?? 'P302';
+                        _hopDong?.maPhong ?? widget.roomNumber ?? 'P203';
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -6984,7 +7568,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                   subtitle: 'Kỹ thuật',
                   onTap: () {
                     final curRoom =
-                        _hopDong?.maPhong ?? widget.roomNumber ?? 'P302';
+                        _hopDong?.maPhong ?? widget.roomNumber ?? 'P203';
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -7010,7 +7594,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                   subtitle: 'Chốt số',
                   onTap: () {
                     final curRoom =
-                        _hopDong?.maPhong ?? widget.roomNumber ?? 'P302';
+                        _hopDong?.maPhong ?? widget.roomNumber ?? 'P203';
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -7098,18 +7682,14 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                               val,
                             );
                             if (mounted) {
-                              ScaffoldMessenger.of(
+                              ThongBaoHelper.hienToast(
                                 context,
-                              ).hideCurrentSnackBar();
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    val
-                                        ? 'Đã bật thông báo ứng dụng'
-                                        : 'Đã tắt thông báo ứng dụng',
-                                  ),
-                                  duration: const Duration(seconds: 1),
-                                ),
+                                tieuDe: 'Thông báo ứng dụng',
+                                noiDung: val
+                                    ? 'Đã bật thông báo ứng dụng'
+                                    : 'Đã tắt thông báo ứng dụng',
+                                type: ThongBaoType.thongTin,
+                                duration: const Duration(milliseconds: 1500),
                               );
                             }
                           },
@@ -7376,6 +7956,605 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
     );
   }
 
+  // ── THẺ HỒ SƠ ĐỊNH DANH CÁ NHÂN & CCCD eKYC (Được tinh gọn 2 cột sang trọng) ──
+  Widget _buildEkycProfileCard() {
+    final kt = _khachThueData ?? {};
+    final soCccd = kt['cccd']?.toString() ?? kt['so_cccd']?.toString() ?? 'Chưa cập nhật';
+    final hoTen = kt['ho_ten_khach']?.toString() ?? displayName;
+    final soDt = kt['so_dt']?.toString() ?? (AuthService.currentUser?.tenDangNhap ?? 'Chưa cập nhật');
+    final gioiTinh = kt['gioi_tinh']?.toString() ?? 'Nam';
+    final diaChi = kt['dia_chi_thuong_tru']?.toString() ?? kt['dia_chi']?.toString() ?? 'Chưa cập nhật';
+    final noiCap = kt['noi_cap_cccd']?.toString() ?? 'Cục Cảnh sát QLHC về TTXH';
+    final nguoiLienHe = kt['nguoi_lien_he_khan_cap']?.toString() ?? 'Chưa cập nhật';
+    
+    String ngaySinhDisplay = 'Chưa cập nhật';
+    if (kt['ngay_sinh'] != null) {
+      try {
+        final d = DateTime.parse(kt['ngay_sinh'].toString());
+        ngaySinhDisplay = '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+      } catch (_) {
+        ngaySinhDisplay = kt['ngay_sinh'].toString();
+      }
+    }
+
+    String ngayCapDisplay = 'Chưa cập nhật';
+    if (kt['ngay_cap_cccd'] != null) {
+      try {
+        final d = DateTime.parse(kt['ngay_cap_cccd'].toString());
+        ngayCapDisplay = '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+      } catch (_) {
+        ngayCapDisplay = kt['ngay_cap_cccd'].toString();
+      }
+    }
+
+    final urlMatTruoc = kt['anh_cccd_mat_truoc']?.toString();
+    final urlMatSau = kt['anh_cccd_mat_sau']?.toString();
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0F172A).withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Header Card ──
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE0F2FE),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.badge_outlined, color: Color(0xFF0284C7), size: 20),
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'HỒ SƠ ĐỊNH DANH CÁ NHÂN',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF0F172A),
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                    Text(
+                      'Dữ liệu hồ sơ số lưu trên hệ thống',
+                      style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFDCFCE7),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFF86EFAC)),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.check_circle_rounded, size: 12, color: Color(0xFF16A34A)),
+                    SizedBox(width: 4),
+                    Text(
+                      'Đã xác thực',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF15803D),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const Divider(height: 20, color: Color(0xFFF1F5F9)),
+
+          // ── BỐ CỤC 2 CỘT GỌN GÀNG, ĐẸP MẮT ──
+          // Hàng 1: Họ tên + Số CCCD
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _buildCompactInfoTile(
+                  label: 'HỌ VÀ TÊN',
+                  value: hoTen,
+                  icon: Icons.person_outline_rounded,
+                  isBold: true,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'SỐ CCCD ĐỊNH DANH',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF94A3B8),
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Row(
+                      children: [
+                        const Icon(Icons.fingerprint_rounded, size: 14, color: Color(0xFF09638E)),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            soCccd,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF09638E),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (soCccd != 'Chưa cập nhật')
+                          InkWell(
+                            onTap: () {
+                              Clipboard.setData(ClipboardData(text: soCccd));
+                              ThongBaoHelper.hienToast(
+                                context,
+                                tieuDe: 'Đã sao chép',
+                                noiDung: 'Đã lưu số CCCD vào bộ nhớ tạm',
+                                type: ThongBaoType.thanhCong,
+                              );
+                            },
+                            borderRadius: BorderRadius.circular(4),
+                            child: const Padding(
+                              padding: EdgeInsets.all(2),
+                              child: Icon(Icons.copy_rounded, size: 13, color: Color(0xFF64748B)),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          // Hàng 2: Số điện thoại + Giới tính & Ngày sinh
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _buildCompactInfoTile(
+                  label: 'SỐ ĐIỆN THOẠI',
+                  value: soDt,
+                  icon: Icons.phone_outlined,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildCompactInfoTile(
+                  label: 'GIỚI TÍNH & NGÀY SINH',
+                  value: '$gioiTinh • $ngaySinhDisplay',
+                  icon: Icons.cake_outlined,
+                ),
+              ),
+            ],
+          ),
+
+          // ── PHẦN CHI TIẾT MỞ RỘNG (THƯỜNG TRÚ, NƠI CẤP, ẢNH CCCD) ──
+          if (_isEkycExpanded) ...[
+            const Divider(height: 22, color: Color(0xFFF1F5F9)),
+            _buildCompactDetailRow(Icons.home_outlined, 'Thường trú:', diaChi),
+            const SizedBox(height: 8),
+            _buildCompactDetailRow(Icons.account_balance_outlined, 'Cấp ngày & Nơi cấp:', '$ngayCapDisplay • $noiCap'),
+            const SizedBox(height: 8),
+            _buildCompactDetailRow(Icons.emergency_outlined, 'Liên hệ khẩn cấp:', nguoiLienHe, valueColor: const Color(0xFFDC2626)),
+
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                const Icon(Icons.photo_camera_front_rounded, size: 14, color: Color(0xFF09638E)),
+                const SizedBox(width: 6),
+                const Text(
+                  'Hình ảnh CCCD định danh lưu trữ:',
+                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+                ),
+                const Spacer(),
+                if ((urlMatTruoc == null || urlMatTruoc.isEmpty) || (urlMatSau == null || urlMatSau.isEmpty))
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEF3C7),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.4)),
+                    ),
+                    child: const Text(
+                      'Cần bổ sung',
+                      style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFFD97706)),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: (urlMatTruoc != null && urlMatTruoc.isNotEmpty)
+                      ? _buildCccdThumb('Mặt trước', urlMatTruoc)
+                      : _buildCccdPlaceholder('Mặt trước CCCD'),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: (urlMatSau != null && urlMatSau.isNotEmpty)
+                      ? _buildCccdThumb('Mặt sau', urlMatSau)
+                      : _buildCccdPlaceholder('Mặt sau CCCD'),
+                ),
+              ],
+            ),
+          ],
+
+          // ── NÚT BẤM THU GỌN / XEM THÊM CHI TIẾT ──
+          const SizedBox(height: 12),
+          InkWell(
+            onTap: () => setState(() => _isEkycExpanded = !_isEkycExpanded),
+            borderRadius: BorderRadius.circular(10),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 7),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    _isEkycExpanded ? 'Thu gọn thông tin' : 'Xem chi tiết thường trú & ảnh CCCD',
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF09638E),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(
+                    _isEkycExpanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                    size: 17,
+                    color: const Color(0xFF09638E),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompactInfoTile({
+    required String label,
+    required String value,
+    required IconData icon,
+    bool isBold = false,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF94A3B8),
+            letterSpacing: 0.3,
+          ),
+        ),
+        const SizedBox(height: 3),
+        Row(
+          children: [
+            Icon(icon, size: 14, color: const Color(0xFF64748B)),
+            const SizedBox(width: 4),
+            Expanded(
+              child: Text(
+                value,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: isBold ? FontWeight.bold : FontWeight.w600,
+                  color: const Color(0xFF0F172A),
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCompactDetailRow(IconData icon, String label, String value, {Color? valueColor}) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 15, color: const Color(0xFF09638E)),
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 100,
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: valueColor ?? const Color(0xFF0F172A),
+              height: 1.3,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCccdPlaceholder(String label) {
+    return Container(
+      height: 72,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFCBD5E1)),
+        color: const Color(0xFFF8FAFC),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.add_a_photo_outlined, size: 18, color: Color(0xFF94A3B8)),
+          const SizedBox(height: 3),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF64748B)),
+          ),
+          const SizedBox(height: 1),
+          const Text(
+            'Chưa tải lên',
+            style: TextStyle(fontSize: 9, color: Color(0xFF94A3B8)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCccdThumb(String label, String url) {
+    return InkWell(
+      onTap: () => _showZoomImageDialog(context, url),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        height: 72,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFCBD5E1)),
+          color: const Color(0xFFF8FAFC),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            url.startsWith('data:image')
+                ? Image.memory(
+                    base64Decode(url.contains(',') ? url.split(',').last : url),
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                    height: double.infinity,
+                    errorBuilder: (_, __, ___) => const Center(
+                      child: Icon(Icons.broken_image_rounded, color: Color(0xFF94A3B8)),
+                    ),
+                  )
+                : Image.network(
+                    url,
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                    height: double.infinity,
+                    errorBuilder: (_, __, ___) => const Center(
+                      child: Icon(Icons.broken_image_rounded, color: Color(0xFF94A3B8)),
+                    ),
+                  ),
+            Positioned(
+              left: 6,
+              bottom: 4,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.65),
+                  borderRadius: BorderRadius.circular(5),
+                ),
+                child: Text(
+                  label,
+                  style: const TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+            Positioned(
+              right: 6,
+              top: 4,
+              child: Container(
+                padding: const EdgeInsets.all(2.5),
+                decoration: const BoxDecoration(
+                  color: Color(0xFF09638E),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.zoom_in_rounded, color: Colors.white, size: 11),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── THẺ PHƯƠNG TIỆN XE ĐĂNG KÝ ──
+  Widget _buildRegisteredVehiclesCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF3C7),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.two_wheeler_rounded, color: Color(0xFFD97706), size: 20),
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  'PHƯƠNG TIỆN XE GỬI TẠI TRỌ',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF0F172A),
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '${_danhSachPhuongTien.length} xe',
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+                ),
+              ),
+            ],
+          ),
+          const Divider(height: 20, color: Color(0xFFF1F5F9)),
+
+          if (_danhSachPhuongTien.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.directions_walk_rounded, color: Color(0xFF94A3B8), size: 22),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Hiện tại bạn chưa đăng ký phương tiện xe gửi tại trọ.',
+                      style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            Column(
+              children: [
+                for (int i = 0; i < _danhSachPhuongTien.length; i++) ...[
+                  _buildVehicleRowItem(i, _danhSachPhuongTien[i]),
+                  if (i < _danhSachPhuongTien.length - 1)
+                    const Divider(height: 16, color: Color(0xFFF1F5F9)),
+                ],
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVehicleRowItem(int index, Map<String, dynamic> xe) {
+    final bienSo = xe['bien_so_xe']?.toString() ?? 'Chưa có biển số';
+    final loaiXe = xe['loai_xe']?.toString() ?? 'Xe máy';
+    final ghiChu = xe['ghi_chu']?.toString() ?? '';
+    final trangThai = xe['trang_thai']?.toString() ?? 'Hoạt động';
+
+    return Row(
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: const Color(0xFFE0F2FE),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: const Center(
+            child: Icon(Icons.moped_rounded, color: Color(0xFF09638E), size: 20),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                bienSo,
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                '$loaiXe${ghiChu.isNotEmpty ? " • $ghiChu" : ""}',
+                style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+              ),
+            ],
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+          decoration: BoxDecoration(
+            color: const Color(0xFFECFDF5),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: const Color(0xFFA7F3D0)),
+          ),
+          child: Text(
+            trangThai,
+            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF059669)),
+          ),
+        ),
+      ],
+    );
+  }
+
   // ==================== BOTTOM NAVIGATION BAR ====================
   Widget _buildActiveNavIcon(IconData icon) {
     return TweenAnimationBuilder<double>(
@@ -7574,8 +8753,8 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                   Text(
                     '• Hạn nộp định kỳ: Bắt buộc hoàn tất trước hoặc đúng ngày 04 hàng tháng.\n'
                     '• Tòa nhà KHÔNG có chính sách cho gia hạn nợ tiền phòng.\n'
-                    '• Mức phạt trễ hạn: Áp dụng 50.000đ/ngày kể từ ngày 05.\n'
-                    '• Trễ hạn từ 5 ngày: BQL sẽ tạm ngưng dịch vụ điện nước và khóa vân tay ra vào phòng theo đúng quy chế hợp đồng thuê.',
+                    '• Trễ hạn từ 5 ngày: BQL gửi thông báo cảnh báo nếu không tiếp tục đóng tiền sẽ bị tạm khóa vân tay ra vào.\n'
+                    '• Trễ hạn từ 10 ngày: Hệ thống ĐÃ KHÓA VÂN TAY ra vào phòng. Cư dân vui lòng liên hệ BQL qua SĐT hoặc Zalo ${LienHeHelper.defaultHotlineDisplay} để được hỗ trợ mở lại.',
                     style: TextStyle(
                       fontSize: 11.5,
                       height: 1.5,
@@ -7585,6 +8764,83 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                 ],
               ),
             ),
+            if (hd.soNgayConLai <= -10) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF2F2),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFFCA5A5)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.lock_rounded, color: Color(0xFFDC2626), size: 24),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'VÂN TAY ĐÃ BỊ TẠM KHÓA',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFFDC2626),
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            hd.trangThai == 'Thanh toán một phần'
+                                ? 'Do khoản nợ Đợt 2 trễ hạn ${-hd.soNgayConLai} ngày, quyền vân tay ra vào đã bị tạm khóa. Vui lòng thanh toán hoặc liên hệ BQL qua SĐT/Zalo ${LienHeHelper.defaultHotlineDisplay} để mở lại.'
+                                : 'Do trễ hạn ${-hd.soNgayConLai} ngày, quyền vân tay ra vào đã bị tạm khóa. Vui lòng thanh toán hoặc liên hệ BQL qua SĐT/Zalo ${LienHeHelper.defaultHotlineDisplay} để mở lại.',
+                            style: const TextStyle(fontSize: 11, color: Color(0xFF991B1B)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ] else if (hd.soNgayConLai <= -5) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFFBEB),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFFCD34D)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.warning_amber_rounded, color: Color(0xFFD97706), size: 24),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'CẢNH BÁO: SẮP KHÓA VÂN TAY',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFFB45309),
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            hd.trangThai == 'Thanh toán một phần'
+                                ? 'Khoản nợ Đợt 2 đã trễ hạn ${-hd.soNgayConLai} ngày. Nếu không tiếp tục đóng tiền, hệ thống sẽ tạm khóa vân tay khi trễ 10 ngày.'
+                                : 'Hóa đơn đã trễ hạn ${-hd.soNgayConLai} ngày. Nếu không tiếp tục đóng tiền, hệ thống sẽ tạm khóa vân tay khi trễ 10 ngày.',
+                            style: const TextStyle(fontSize: 11, color: Color(0xFF92400E)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 16),
             const Text(
               'Hướng xử lý bắt buộc:',
@@ -7665,7 +8921,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                 ),
               ),
               title: const Text(
-                'Hotline Ban Quản Lý (0865 109 632)',
+                'Hotline Ban Quản Lý (0328.004.663)',
                 style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
               ),
               subtitle: const Text(
@@ -7678,10 +8934,231 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
               ),
               onTap: () {
                 Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      'Hotline Ban Quản Lý: 0865 109 632 (Hỗ trợ 24/7)',
+                LienHeHelper.hienThiLuaChonLienHe(context);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Modal thông báo chuyên biệt khi vân tay đã bị khóa do trễ hạn >= 10 ngày
+  void _showThongBaoKhoaVanTayModal(HoaDonModel hd) {
+    final overdueDays = hd.soNgayConLai < 0 ? -hd.soNgayConLai : 0;
+    final activeRoom = _hopDong?.maPhong ?? widget.roomNumber ?? 'P203';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE2E8F0),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF2F2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.lock_rounded,
+                    color: Color(0xFFDC2626),
+                    size: 26,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'ĐÃ KHÓA VÂN TAY RA VÀO',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFFDC2626),
+                        ),
+                      ),
+                      Text(
+                        hd.trangThai == 'Thanh toán một phần'
+                            ? 'Hóa đơn ${hd.maHoaDon} • Trễ hạn Đợt 2 $overdueDays ngày'
+                            : 'Hóa đơn ${hd.maHoaDon} • Trễ hạn $overdueDays ngày',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF991B1B),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF2F2),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFFCA5A5)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Thông báo từ Ban Quản Lý Kiều Giang:',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF991B1B),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    hd.trangThai == 'Thanh toán một phần'
+                        ? 'Quyền mở cổng bằng vân tay của bạn đã bị TẠM KHÓA do khoản nợ Đợt 2 quá hạn $overdueDays ngày (từ 10 ngày trở lên theo quy chế tòa nhà).\n\n'
+                          'Để kích hoạt lại vân tay ra vào, vui lòng thanh toán toàn bộ số tiền nợ còn lại (${FormatUtils.currency(hd.tongTien)}) hoặc liên hệ ngay với Ban Quản Lý qua SĐT hoặc Zalo.'
+                        : 'Quyền mở cổng bằng vân tay của bạn đã bị TẠM KHÓA do hóa đơn quá hạn $overdueDays ngày (từ 10 ngày trở lên theo quy chế tòa nhà).\n\n'
+                          'Để kích hoạt lại vân tay ra vào, vui lòng thanh toán toàn bộ tiền phòng hoặc liên hệ ngay với Ban Quản Lý qua SĐT hoặc Zalo.',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      height: 1.5,
+                      color: Color(0xFF7F1D1D),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Các phương án hỗ trợ mở khóa:',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF0F172A),
+              ),
+            ),
+            const SizedBox(height: 10),
+
+            // Nút 1: Nhắn tin Zalo BQL
+            ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: const BorderSide(color: Color(0xFF0284C7), width: 1.2),
+              ),
+              tileColor: const Color(0xFFF0F9FF),
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE0F2FE),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.chat_bubble_rounded, color: Color(0xFF0284C7), size: 22),
+              ),
+              title: const Text(
+                'Nhắn tin qua Zalo BQL (0328.004.663)',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF0369A1)),
+              ),
+              subtitle: const Text(
+                'Nhắn tin gửi biên lai để BQL kích hoạt lại vân tay ngay',
+                style: TextStyle(fontSize: 11.5, color: Color(0xFF075985)),
+              ),
+              trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Color(0xFF0284C7)),
+              onTap: () {
+                Navigator.pop(ctx);
+                LienHeHelper.moZaloChat(context);
+              },
+            ),
+            const SizedBox(height: 8),
+
+            // Nút 2: Gọi điện thoại Hotline
+            ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: const BorderSide(color: Color(0xFFCBD5E1)),
+              ),
+              tileColor: Colors.white,
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.phone_in_talk_rounded, color: Color(0xFF0F172A), size: 22),
+              ),
+              title: const Text(
+                'Gọi điện Hotline (0328.004.663)',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
+              ),
+              subtitle: const Text(
+                'Hỗ trợ khẩn cấp mở cửa và kiểm tra hóa đơn 24/7',
+                style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+              ),
+              trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Color(0xFF94A3B8)),
+              onTap: () {
+                Navigator.pop(ctx);
+                LienHeHelper.goiDien(context);
+              },
+            ),
+            const SizedBox(height: 8),
+
+            // Nút 3: Thanh toán ngay VietQR
+            ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: const BorderSide(color: Color(0xFF16A34A), width: 1.2),
+              ),
+              tileColor: const Color(0xFFF0FDF4),
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFDCFCE7),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.qr_code_scanner_rounded, color: Color(0xFF16A34A), size: 22),
+              ),
+              title: const Text(
+                'Thanh toán nợ phòng bằng VietQR',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF15803D)),
+              ),
+              subtitle: const Text(
+                'Gạch nợ tự động trong 30 giây để đủ điều kiện mở lại vân tay',
+                style: TextStyle(fontSize: 11.5, color: Color(0xFF166534)),
+              ),
+              trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Color(0xFF16A34A)),
+              onTap: () {
+                Navigator.pop(ctx);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => PaymentScreen(
+                      hoaDon: hd,
+                      tenPhong: 'Phòng $activeRoom',
+                      onPaymentSuccess: (_) => _fetchTenantData(),
                     ),
                   ),
                 );
@@ -7723,7 +9200,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
               _phong?.tenHienThi ??
               (widget.roomNumber != null && widget.roomNumber!.isNotEmpty
                   ? 'Phòng ${widget.roomNumber}'
-                  : 'Phòng 302'),
+                  : 'Phòng 203'),
           onPaymentSuccess: (_) {
             _fetchTenantData();
           },
@@ -7780,13 +9257,11 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
               child: ElevatedButton(
                 onPressed: () {
                   Navigator.pop(ctx);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Đã gửi yêu cầu hỗ trợ đến kỹ thuật tòa nhà!',
-                      ),
-                      backgroundColor: Color(0xFF09638E),
-                    ),
+                  ThongBaoHelper.hienToast(
+                    context,
+                    tieuDe: 'Yêu cầu hỗ trợ',
+                    noiDung: 'Đã gửi yêu cầu hỗ trợ đến kỹ thuật tòa nhà!',
+                    type: ThongBaoType.thanhCong,
                   );
                 },
                 style: ElevatedButton.styleFrom(
@@ -7856,11 +9331,11 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
               child: ElevatedButton(
                 onPressed: () {
                   Navigator.pop(ctx);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Đã đăng ký tạm trú thành công cho khách!'),
-                      backgroundColor: Color(0xFF09638E),
-                    ),
+                  ThongBaoHelper.hienToast(
+                    context,
+                    tieuDe: 'Đăng ký tạm trú',
+                    noiDung: 'Đã đăng ký tạm trú thành công cho khách!',
+                    type: ThongBaoType.thanhCong,
                   );
                 },
                 style: ElevatedButton.styleFrom(
@@ -7893,12 +9368,12 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
         _phong?.tenHienThi ??
         (widget.roomNumber != null && widget.roomNumber!.isNotEmpty
             ? 'Phòng ${widget.roomNumber}'
-            : 'Phòng 302');
+            : 'Phòng 203');
     final pCode =
         _hopDong?.maPhong ??
         (widget.roomNumber != null && widget.roomNumber!.isNotEmpty
             ? 'P${widget.roomNumber}'
-            : 'P302');
+            : 'P203');
 
     Navigator.push(
       context,
@@ -7931,13 +9406,180 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
     ).then((_) => _fetchTenantData());
   }
 
+  void _showChuaDenHanGiaHanModal(
+    BuildContext context,
+    int daysLeft,
+    DateTime? ngayKt,
+    String tenPhong,
+    String pCode,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFCBD5E1),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFFEF2F2),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.lock_clock_rounded,
+                  color: Color(0xFFDC2626),
+                  size: 38,
+                ),
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                'Chưa Đến Hạn Gia Hạn',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Hợp đồng phòng $pCode hiện còn $daysLeft ngày (hạn đến ${ngayKt != null ? '${ngayKt.day.toString().padLeft(2, '0')}/${ngayKt.month.toString().padLeft(2, '0')}/${ngayKt.year}' : ''}).',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFF64748B),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Text(
+                      '📌 Quy định gia hạn hợp đồng:',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      '• Chỉ được gửi yêu cầu khi hợp đồng sắp hết hạn (trong vòng 30 ngày cuối / còn 1 tháng).\n• Thời hạn gia hạn: Tối thiểu 6 tháng, tối đa 1 năm (12 tháng).',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF475569),
+                        height: 1.45,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        _showExtendContractHistoryModal();
+                      },
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        side: const BorderSide(color: Color(0xFFCBD5E1)),
+                      ),
+                      child: const Text(
+                        'Xem lịch sử',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF334155),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF09638E),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: const Text(
+                        'Đã hiểu',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   void _showExtendContractModal() {
+    if (!_isNguoiDaiDien) {
+      _thongBaoKhongCoQuyen(hanhDong: 'Gia hạn hợp đồng');
+      return;
+    }
+
     final tenPhong = _phong?.maPhong != null
         ? 'Phòng ${_phong!.maPhong.replaceAll(RegExp(r'[^0-9]'), '')}'
         : (widget.roomNumber != null && widget.roomNumber!.isNotEmpty
               ? 'Phòng ${widget.roomNumber}'
-              : 'Phòng 302');
-    final pCode = _hopDong?.maPhong ?? _phong?.maPhong ?? 'P302';
+              : 'Phòng 203');
+    final pCode = _hopDong?.maPhong ?? _phong?.maPhong ?? 'P203';
+
+    // Ràng buộc: Còn 1 tháng (<= 30 ngày) mới cho gia hạn, không cho gửi yêu cầu luôn nếu chưa đến hạn
+    int daysLeft = 999;
+    DateTime? ngayKtDt;
+    if (_hopDong?.ngayKt != null && _hopDong!.ngayKt.isNotEmpty) {
+      try {
+        ngayKtDt = DateTime.parse(_hopDong!.ngayKt);
+        daysLeft = ngayKtDt.difference(DateTime.now()).inDays;
+      } catch (_) {}
+    }
+
+    if (daysLeft > 30) {
+      _showChuaDenHanGiaHanModal(context, daysLeft, ngayKtDt, tenPhong, pCode);
+      return;
+    }
 
     Navigator.push(
       context,
@@ -7952,12 +9594,17 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
   }
 
   void _showTerminateContractModal() {
+    if (_hopDong?.trangThai != 'Đã thanh lý' && !_isNguoiDaiDien) {
+      _thongBaoKhongCoQuyen(hanhDong: 'Chấm dứt hợp đồng & Trả phòng');
+      return;
+    }
+
     final tenPhong = _phong?.maPhong != null
         ? 'Phòng ${_phong!.maPhong.replaceAll(RegExp(r'[^0-9]'), '')}'
         : (widget.roomNumber != null && widget.roomNumber!.isNotEmpty
               ? 'Phòng ${widget.roomNumber}'
-              : 'Phòng 302');
-    final pCode = _hopDong?.maPhong ?? _phong?.maPhong ?? 'P302';
+              : 'Phòng 203');
+    final pCode = _hopDong?.maPhong ?? _phong?.maPhong ?? 'P203';
     final tenKhach = _khachThueData?['ho_ten_khach']?.toString();
 
     Navigator.push(
@@ -7978,6 +9625,11 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
   }
 
   Future<void> _showChangeRoomModal() async {
+    if (!_isNguoiDaiDien) {
+      _thongBaoKhongCoQuyen(hanhDong: 'Chuyển phòng');
+      return;
+    }
+
     final curRoom =
         _phong?.maPhong ??
         (widget.roomNumber != null ? 'P${widget.roomNumber}' : 'P203');
@@ -9718,11 +11370,11 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
           ElevatedButton(
             onPressed: () {
               Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Đã gửi yêu cầu thêm thành viên vào phòng!'),
-                  backgroundColor: Color(0xFF16A34A),
-                ),
+              ThongBaoHelper.hienToast(
+                context,
+                tieuDe: 'Thêm thành viên',
+                noiDung: 'Đã gửi yêu cầu thêm thành viên vào phòng!',
+                type: ThongBaoType.thanhCong,
               );
             },
             style: ElevatedButton.styleFrom(

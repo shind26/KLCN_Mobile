@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:nhatro_kieugiang/core/services/DichVuXacThuc.dart';
+import 'package:nhatro_kieugiang/core/utils/ThongBaoHelper.dart';
 import 'package:nhatro_kieugiang/features/tenant/ManHinhBaoSuCoThanhCong.dart';
 
 class ManHinhBaoSuCo extends StatefulWidget {
@@ -49,8 +50,11 @@ class _ManHinhBaoSuCoState extends State<ManHinhBaoSuCo> {
 
   Future<void> _pickImage() async {
     if (_imageBytesList.length >= 4) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Chỉ được tải lên tối đa 4 hình ảnh!')),
+      ThongBaoHelper.hienToast(
+        context,
+        tieuDe: 'Giới hạn ảnh',
+        noiDung: 'Chỉ được tải lên tối đa 4 hình ảnh sự cố!',
+        type: ThongBaoType.canhBao,
       );
       return;
     }
@@ -248,11 +252,11 @@ class _ManHinhBaoSuCoState extends State<ManHinhBaoSuCo> {
       debugPrint('Lỗi gửi sự cố lên Supabase: $e');
       if (mounted) {
         setState(() => _isSubmitting = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Lỗi kết nối Supabase: $e'),
-            backgroundColor: Colors.red,
-          ),
+        ThongBaoHelper.hienToast(
+          context,
+          tieuDe: 'Lỗi gửi sự cố',
+          noiDung: 'Lỗi kết nối Supabase: $e',
+          type: ThongBaoType.thatBai,
         );
       }
     }

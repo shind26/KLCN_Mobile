@@ -1,5 +1,9 @@
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
 import 'package:nhatro_kieugiang/core/services/DichVuXacThuc.dart';
 import 'package:nhatro_kieugiang/core/utils/ThongBaoHelper.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -29,7 +33,19 @@ class _ManHinhChinhSuaHoSoState extends State<ManHinhChinhSuaHoSo> {
   late TextEditingController _soDtController;
   late TextEditingController _cccdController;
   late TextEditingController _diaChiController;
-  late TextEditingController _emailController;
+  late TextEditingController _noiCapController;
+  late TextEditingController _nguoiLienHeController;
+
+  String _gioiTinh = 'Nam';
+  DateTime? _ngaySinh;
+  DateTime? _ngayCapCccd;
+
+  // Ảnh CCCD
+  final _picker = ImagePicker();
+  Uint8List? _bytesMatTruoc;
+  Uint8List? _bytesMatSau;
+  String? _urlMatTruoc;
+  String? _urlMatSau;
 
   bool _isSaving = false;
   late String _maKhach;
@@ -48,14 +64,33 @@ class _ManHinhChinhSuaHoSoState extends State<ManHinhChinhSuaHoSo> {
     final soDtVal = data?['so_dt']?.toString() ??
         AuthService.currentUser?.tenDangNhap ??
         '';
-    final diaChiVal = (data?['dia_chi_thuong_tru'] ?? data?['dia_chi'])?.toString() ?? '';
-    final emailVal = data?['email']?.toString() ?? '';
+    final diaChiVal =
+        (data?['dia_chi_thuong_tru'] ?? data?['dia_chi'])?.toString() ?? '';
+    final noiCapVal = data?['noi_cap_cccd']?.toString() ?? '';
+    final nguoiLienHeVal = data?['nguoi_lien_he_khan_cap']?.toString() ?? '';
 
     _hoTenController = TextEditingController(text: hoTenVal);
     _soDtController = TextEditingController(text: soDtVal);
     _cccdController = TextEditingController(text: cccdVal);
     _diaChiController = TextEditingController(text: diaChiVal);
-    _emailController = TextEditingController(text: emailVal);
+    _noiCapController = TextEditingController(text: noiCapVal);
+    _nguoiLienHeController = TextEditingController(text: nguoiLienHeVal);
+
+    _gioiTinh = (data?['gioi_tinh']?.toString() == 'Nữ') ? 'Nữ' : 'Nam';
+
+    _urlMatTruoc = data?['anh_cccd_mat_truoc']?.toString();
+    _urlMatSau = data?['anh_cccd_mat_sau']?.toString();
+
+    if (data?['ngay_sinh'] != null) {
+      try {
+        _ngaySinh = DateTime.parse(data!['ngay_sinh'].toString());
+      } catch (_) {}
+    }
+    if (data?['ngay_cap_cccd'] != null) {
+      try {
+        _ngayCapCccd = DateTime.parse(data!['ngay_cap_cccd'].toString());
+      } catch (_) {}
+    }
   }
 
   @override
@@ -64,12 +99,39 @@ class _ManHinhChinhSuaHoSoState extends State<ManHinhChinhSuaHoSo> {
     _soDtController.dispose();
     _cccdController.dispose();
     _diaChiController.dispose();
-    _emailController.dispose();
+    _noiCapController.dispose();
+    _nguoiLienHeController.dispose();
     super.dispose();
+  }
+
+  void _baoLoi(String msg) {
+    ThongBaoHelper.hienToast(
+      context,
+      tieuDe: 'Lỗi thông tin',
+      noiDung: msg,
+      type: ThongBaoType.thatBai,
+    );
   }
 
   Future<void> _luuThongTin() async {
     if (!_formKey.currentState!.validate()) return;
+
+    if (_ngaySinh == null) {
+      _baoLoi('Vui lòng chọn Ngày sinh theo CCCD (không được bỏ trống)!');
+      return;
+    }
+    if (_ngayCapCccd == null) {
+      _baoLoi('Vui lòng chọn Ngày cấp CCCD (không được bỏ trống)!');
+      return;
+    }
+    if (_noiCapController.text.trim().isEmpty) {
+      _baoLoi('Vui lòng nhập Nơi cấp CCCD (không được bỏ trống)!');
+      return;
+    }
+    if (_nguoiLienHeController.text.trim().isEmpty) {
+      _baoLoi('Vui lòng nhập Người & SĐT liên hệ khẩn cấp (không được bỏ trống)!');
+      return;
+    }
 
     setState(() => _isSaving = true);
 
@@ -79,23 +141,67 @@ class _ManHinhChinhSuaHoSoState extends State<ManHinhChinhSuaHoSo> {
       final soDt = _soDtController.text.trim();
       final cccd = _cccdController.text.trim();
       final diaChi = _diaChiController.text.trim();
+      final noiCap = _noiCapController.text.trim();
+      final nguoiLienHe = _nguoiLienHeController.text.trim();
       final user = AuthService.currentUser;
+
+      final Map<String, dynamic> updateData = {
+        'ho_ten_khach': hoTen,
+        'so_dt': soDt,
+        'cccd': cccd,
+        'gioi_tinh': _gioiTinh,
+        'dia_chi_thuong_tru': diaChi,
+        'noi_cap_cccd': noiCap,
+        'nguoi_lien_he_khan_cap': nguoiLienHe,
+        'ngay_sinh': DateFormat('yyyy-MM-dd').format(_ngaySinh!),
+        'ngay_cap_cccd': DateFormat('yyyy-MM-dd').format(_ngayCapCccd!),
+      };
+
+      // Tải ảnh CCCD lên storage hoặc fallback Base64
+      String? uploadedUrlMatTruoc = _urlMatTruoc;
+      String? uploadedUrlMatSau = _urlMatSau;
+
+      if (_bytesMatTruoc != null) {
+        try {
+          final path = 'cccd/${_maKhach.isNotEmpty ? _maKhach : "KH"}_truoc_${DateTime.now().millisecondsSinceEpoch}.jpg';
+          await db.storage.from('contracts').uploadBinary(
+                path,
+                _bytesMatTruoc!,
+                fileOptions: const FileOptions(contentType: 'image/jpeg', upsert: true),
+              );
+          uploadedUrlMatTruoc = db.storage.from('contracts').getPublicUrl(path);
+        } catch (eStorage) {
+          debugPrint('Storage upload mặt trước fallback base64: $eStorage');
+          uploadedUrlMatTruoc = 'data:image/jpeg;base64,${base64Encode(_bytesMatTruoc!)}';
+        }
+      }
+
+      if (_bytesMatSau != null) {
+        try {
+          final path = 'cccd/${_maKhach.isNotEmpty ? _maKhach : "KH"}_sau_${DateTime.now().millisecondsSinceEpoch}.jpg';
+          await db.storage.from('contracts').uploadBinary(
+                path,
+                _bytesMatSau!,
+                fileOptions: const FileOptions(contentType: 'image/jpeg', upsert: true),
+              );
+          uploadedUrlMatSau = db.storage.from('contracts').getPublicUrl(path);
+        } catch (eStorage) {
+          debugPrint('Storage upload mặt sau fallback base64: $eStorage');
+          uploadedUrlMatSau = 'data:image/jpeg;base64,${base64Encode(_bytesMatSau!)}';
+        }
+      }
+
+      if (uploadedUrlMatTruoc != null) updateData['anh_cccd_mat_truoc'] = uploadedUrlMatTruoc;
+      if (uploadedUrlMatSau != null) updateData['anh_cccd_mat_sau'] = uploadedUrlMatSau;
 
       // 1. Cập nhật bảng khach_thue
       if (_maKhach.isNotEmpty) {
-        await db.from('khach_thue').update({
-          'ho_ten_khach': hoTen,
-          'so_dt': soDt,
-          'cccd': cccd,
-          'dia_chi_thuong_tru': diaChi,
-        }).eq('ma_khach', _maKhach);
+        await db.from('khach_thue').update(updateData).eq('ma_khach', _maKhach);
       } else if (user != null && user.maTaiKhoan.isNotEmpty) {
-        await db.from('khach_thue').update({
-          'ho_ten_khach': hoTen,
-          'so_dt': soDt,
-          'cccd': cccd,
-          'dia_chi_thuong_tru': diaChi,
-        }).eq('ma_tai_khoan', user.maTaiKhoan);
+        await db
+            .from('khach_thue')
+            .update(updateData)
+            .eq('ma_tai_khoan', user.maTaiKhoan);
       }
 
       // 2. Cập nhật bảng tai_khoan nếu có
@@ -113,7 +219,8 @@ class _ManHinhChinhSuaHoSoState extends State<ManHinhChinhSuaHoSo> {
       await ThongBaoHelper.hienThongBao(
         context,
         tieuDe: 'Cập Nhật Hồ Sơ Thành Công!',
-        noiDung: 'Thông tin cá nhân và số định danh CCCD của bạn đã được lưu vào hệ thống.',
+        noiDung:
+            'Thông tin cá nhân và định danh CCCD của bạn đã được lưu đầy đủ lên Supabase.',
         type: ThongBaoType.thanhCong,
         nutText: 'Hoàn tất',
       );
@@ -125,12 +232,7 @@ class _ManHinhChinhSuaHoSoState extends State<ManHinhChinhSuaHoSo> {
       debugPrint('Lỗi lưu hồ sơ: $e');
       if (!mounted) return;
       setState(() => _isSaving = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Không thể lưu thông tin: $e'),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
+      _baoLoi('Không thể lưu thông tin: $e');
     }
   }
 
@@ -143,11 +245,15 @@ class _ManHinhChinhSuaHoSoState extends State<ManHinhChinhSuaHoSo> {
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: Color(0xFF0F172A)),
+          icon: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            size: 20,
+            color: Color(0xFF0F172A),
+          ),
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
-          'Chỉnh Sửa Hồ Sơ',
+          'Chỉnh Sửa Hồ Sơ Cá Nhân',
           style: TextStyle(
             fontSize: 17,
             fontWeight: FontWeight.bold,
@@ -183,34 +289,16 @@ class _ManHinhChinhSuaHoSoState extends State<ManHinhChinhSuaHoSo> {
                   ),
                   child: Row(
                     children: [
-                      Stack(
-                        children: [
-                          Container(
-                            width: 64,
-                            height: 64,
-                            decoration: const BoxDecoration(
-                              color: Color(0xFFFEF08A),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Center(
-                              child: Text('🐥', style: TextStyle(fontSize: 32)),
-                            ),
-                          ),
-                          Positioned(
-                            right: 0,
-                            bottom: 0,
-                            child: Container(
-                              width: 20,
-                              height: 20,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF0284C7),
-                                shape: BoxShape.circle,
-                                border: Border.all(color: Colors.white, width: 2),
-                              ),
-                              child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 10),
-                            ),
-                          ),
-                        ],
+                      Container(
+                        width: 60,
+                        height: 60,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFFEF08A),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Center(
+                          child: Text('🐥', style: TextStyle(fontSize: 30)),
+                        ),
                       ),
                       const SizedBox(width: 14),
                       Expanded(
@@ -218,7 +306,9 @@ class _ManHinhChinhSuaHoSoState extends State<ManHinhChinhSuaHoSo> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              _hoTenController.text.isNotEmpty ? _hoTenController.text : 'Cư Dân Kiêu Giang',
+                              _hoTenController.text.isNotEmpty
+                                  ? _hoTenController.text
+                                  : 'Cư Dân Kiêu Giang',
                               style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w800,
@@ -231,7 +321,10 @@ class _ManHinhChinhSuaHoSoState extends State<ManHinhChinhSuaHoSo> {
                             Row(
                               children: [
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 7,
+                                    vertical: 2,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: const Color(0xFFE0F2FE),
                                     borderRadius: BorderRadius.circular(6),
@@ -247,7 +340,10 @@ class _ManHinhChinhSuaHoSoState extends State<ManHinhChinhSuaHoSo> {
                                 ),
                                 const SizedBox(width: 6),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 7,
+                                    vertical: 2,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: const Color(0xFFF1F5F9),
                                     borderRadius: BorderRadius.circular(6),
@@ -263,10 +359,13 @@ class _ManHinhChinhSuaHoSoState extends State<ManHinhChinhSuaHoSo> {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 6),
+                            const SizedBox(height: 4),
                             Text(
                               'Hợp đồng: ${widget.maHopDong}',
-                              style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                color: Color(0xFF64748B),
+                              ),
                             ),
                           ],
                         ),
@@ -276,15 +375,39 @@ class _ManHinhChinhSuaHoSoState extends State<ManHinhChinhSuaHoSo> {
                 ),
                 const SizedBox(height: 20),
 
-                // ── Phần thông tin cá nhân ──
-                const Text(
-                  'THÔNG TIN CÁ NHÂN',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF64748B),
-                    letterSpacing: 0.5,
-                  ),
+                // ── Phần thông tin cá nhân bắt buộc ──
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'THÔNG TIN CÁ NHÂN & ĐỊNH DANH',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF64748B),
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF2F2),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: const Color(0xFFFECACA)),
+                      ),
+                      child: const Text(
+                        '* Bắt buộc tất cả',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFFDC2626),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 10),
 
@@ -296,16 +419,17 @@ class _ManHinhChinhSuaHoSoState extends State<ManHinhChinhSuaHoSo> {
                     border: Border.all(color: const Color(0xFFE2E8F0)),
                   ),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Họ và tên
                       _buildTextField(
                         controller: _hoTenController,
-                        label: 'Họ và tên',
+                        label: 'Họ và tên khách thuê *',
                         hint: 'Nhập họ và tên đầy đủ',
                         icon: Icons.person_outline_rounded,
                         validator: (v) {
                           if (v == null || v.trim().isEmpty) {
-                            return 'Vui lòng nhập họ và tên';
+                            return 'Vui lòng nhập họ và tên (không được bỏ trống)';
                           }
                           return null;
                         },
@@ -315,14 +439,16 @@ class _ManHinhChinhSuaHoSoState extends State<ManHinhChinhSuaHoSo> {
                       // Số điện thoại
                       _buildTextField(
                         controller: _soDtController,
-                        label: 'Số điện thoại',
+                        label: 'Số điện thoại liên hệ *',
                         hint: '09xx xxx xxx',
                         icon: Icons.phone_outlined,
                         keyboardType: TextInputType.phone,
-                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
                         validator: (v) {
                           if (v == null || v.trim().isEmpty) {
-                            return 'Vui lòng nhập số điện thoại';
+                            return 'Vui lòng nhập số điện thoại (không được bỏ trống)';
                           }
                           if (v.trim().length < 10) {
                             return 'Số điện thoại tối thiểu 10 chữ số';
@@ -335,8 +461,8 @@ class _ManHinhChinhSuaHoSoState extends State<ManHinhChinhSuaHoSo> {
                       // Số CCCD
                       _buildTextField(
                         controller: _cccdController,
-                        label: 'Số CCCD / CMND',
-                        hint: 'Nhập số CCCD',
+                        label: 'Số CCCD / Định danh (12 số) *',
+                        hint: 'Ví dụ: 079201012345',
                         icon: Icons.badge_outlined,
                         keyboardType: TextInputType.number,
                         inputFormatters: [
@@ -344,32 +470,143 @@ class _ManHinhChinhSuaHoSoState extends State<ManHinhChinhSuaHoSo> {
                           LengthLimitingTextInputFormatter(12),
                         ],
                         validator: (v) {
-                          if (v != null && v.trim().isNotEmpty) {
-                            if (v.trim().length != 9 && v.trim().length != 12) {
-                              return 'Số CCCD phải gồm 12 số (hoặc CMND 9 số)';
-                            }
+                          if (v == null || v.trim().isEmpty) {
+                            return 'Vui lòng nhập số CCCD (không được bỏ trống)';
+                          }
+                          if (v.trim().length != 12) {
+                            return 'Số CCCD phải có đúng 12 chữ số';
                           }
                           return null;
                         },
                       ),
                       const SizedBox(height: 14),
 
-                      // Địa chỉ thường trú
-                      _buildTextField(
-                        controller: _diaChiController,
-                        label: 'Địa chỉ thường trú / Quê quán',
-                        hint: 'Xã/Phường, Quận/Huyện, Tỉnh/TP',
-                        icon: Icons.home_outlined,
+                      // 2 KHUNG ẢNH CCCD MẶT TRƯỚC VÀ MẶT SAU
+                      Row(
+                        children: const [
+                          Icon(Icons.photo_camera_back_rounded, size: 15, color: Color(0xFF09638E)),
+                          SizedBox(width: 6),
+                          Text(
+                            'Ảnh chụp CCCD 2 mặt (lưu trữ hồ sơ):',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF475569),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildCccdBox(
+                              isMatTruoc: true,
+                              title: 'Mặt trước CCCD',
+                              bytes: _bytesMatTruoc,
+                              url: _urlMatTruoc,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _buildCccdBox(
+                              isMatTruoc: false,
+                              title: 'Mặt sau CCCD',
+                              bytes: _bytesMatSau,
+                              url: _urlMatSau,
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 14),
 
-                      // Email
+                      // Giới tính
+                      const Text(
+                        'Giới tính *',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF334155),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          _buildGenderChip('Nam', Icons.male_rounded),
+                          const SizedBox(width: 12),
+                          _buildGenderChip('Nữ', Icons.female_rounded),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+
+                      // Ngày sinh
+                      _buildDatePickerField(
+                        label: 'Ngày sinh (theo CCCD) *',
+                        currentDate: _ngaySinh,
+                        onSelected: (d) => setState(() => _ngaySinh = d),
+                        icon: Icons.cake_rounded,
+                      ),
+                      const SizedBox(height: 14),
+
+                      // Địa chỉ thường trú
                       _buildTextField(
-                        controller: _emailController,
-                        label: 'Email (Tùy chọn)',
-                        hint: 'example@gmail.com',
-                        icon: Icons.email_outlined,
-                        keyboardType: TextInputType.emailAddress,
+                        controller: _diaChiController,
+                        label: 'Địa chỉ thường trú (theo CCCD) *',
+                        hint: 'Xã/Phường, Quận/Huyện, Tỉnh/TP',
+                        icon: Icons.home_outlined,
+                        maxLines: 2,
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) {
+                            return 'Vui lòng nhập địa chỉ thường trú (không được bỏ trống)';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 14),
+
+                      // Ngày cấp & Nơi cấp
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildDatePickerField(
+                              label: 'Ngày cấp CCCD *',
+                              currentDate: _ngayCapCccd,
+                              onSelected: (d) =>
+                                  setState(() => _ngayCapCccd = d),
+                              icon: Icons.event_available_rounded,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _buildTextField(
+                              controller: _noiCapController,
+                              label: 'Nơi cấp CCCD *',
+                              hint: 'Cục Cảnh sát QLHC...',
+                              icon: Icons.account_balance_rounded,
+                              validator: (v) {
+                                if (v == null || v.trim().isEmpty) {
+                                  return 'Nhập nơi cấp';
+                                }
+                                return null;
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+
+                      // Người & SĐT liên hệ khẩn cấp
+                      _buildTextField(
+                        controller: _nguoiLienHeController,
+                        label: 'Người & SĐT liên hệ khẩn cấp *',
+                        hint: 'Ví dụ: Bố Nguyễn Văn B - 0912345678',
+                        icon: Icons.emergency_rounded,
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) {
+                            return 'Vui lòng nhập người liên hệ khẩn cấp (không được bỏ trống)';
+                          }
+                          return null;
+                        },
                       ),
                     ],
                   ),
@@ -400,7 +637,7 @@ class _ManHinhChinhSuaHoSoState extends State<ManHinhChinhSuaHoSo> {
                             ),
                           )
                         : const Text(
-                            'Lưu Thay Đổi',
+                            'Lưu Thay Đổi Lên Hệ Thống',
                             style: TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.bold,
@@ -417,11 +654,120 @@ class _ManHinhChinhSuaHoSoState extends State<ManHinhChinhSuaHoSo> {
     );
   }
 
+  Widget _buildGenderChip(String gender, IconData icon) {
+    final isSelected = _gioiTinh == gender;
+    return Expanded(
+      child: InkWell(
+        onTap: () => setState(() => _gioiTinh = gender),
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: isSelected ? const Color(0xFF09638E) : const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelected
+                  ? const Color(0xFF09638E)
+                  : const Color(0xFFCBD5E1),
+              width: 1.5,
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 18,
+                color: isSelected ? Colors.white : const Color(0xFF64748B),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                gender,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  color: isSelected ? Colors.white : const Color(0xFF334155),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDatePickerField({
+    required String label,
+    required DateTime? currentDate,
+    required Function(DateTime) onSelected,
+    required IconData icon,
+  }) {
+    final text = currentDate != null
+        ? DateFormat('dd/MM/yyyy').format(currentDate)
+        : 'Chọn ngày...';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF334155),
+          ),
+        ),
+        const SizedBox(height: 6),
+        InkWell(
+          onTap: () async {
+            final picked = await showDatePicker(
+              context: context,
+              initialDate: currentDate ?? DateTime(2000, 1, 1),
+              firstDate: DateTime(1940),
+              lastDate: DateTime.now(),
+            );
+            if (picked != null) onSelected(picked);
+          },
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: Row(
+              children: [
+                Icon(icon, size: 18, color: const Color(0xFF09638E)),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    text,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: currentDate != null
+                          ? FontWeight.w600
+                          : FontWeight.normal,
+                      color: currentDate != null
+                          ? const Color(0xFF0F172A)
+                          : const Color(0xFF94A3B8),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildTextField({
     required TextEditingController controller,
     required String label,
     required String hint,
     required IconData icon,
+    int maxLines = 1,
     TextInputType keyboardType = TextInputType.text,
     List<TextInputFormatter>? inputFormatters,
     String? Function(String?)? validator,
@@ -442,6 +788,7 @@ class _ManHinhChinhSuaHoSoState extends State<ManHinhChinhSuaHoSo> {
         const SizedBox(height: 6),
         TextFormField(
           controller: controller,
+          maxLines: maxLines,
           keyboardType: keyboardType,
           inputFormatters: inputFormatters,
           validator: validator,
@@ -453,19 +800,29 @@ class _ManHinhChinhSuaHoSoState extends State<ManHinhChinhSuaHoSo> {
           ),
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8), fontWeight: FontWeight.normal),
+            hintStyle: const TextStyle(
+              fontSize: 13,
+              color: Color(0xFF94A3B8),
+              fontWeight: FontWeight.normal,
+            ),
             prefixIcon: Icon(icon, size: 18, color: const Color(0xFF09638E)),
             suffixIcon: suffixIcon,
             filled: true,
             fillColor: const Color(0xFFF8FAFC),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 12,
+            ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFF09638E), width: 1.5),
+              borderSide: const BorderSide(
+                color: Color(0xFF09638E),
+                width: 1.5,
+              ),
             ),
             errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
@@ -473,11 +830,151 @@ class _ManHinhChinhSuaHoSoState extends State<ManHinhChinhSuaHoSo> {
             ),
             focusedErrorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFFDC2626), width: 1.5),
+              borderSide: const BorderSide(
+                color: Color(0xFFDC2626),
+                width: 1.5,
+              ),
             ),
           ),
         ),
       ],
+    );
+  }
+
+  Future<void> _chonAnhCccd(ImageSource source, bool isMatTruoc) async {
+    try {
+      final XFile? file = await _picker.pickImage(source: source, imageQuality: 90);
+      if (file == null) return;
+      final bytes = await file.readAsBytes();
+      setState(() {
+        if (isMatTruoc) {
+          _bytesMatTruoc = bytes;
+        } else {
+          _bytesMatSau = bytes;
+        }
+      });
+    } catch (e) {
+      debugPrint('Lỗi chọn ảnh CCCD: $e');
+    }
+  }
+
+  void _hienThiModalChonAnh(bool isMatTruoc) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Tải ảnh ${isMatTruoc ? 'Mặt trước' : 'Mặt sau'} CCCD',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              const SizedBox(height: 12),
+              ListTile(
+                leading: const Icon(Icons.camera_alt_rounded, color: Color(0xFF09638E)),
+                title: const Text('Chụp ảnh trực tiếp từ Camera'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _chonAnhCccd(ImageSource.camera, isMatTruoc);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library_rounded, color: Color(0xFF09638E)),
+                title: const Text('Chọn ảnh từ Thư viện'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _chonAnhCccd(ImageSource.gallery, isMatTruoc);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCccdBox({
+    required bool isMatTruoc,
+    required String title,
+    Uint8List? bytes,
+    String? url,
+  }) {
+    final hasImage = bytes != null || (url != null && url.isNotEmpty);
+
+    return InkWell(
+      onTap: () => _hienThiModalChonAnh(isMatTruoc),
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        height: 110,
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: hasImage ? const Color(0xFF09638E) : const Color(0xFFCBD5E1),
+            width: hasImage ? 2 : 1,
+          ),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            if (bytes != null)
+              Image.memory(bytes, fit: BoxFit.cover, width: double.infinity, height: double.infinity)
+            else if (url != null && url.isNotEmpty)
+              url.startsWith('data:image')
+                  ? Image.memory(
+                      base64Decode(url.contains(',') ? url.split(',').last : url),
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      height: double.infinity,
+                      errorBuilder: (_, __, ___) => const Center(
+                        child: Icon(Icons.broken_image_rounded, color: Color(0xFF94A3B8)),
+                      ),
+                    )
+                  : Image.network(
+                      url,
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      height: double.infinity,
+                      errorBuilder: (_, __, ___) => const Center(
+                        child: Icon(Icons.broken_image_rounded, color: Color(0xFF94A3B8)),
+                      ),
+                    )
+            else
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.add_a_photo_outlined, color: Color(0xFF09638E), size: 22),
+                  const SizedBox(height: 6),
+                  Text(
+                    title,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF334155)),
+                  ),
+                  const SizedBox(height: 2),
+                  const Text('Chạm để chụp / chọn ảnh', style: TextStyle(fontSize: 9.5, color: Color(0xFF94A3B8))),
+                ],
+              ),
+            if (hasImage)
+              Positioned(
+                right: 6,
+                top: 6,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF09638E),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.edit, size: 12, color: Colors.white),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -10,6 +10,11 @@ class HopDongModel {
   final String maPhong;
   final String maKhachDaiDien;
   final String ngayKy;
+  final bool daXacNhanBanGiao;
+  final String? ngayXacNhanBanGiao;
+  final String? ghiChuBanGiao;
+  final String? chuKyBenA;
+  final String? chuKyBenB;
 
   HopDongModel({
     required this.maHopDong,
@@ -22,7 +27,15 @@ class HopDongModel {
     required this.maPhong,
     required this.maKhachDaiDien,
     required this.ngayKy,
+    this.daXacNhanBanGiao = false,
+    this.ngayXacNhanBanGiao,
+    this.ghiChuBanGiao,
+    this.chuKyBenA,
+    this.chuKyBenB,
   });
+
+  /// Kiểm tra xem Bên B (khách thuê) đã ký hợp đồng hay chưa
+  bool get daKyBenB => chuKyBenB != null && chuKyBenB!.isNotEmpty;
 
   factory HopDongModel.fromJson(Map<String, dynamic> json) {
     return HopDongModel(
@@ -36,6 +49,11 @@ class HopDongModel {
       maPhong: json['ma_phong']?.toString() ?? '',
       maKhachDaiDien: json['ma_khach_dai_dien']?.toString() ?? '',
       ngayKy: json['ngay_ky']?.toString() ?? '',
+      daXacNhanBanGiao: json['da_xac_nhan_ban_giao'] == true,
+      ngayXacNhanBanGiao: json['ngay_xac_nhan_ban_giao']?.toString(),
+      ghiChuBanGiao: json['ghi_chu_ban_giao']?.toString(),
+      chuKyBenA: json['chu_ky_ben_a']?.toString(),
+      chuKyBenB: json['chu_ky_ben_b']?.toString(),
     );
   }
 

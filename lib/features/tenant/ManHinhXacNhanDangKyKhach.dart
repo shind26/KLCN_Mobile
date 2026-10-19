@@ -20,7 +20,7 @@ class ManHinhXacNhanDangKyKhach extends StatefulWidget {
     required this.thoiGian,
     required this.soDem,
     required this.moiQuanHe,
-    this.tenPhong = 'Phòng 302',
+    this.tenPhong = 'Phòng 203',
     this.toaNha = 'Tòa Kiêu Giang 2',
   });
 
@@ -367,9 +367,9 @@ class _ManHinhXacNhanDangKyKhachState extends State<ManHinhXacNhanDangKyKhach>
             children: [
               const Icon(Icons.receipt_long_rounded, color: _primary, size: 18),
               const SizedBox(width: 8),
-              const Text(
-                'Phiếu #TT-302-1510',
-                style: TextStyle(
+              Text(
+                'Phiếu #TT-${widget.tenPhong.replaceAll(RegExp(r'[^0-9]'), '').isEmpty ? '203' : widget.tenPhong.replaceAll(RegExp(r'[^0-9]'), '')}-${DateTime.now().day}${DateTime.now().month}',
+                style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
                   color: _primary,

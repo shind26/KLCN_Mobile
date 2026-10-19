@@ -1,7 +1,10 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:nhatro_kieugiang/core/services/DichVuXacThuc.dart';
+import 'package:nhatro_kieugiang/core/utils/ThongBaoHelper.dart';
 import 'package:nhatro_kieugiang/data/models/KhachLuuTruModel.dart';
 import 'package:nhatro_kieugiang/features/tenant/ManHinhDangKyKhachQuaDem.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -13,7 +16,7 @@ class ManHinhLichSuLuuTru extends StatefulWidget {
 
   const ManHinhLichSuLuuTru({
     super.key,
-    this.tenPhong = 'Phòng 302',
+    this.tenPhong = 'Phòng 203',
     this.toaNha = 'Kiêu Giang 2',
     this.initialTabIndex = 0,
   });
@@ -33,43 +36,126 @@ class _ManHinhLichSuLuuTruState extends State<ManHinhLichSuLuuTru> {
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
 
+  RealtimeChannel? _rtChannel;
+  Timer? _pollingTimer;
+  final Set<String> _notifiedDuyetIds = {};
+
   @override
   void initState() {
     super.initState();
     _selectedTabIndex = widget.initialTabIndex;
     _taiDanhSachTuSupabase();
+    _initRealtimeLuuTru();
+  }
+
+  void _initRealtimeLuuTru() {
+    try {
+      final db = Supabase.instance.client;
+      final chName = 'public:guest_rt_${DateTime.now().millisecondsSinceEpoch}';
+      _rtChannel = db.channel(chName)
+        ..onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'dang_ky_khach_qua_dem',
+          callback: (payload) {
+            debugPrint('[REALTIME_GUEST] Thay đổi: ${payload.newRecord}');
+            _taiDanhSachTuSupabase(silent: true);
+          },
+        )
+        ..subscribe();
+    } catch (e) {
+      debugPrint('[REALTIME_GUEST] Lỗi đăng ký: $e');
+    }
+
+    _pollingTimer = Timer.periodic(const Duration(seconds: 8), (_) {
+      if (mounted) {
+        _taiDanhSachTuSupabase(silent: true);
+      }
+    });
   }
 
   @override
   void dispose() {
+    _pollingTimer?.cancel();
+    if (_rtChannel != null) {
+      try {
+        Supabase.instance.client.removeChannel(_rtChannel!);
+      } catch (_) {}
+    }
     _searchController.dispose();
     super.dispose();
   }
 
-  Future<void> _taiDanhSachTuSupabase() async {
-    setState(() => _isLoading = true);
+  Future<void> _taiDanhSachTuSupabase({bool silent = false}) async {
+    if (!silent) setState(() => _isLoading = true);
     try {
       final db = Supabase.instance.client;
-      var query = db.from('dang_ky_khach_qua_dem').select();
       final pDigits = widget.tenPhong.replaceAll(RegExp(r'[^0-9]'), '');
+
+      final Set<String> orFilters = {};
       if (pDigits.isNotEmpty) {
-        query = query.or(
-          'ma_phong.eq.P$pDigits,ma_phong.eq.$pDigits,ma_phong.eq.${widget.tenPhong}',
-        );
+        orFilters.add('ma_phong.eq.P$pDigits');
+        orFilters.add('ma_phong.eq.$pDigits');
+        orFilters.add('ma_phong.ilike.%$pDigits%');
+      }
+      if (widget.tenPhong.isNotEmpty) {
+        orFilters.add('ma_phong.eq.${widget.tenPhong}');
+      }
+
+      final user = AuthService.currentUser;
+      if (user != null && user.maTaiKhoan.isNotEmpty) {
+        try {
+          final kt = await db
+              .from('khach_thue')
+              .select('ma_khach')
+              .eq('ma_tai_khoan', user.maTaiKhoan)
+              .maybeSingle();
+          if (kt != null && kt['ma_khach'] != null) {
+            orFilters.add('ma_khach_dang_ky.eq.${kt['ma_khach']}');
+          }
+        } catch (_) {}
+      }
+
+      var query = db.from('dang_ky_khach_qua_dem').select();
+      if (orFilters.isNotEmpty) {
+        query = query.or(orFilters.join(','));
       }
       final res = await query.order('tu_ngay', ascending: false);
 
       final listMoi = (res as List)
           .map((m) => KhachLuuTruModel.fromSupabase(m))
           .toList();
-      setState(() {
-        KhachLuuTruModel.danhSachLuuTru.clear();
-        KhachLuuTruModel.danhSachLuuTru.addAll(listMoi);
-      });
+
+      // Kiểm tra xem có bản ghi nào vừa được chủ trọ duyệt không để thông báo
+      for (final item in listMoi) {
+        if (_isDaDuyet(item.trangThai)) {
+          final key = 'guest_approved_${item.id}';
+          if (!_notifiedDuyetIds.contains(key) && !ThongBaoHelper.daXem(key)) {
+            _notifiedDuyetIds.add(key);
+            ThongBaoHelper.danhDauDaXem(key);
+            if (mounted) {
+              ThongBaoHelper.hienToast(
+                context,
+                tieuDe: 'Khách Đã Được Duyệt!',
+                noiDung:
+                    'Chủ trọ đã phê duyệt đăng ký khách ${item.hoTen} (${item.thoiGian})!',
+                type: ThongBaoType.thanhCong,
+              );
+            }
+          }
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          KhachLuuTruModel.danhSachLuuTru.clear();
+          KhachLuuTruModel.danhSachLuuTru.addAll(listMoi);
+        });
+      }
     } catch (e) {
       debugPrint('[LICH_SU] Lỗi load Supabase: $e');
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted && !silent) setState(() => _isLoading = false);
     }
   }
 
@@ -111,19 +197,21 @@ class _ManHinhLichSuLuuTruState extends State<ManHinhLichSuLuuTru> {
           .eq('ma_dang_ky', maDangKy);
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Đã hủy phiếu đăng ký thành công!'),
-          backgroundColor: Color(0xFF16A34A),
-          behavior: SnackBarBehavior.floating,
-        ),
+      ThongBaoHelper.hienToast(
+        context,
+        tieuDe: 'Hủy phiếu thành công',
+        noiDung: 'Đã hủy phiếu đăng ký lưu trú thành công!',
+        type: ThongBaoType.thanhCong,
       );
       _taiDanhSachTuSupabase();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
+      ThongBaoHelper.hienToast(
         context,
-      ).showSnackBar(SnackBar(content: Text('Lỗi khi hủy: $e')));
+        tieuDe: 'Lỗi hủy phiếu',
+        noiDung: 'Lỗi khi hủy: $e',
+        type: ThongBaoType.thatBai,
+      );
     }
   }
 
@@ -136,6 +224,36 @@ class _ManHinhLichSuLuuTruState extends State<ManHinhLichSuLuuTru> {
     return parts[0][0].toUpperCase();
   }
 
+  bool _isChoDuyet(String status) {
+    final s = status.trim().toLowerCase();
+    return s.contains('chờ') || s.contains('cho') || s.contains('pending');
+  }
+
+  bool _isDaDuyet(String status) {
+    final s = status.trim().toLowerCase();
+    if (_isChoDuyet(status)) return false;
+    if (_isTuChoi(status)) return false;
+    return s.contains('duyệt') ||
+        s.contains('duyet') ||
+        s.contains('hoàn tất') ||
+        s.contains('hoan tat') ||
+        s.contains('đồng ý') ||
+        s.contains('dong y') ||
+        s.contains('chấp nhận') ||
+        s.contains('chap nhan') ||
+        s.contains('approved') ||
+        s.contains('thành công');
+  }
+
+  bool _isTuChoi(String status) {
+    final s = status.trim().toLowerCase();
+    return s.contains('từ chối') ||
+        s.contains('tu choi') ||
+        s.contains('hủy') ||
+        s.contains('huy') ||
+        s.contains('rejected');
+  }
+
   // Lọc danh sách theo tab và tìm kiếm
   List<KhachLuuTruModel> get _danhSachLoc {
     var list = KhachLuuTruModel.danhSachLuuTru;
@@ -143,22 +261,13 @@ class _ManHinhLichSuLuuTruState extends State<ManHinhLichSuLuuTru> {
     // Lọc theo Tab
     if (_selectedTabIndex == 1) {
       // Chờ duyệt
-      list = list.where((x) {
-        final st = x.trangThai.toLowerCase();
-        return st.contains('chờ') || st.contains('đang chờ');
-      }).toList();
+      list = list.where((x) => _isChoDuyet(x.trangThai)).toList();
     } else if (_selectedTabIndex == 2) {
       // Đã duyệt
-      list = list.where((x) {
-        final st = x.trangThai.toLowerCase();
-        return st.contains('đã duyệt') || st.contains('hoàn tất');
-      }).toList();
+      list = list.where((x) => _isDaDuyet(x.trangThai)).toList();
     } else if (_selectedTabIndex == 3) {
       // Từ chối
-      list = list.where((x) {
-        final st = x.trangThai.toLowerCase();
-        return st.contains('từ chối') || st.contains('hủy');
-      }).toList();
+      list = list.where((x) => _isTuChoi(x.trangThai)).toList();
     }
 
     // Lọc theo từ khóa tìm kiếm
@@ -174,24 +283,22 @@ class _ManHinhLichSuLuuTruState extends State<ManHinhLichSuLuuTru> {
     return list;
   }
 
-  int get _countChoDuyet => KhachLuuTruModel.danhSachLuuTru.where((x) {
-    final st = x.trangThai.toLowerCase();
-    return st.contains('chờ') || st.contains('đang chờ');
-  }).length;
+  int get _countChoDuyet => KhachLuuTruModel.danhSachLuuTru
+      .where((x) => _isChoDuyet(x.trangThai))
+      .length;
 
-  int get _countDaDuyet => KhachLuuTruModel.danhSachLuuTru.where((x) {
-    final st = x.trangThai.toLowerCase();
-    return st.contains('đã duyệt') || st.contains('hoàn tất');
-  }).length;
+  int get _countDaDuyet => KhachLuuTruModel.danhSachLuuTru
+      .where((x) => _isDaDuyet(x.trangThai))
+      .length;
 
-  int get _countTuChoi => KhachLuuTruModel.danhSachLuuTru.where((x) {
-    final st = x.trangThai.toLowerCase();
-    return st.contains('từ chối') || st.contains('hủy');
-  }).length;
+  int get _countTuChoi => KhachLuuTruModel.danhSachLuuTru
+      .where((x) => _isTuChoi(x.trangThai))
+      .length;
 
   // Bảng chi tiết khách lưu trú
   void _xemChiTiet(KhachLuuTruModel item) {
-    final bool isChoDuyet = item.trangThai.toLowerCase().contains('chờ');
+    final bool isChoDuyet = _isChoDuyet(item.trangThai);
+    final bool isDaDuyet = _isDaDuyet(item.trangThai);
 
     showModalBottomSheet(
       context: context,
@@ -260,7 +367,7 @@ class _ManHinhLichSuLuuTruState extends State<ManHinhLichSuLuuTru> {
                 item.trangThai,
                 valueColor: isChoDuyet
                     ? const Color(0xFFD97706)
-                    : (item.trangThai == 'Đã duyệt'
+                    : (isDaDuyet
                           ? const Color(0xFF16A34A)
                           : const Color(0xFFDC2626)),
               ),
@@ -845,9 +952,8 @@ class _ManHinhLichSuLuuTruState extends State<ManHinhLichSuLuuTru> {
   }
 
   Widget _buildTheKhachLuuTru(KhachLuuTruModel item) {
-    final String st = item.trangThai.toLowerCase();
-    final bool isChoDuyet = st.contains('chờ') || st.contains('đang chờ');
-    final bool isDaDuyet = st.contains('đã duyệt') || st.contains('hoàn tất');
+    final bool isChoDuyet = _isChoDuyet(item.trangThai);
+    final bool isDaDuyet = _isDaDuyet(item.trangThai);
 
     final Color badgeBg = isChoDuyet
         ? const Color(0xFFFFFBEB)

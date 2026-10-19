@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:nhatro_kieugiang/core/utils/AmThanhThanhToanHelper.dart';
+import 'package:nhatro_kieugiang/core/utils/ThongBaoHelper.dart';
 import 'package:nhatro_kieugiang/core/utils/TienIchDinhDang.dart';
 import 'package:nhatro_kieugiang/data/models/MoHinhHopDong.dart';
 import 'package:nhatro_kieugiang/features/tenant/ManHinhLichSuHoaDon.dart';
@@ -125,44 +126,22 @@ class _PaymentCompletedScreenState extends State<PaymentCompletedScreen>
 
   void _copyRef() {
     Clipboard.setData(ClipboardData(text: _transactionRef));
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(
-              Icons.check_circle_rounded,
-              color: Colors.white,
-              size: 18,
-            ),
-            const SizedBox(width: 8),
-            Text('Đã sao chép mã giao dịch: $_transactionRef'),
-          ],
-        ),
-        backgroundColor: const Color(0xFF10B981),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        duration: const Duration(seconds: 2),
-      ),
+    ThongBaoHelper.hienToast(
+      context,
+      tieuDe: 'Đã sao chép',
+      noiDung: 'Đã sao chép mã giao dịch: $_transactionRef vào bộ nhớ tạm!',
+      type: ThongBaoType.thongTin,
+      duration: const Duration(milliseconds: 1500),
     );
   }
 
   void _shareReceipt() {
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Row(
-          children: [
-            Icon(Icons.download_done_rounded, color: Colors.white, size: 18),
-            SizedBox(width: 8),
-            Text('Biên lai điện tử đã sẵn sàng để lưu hoặc in.'),
-          ],
-        ),
-        backgroundColor: _primary,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        duration: const Duration(seconds: 2),
-      ),
+    ThongBaoHelper.hienToast(
+      context,
+      tieuDe: 'Biên lai điện tử',
+      noiDung: 'Biên lai điện tử đã sẵn sàng để lưu hoặc in.',
+      type: ThongBaoType.thongTin,
+      duration: const Duration(milliseconds: 1500),
     );
   }
 

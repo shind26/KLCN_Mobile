@@ -7,6 +7,8 @@ import 'package:nhatro_kieugiang/data/models/MoHinhHopDong.dart';
 import 'package:nhatro_kieugiang/features/tenant/ManHinhChiTietHopDong.dart';
 import 'package:nhatro_kieugiang/features/tenant/ManHinhTimKiemChuyenPhong.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:nhatro_kieugiang/core/widgets/LoadingMeoMeo.dart';
+import 'package:nhatro_kieugiang/core/services/DichVuXacThuc.dart';
 
 class ManHinhGiaHanHopDong extends StatefulWidget {
   final HopDongModel? hopDong;
@@ -28,11 +30,11 @@ class _ManHinhGiaHanHopDongState extends State<ManHinhGiaHanHopDong> {
   // 0: Form chọn kỳ hạn, 1: Trạng thái yêu cầu / Thành công
   int _step = 0;
 
-  // Lựa chọn gói: '3', '6', '12', 'khac'
+  // Lựa chọn gói: '6', '9', '12', 'khac'
   String _selectedPackage = '6';
 
-  // Khi chọn 'khac': số tháng
-  int _customMonths = 3;
+  // Khi chọn 'khac': số tháng (tối thiểu 6, tối đa 12)
+  int _customMonths = 6;
   final TextEditingController _lyDoController = TextEditingController();
 
   bool _isSubmitting = false;
@@ -50,6 +52,12 @@ class _ManHinhGiaHanHopDongState extends State<ManHinhGiaHanHopDong> {
   StreamSubscription? _phuLucSub;
   Timer? _phuLucPollTimer;
   bool _hasNotifiedApproval = false;
+
+  /// Số ngày còn lại đến khi hợp đồng hết hạn
+  int get _soNgayConLai => _ngayHetHan.difference(DateTime.now()).inDays;
+
+  /// Ràng buộc: Sắp hết hạn (còn <= 30 ngày hoặc đã hết hạn) mới được gửi đơn gia hạn
+  bool get _duDieuKienGiaHan => _soNgayConLai <= 30;
 
   @override
   void initState() {
@@ -314,10 +322,10 @@ class _ManHinhGiaHanHopDongState extends State<ManHinhGiaHanHopDong> {
   }
 
   int get _selectedMonths {
-    if (_selectedPackage == '3') return 3;
     if (_selectedPackage == '6') return 6;
+    if (_selectedPackage == '9') return 9;
     if (_selectedPackage == '12') return 12;
-    return _customMonths;
+    return _customMonths.clamp(6, 12);
   }
 
   DateTime get _ngayBatDauMoi {
@@ -350,16 +358,43 @@ class _ManHinhGiaHanHopDongState extends State<ManHinhGiaHanHopDong> {
 
   // ── RÀNG BUỘC & GỬI YÊU CẦU LƯU VÀO SUPABASE ──────────────
   Future<void> _guiYeuCauGiaHan() async {
-    // 1. Ràng buộc: Số tháng tối thiểu
-    if (_selectedPackage == 'khac' && _customMonths < 3) {
-      ThongBaoHelper.hienThongBao(
+    // 1. Ràng buộc: Sắp hết hạn mới được gửi đơn gia hạn hợp đồng (trong vòng 30 ngày)
+    if (!_duDieuKienGiaHan) {
+      ThongBaoHelper.hienToast(
         context,
-        tieuDe: 'Kỳ Hạn Chưa Hợp Lệ',
+        tieuDe: 'Chưa Đến Hạn Gia Hạn',
         noiDung:
-            'Kỳ hạn gia hạn tối thiểu từ 3 tháng trở lên để được bảo lưu 100% tiền đặt cọc!',
+            'Hợp đồng còn $_soNgayConLai ngày (đến ngày ${_formatDate(_ngayHetHan)}). Theo quy định, chỉ được gửi đơn gia hạn khi hợp đồng sắp hết hạn (trong vòng 30 ngày cuối)!',
         type: ThongBaoType.canhBao,
       );
       return;
+    }
+
+    // 2. Ràng buộc: Thời gian gia hạn tối thiểu 6 tháng, tối đa 1 năm (12 tháng)
+    if (_selectedMonths < 6 || _selectedMonths > 12) {
+      ThongBaoHelper.hienToast(
+        context,
+        tieuDe: 'Kỳ Hạn Chưa Hợp Lệ',
+        noiDung:
+            'Quy định thời gian gia hạn hợp đồng tối thiểu là 6 tháng và tối đa là 1 năm (12 tháng)!',
+        type: ThongBaoType.canhBao,
+      );
+      return;
+    }
+
+    // Ràng buộc bảo mật: Chỉ Người đại diện (Trưởng phòng) mới được gửi đơn gia hạn
+    final user = AuthService.currentUser;
+    if (user != null) {
+      final role = user.vaiTro.toLowerCase();
+      if (role.contains('thanhvien') || role.contains('banocung') || role.contains('ocung')) {
+        ThongBaoHelper.hienThongBao(
+          context,
+          tieuDe: 'Không Có Quyền Thực Hiện',
+          noiDung: 'Bạn đang đăng nhập với tư cách Thành viên phòng (Bạn cùng phòng). Thủ tục gia hạn hợp đồng chỉ có Người đại diện (Trưởng phòng) mới có thẩm quyền thực hiện!',
+          type: ThongBaoType.canhBao,
+        );
+        return;
+      }
     }
 
     setState(() => _isSubmitting = true);
@@ -508,7 +543,10 @@ class _ManHinhGiaHanHopDongState extends State<ManHinhGiaHanHopDong> {
       ),
       body: SafeArea(
         child: _isLoadingCheck
-            ? const Center(child: CircularProgressIndicator(color: Color(0xFF09638E)))
+            ? const LoadingMeoMeo(
+                message: 'Đang kiểm tra hợp đồng...',
+                subMessage: 'Mèo con đang tải chính sách gia hạn~ 🐾',
+              )
             : (_step == 0 ? _buildFormGiaHan() : _buildManHinhThanhCong()),
       ),
     ));
@@ -574,220 +612,66 @@ class _ManHinhGiaHanHopDongState extends State<ManHinhGiaHanHopDong> {
           // ── THÔNG TIN HỢP ĐỒNG HIỆN TẠI ──
           _buildHopDongHienTaiCard(),
 
-          if (_soThangConLai > 2)
-            Padding(
-              padding: const EdgeInsets.only(top: 12),
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFFBEB),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFFDE68A)),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(Icons.info_outline_rounded, color: Color(0xFFD97706), size: 17),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Ràng buộc thời gian: Hợp đồng của bạn còn $_soThangConLai tháng nữa mới đến hạn. Cổng gia hạn thông thường mở trước 30-60 ngày, bạn đang gửi đề xuất gia hạn sớm để giữ mức giá ưu đãi và giữ phòng.',
-                        style: const TextStyle(
-                          fontSize: 11.5,
-                          color: Color(0xFF92400E),
-                          height: 1.4,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+          // ── RÀNG BUỘC THỜI GIAN GIA HẠN: CÒN <= 30 NGÀY (1 THÁNG) MỚI CHO GIA HẠN ──
+          if (!_duDieuKienGiaHan)
+            _buildChuaDenHanGiaHanView()
+          else ...[
+            Container(
+              margin: const EdgeInsets.only(top: 14),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFECFDF5),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFF86EFAC)),
               ),
-            ),
-
-          const SizedBox(height: 18),
-
-          // ── TIÊU ĐỀ CHỌN THỜI GIAN GIA HẠN ──
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Thời gian muốn gia hạn thêm',
-                style: TextStyle(
-                  fontSize: 14.5,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF0F172A),
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEFF6FF),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: const [
-                    Icon(Icons.auto_awesome, color: Color(0xFF2563EB), size: 12),
-                    SizedBox(width: 4),
-                    Text(
-                      'Nối tiếp tự động',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Color(0xFF2563EB),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-
-          // ── 3 LỰA CHỌN GÓI: 3 THÁNG, 6 THÁNG, 12 THÁNG ──
-          Row(
-            children: [
-              Expanded(
-                child: _buildPackageCard(
-                  id: '3',
-                  title: '3 Th',
-                  subtitle: 'Giữ giá gốc',
-                  priceSub: '${(_giaThue / 1000000).toStringAsFixed(1)}M/th',
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildPackageCard(
-                  id: '6',
-                  title: '6 Th',
-                  subtitle: 'Giữ giá gốc',
-                  priceSub: '${(_giaThue / 1000000).toStringAsFixed(1)}M/th',
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildPackageCard(
-                  id: '12',
-                  title: '12 Th',
-                  subtitle: 'Giữ giá gốc',
-                  priceSub: '${(_giaThue / 1000000).toStringAsFixed(1)}M/th',
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-
-          // Tùy chọn số tháng khác (nếu cần thỏa thuận riêng)
-          Align(
-            alignment: Alignment.centerRight,
-            child: InkWell(
-              onTap: () {
-                setState(() {
-                  _selectedPackage = _selectedPackage == 'khac' ? '6' : 'khac';
-                });
-              },
-              borderRadius: BorderRadius.circular(8),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      _selectedPackage == 'khac' ? Icons.check_circle_rounded : Icons.tune_rounded,
-                      size: 14,
-                      color: const Color(0xFF0284C7),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      _selectedPackage == 'khac' ? 'Đang chọn số tháng tùy chỉnh' : 'Tùy chọn số tháng khác',
+              child: Row(
+                children: [
+                  const Icon(Icons.check_circle_rounded, color: Color(0xFF16A34A), size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Hợp đồng sắp hết hạn (còn $_soNgayConLai ngày). Đủ điều kiện gửi đơn gia hạn!',
                       style: const TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF0284C7),
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF15803D),
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
-          ),
-          const SizedBox(height: 16),
+            const SizedBox(height: 18),
 
-          // ── NẾU CHỌN TÙY CHỌN KHÁC ──
-          if (_selectedPackage == 'khac') ...[
-            _buildCustomSection(),
-            const SizedBox(height: 16),
-          ],
-
-          // ── KỲ HẠN MỚI DỰ KIẾN ──
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-            ),
-            child: Row(
+            // ── TIÊU ĐỀ CHỌN THỜI GIAN GIA HẠN (TỐI THIỂU 6 THÁNG, TỐI ĐA 1 NĂM) ──
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Icon(Icons.date_range_rounded, color: Color(0xFF0284C7), size: 20),
-                const SizedBox(width: 10),
                 const Text(
-                  'Kỳ hạn mới:',
+                  'Thời gian muốn gia hạn thêm',
                   style: TextStyle(
-                    fontSize: 13,
-                    color: Color(0xFF64748B),
-                    fontWeight: FontWeight.w500,
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF0F172A),
                   ),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    '${_formatDate(_ngayBatDauMoi)} → ${_formatDate(_ngayKetThucMoi)}',
-                    textAlign: TextAlign.right,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF0F172A),
-                    ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 18),
-
-          // ── CAM KẾT QUYỀN LỢI KHÁCH THUÊ ──
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF0FDF4),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: const Color(0xFFBBF7D0)),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Icon(Icons.check_circle_rounded, color: Color(0xFF16A34A), size: 20),
-                SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [
+                      Icon(Icons.auto_awesome, color: Color(0xFF2563EB), size: 12),
+                      SizedBox(width: 4),
                       Text(
-                        'Cam kết quyền lợi khách thuê',
+                        'Tối thiểu 6th - Tối đa 1 năm',
                         style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF15803D),
-                        ),
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        'Tiền cọc bảo lưu 100%. BQL Kiêu Giang duyệt & gửi phụ lục ký điện tử qua ứng dụng trong 24 giờ làm việc.',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF166534),
-                          height: 1.4,
+                          fontSize: 11,
+                          color: Color(0xFF2563EB),
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ],
@@ -795,43 +679,359 @@ class _ManHinhGiaHanHopDongState extends State<ManHinhGiaHanHopDong> {
                 ),
               ],
             ),
-          ),
-          const SizedBox(height: 24),
+            const SizedBox(height: 12),
 
-          // ── NÚT GỬI YÊU CẦU ──
-          SizedBox(
-            width: double.infinity,
-            height: 50,
-            child: ElevatedButton(
-              onPressed: _isSubmitting ? null : _guiYeuCauGiaHan,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF09638E),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                elevation: 0,
+            // ── 3 LỰA CHỌN GÓI: 6 THÁNG, 9 THÁNG, 12 THÁNG (1 NĂM) ──
+            Row(
+              children: [
+                Expanded(
+                  child: _buildPackageCard(
+                    id: '6',
+                    title: '6 Th',
+                    subtitle: 'Tối thiểu 6th',
+                    priceSub: '${(_giaThue / 1000000).toStringAsFixed(1)}M/th',
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildPackageCard(
+                    id: '9',
+                    title: '9 Th',
+                    subtitle: 'Tiêu chuẩn',
+                    priceSub: '${(_giaThue / 1000000).toStringAsFixed(1)}M/th',
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildPackageCard(
+                    id: '12',
+                    title: '12 Th',
+                    subtitle: 'Tối đa 1 năm',
+                    tag: 'Ưu đãi nhất',
+                    priceSub: '${(_giaThue / 1000000).toStringAsFixed(1)}M/th',
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+
+            // Tùy chọn số tháng khác (trong khoảng 6 - 12 tháng)
+            Align(
+              alignment: Alignment.centerRight,
+              child: InkWell(
+                onTap: () {
+                  setState(() {
+                    _selectedPackage = _selectedPackage == 'khac' ? '6' : 'khac';
+                  });
+                },
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        _selectedPackage == 'khac' ? Icons.check_circle_rounded : Icons.tune_rounded,
+                        size: 14,
+                        color: const Color(0xFF0284C7),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        _selectedPackage == 'khac' ? 'Đang chọn số tháng tùy chỉnh' : 'Tùy chọn số tháng khác (6 - 12 th)',
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF0284C7),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-              child: _isSubmitting
-                  ? const SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                    )
-                  : Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+            ),
+            const SizedBox(height: 16),
+
+            // ── NẾU CHỌN TÙY CHỌN KHÁC ──
+            if (_selectedPackage == 'khac') ...[
+              _buildCustomSection(),
+              const SizedBox(height: 16),
+            ],
+
+            // ── KỲ HẠN MỚI DỰ KIẾN ──
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.date_range_rounded, color: Color(0xFF0284C7), size: 20),
+                  const SizedBox(width: 10),
+                  const Text(
+                    'Kỳ hạn mới:',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF64748B),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      '${_formatDate(_ngayBatDauMoi)} → ${_formatDate(_ngayKetThucMoi)}',
+                      textAlign: TextAlign.right,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 18),
+
+            // ── CAM KẾT QUYỀN LỢI KHÁCH THUÊ ──
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0FDF4),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFBBF7D0)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: const [
+                  Icon(Icons.check_circle_rounded, color: Color(0xFF16A34A), size: 20),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          _selectedPackage == 'khac' ? 'Gửi Đề Xuất Gia Hạn' : 'Gửi Yêu Cầu Gia Hạn',
-                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                          'Cam kết quyền lợi khách thuê',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF15803D),
+                          ),
                         ),
-                        const SizedBox(width: 6),
-                        const Icon(Icons.arrow_forward_rounded, size: 18),
+                        SizedBox(height: 4),
+                        Text(
+                          'Tiền cọc bảo lưu 100%. BQL Kiêu Giang duyệt & gửi phụ lục ký điện tử qua ứng dụng trong 24 giờ làm việc.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF166534),
+                            height: 1.4,
+                          ),
+                        ),
                       ],
                     ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
+            const SizedBox(height: 24),
+
+            // ── NÚT GỬI YÊU CẦU (CHỈ HIỆN KHI ĐỦ ĐIỀU KIỆN) ──
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton(
+                onPressed: _isSubmitting ? null : _guiYeuCauGiaHan,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF09638E),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  elevation: 0,
+                ),
+                child: _isSubmitting
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                      )
+                    : Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            _selectedPackage == 'khac' ? 'Gửi Đề Xuất Gia Hạn' : 'Gửi Yêu Cầu Gia Hạn',
+                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(width: 6),
+                          const Icon(Icons.arrow_forward_rounded, size: 18),
+                        ],
+                      ),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
         ],
       ),
+    );
+  }
+
+  // ── GIAO DIỆN KHÓA: CHƯA ĐẾN HẠN GIA HẠN HỢP ĐỒNG ──
+  Widget _buildChuaDenHanGiaHanView() {
+    return Column(
+      children: [
+        const SizedBox(height: 14),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFFFCA5A5), width: 1.4),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFFEF2F2),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.lock_clock_rounded,
+                  color: Color(0xFFDC2626),
+                  size: 42,
+                ),
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                'CHƯA ĐẾN THỜI HẠN GIA HẠN',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 16.5,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFFB91C1C),
+                  letterSpacing: -0.3,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF2F2),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFFFECACA)),
+                ),
+                child: Text(
+                  'Hợp đồng còn $_soNgayConLai ngày (đến ${_formatDate(_ngayHetHan)})',
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFFDC2626),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Row(
+                      children: [
+                        Icon(Icons.info_outline_rounded, size: 16, color: Color(0xFF0284C7)),
+                        SizedBox(width: 6),
+                        Text(
+                          'Ràng buộc quy định gia hạn:',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF0F172A),
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      '• Thời điểm gia hạn: Cư dân chỉ được gửi đơn gia hạn khi hợp đồng sắp hết hạn (trong vòng 30 ngày cuối / còn 1 tháng).\n\n• Thời gian gia hạn: Quy định tối thiểu 6 tháng và tối đa 1 năm (12 tháng).\n\n• Trạng thái hiện tại: Hợp đồng của bạn đang có hiệu lực dài hạn. Hệ thống tạm khóa chức năng gửi đơn để đảm bảo hợp đồng. Vui lòng quay lại khi hợp đồng bước vào tháng cuối cùng.',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: Color(0xFF475569),
+                        height: 1.45,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ManHinhLichSuGiaHanHopDong(
+                              hopDong: widget.hopDong,
+                              tenPhong: widget.tenPhong,
+                              maHopDong: _realMaHopDong,
+                            ),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.history_rounded, size: 17),
+                      label: const Text(
+                        'Xem lịch sử',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF334155),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        side: const BorderSide(color: Color(0xFFCBD5E1)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.arrow_back_rounded, size: 17),
+                      label: const Text(
+                        'Quay lại',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF09638E),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+      ],
     );
   }
 
@@ -1080,13 +1280,13 @@ class _ManHinhGiaHanHopDongState extends State<ManHinhGiaHanHopDong> {
           const SizedBox(height: 8),
           Row(
             children: [
-              _buildMonthChip(3),
+              _buildMonthChip(6),
               const SizedBox(width: 8),
-              _buildMonthChip(9),
+              _buildMonthChip(8),
               const SizedBox(width: 8),
-              _buildMonthChip(18),
+              _buildMonthChip(10),
               const SizedBox(width: 8),
-              _buildMonthChip(24, label: 'Số khác'),
+              _buildMonthChip(12, label: '1 Năm'),
             ],
           ),
           const SizedBox(height: 14),
@@ -1109,7 +1309,7 @@ class _ManHinhGiaHanHopDongState extends State<ManHinhGiaHanHopDong> {
                   children: [
                     IconButton(
                       icon: const Icon(Icons.remove, size: 16),
-                      onPressed: _customMonths > 1
+                      onPressed: _customMonths > 6
                           ? () => setState(() => _customMonths -= 1)
                           : null,
                     ),
@@ -1126,7 +1326,7 @@ class _ManHinhGiaHanHopDongState extends State<ManHinhGiaHanHopDong> {
                     ),
                     IconButton(
                       icon: const Icon(Icons.add, size: 16),
-                      onPressed: _customMonths < 36
+                      onPressed: _customMonths < 12
                           ? () => setState(() => _customMonths += 1)
                           : null,
                     ),
@@ -1156,7 +1356,7 @@ class _ManHinhGiaHanHopDongState extends State<ManHinhGiaHanHopDong> {
             controller: _lyDoController,
             maxLines: 3,
             decoration: InputDecoration(
-              hintText: 'VD: Em dự định ở thêm 3 tháng đến khi tốt nghiệp, hoặc mong muốn giữ nguyên giá cọc và thời gian linh hoạt...',
+              hintText: 'VD: Em dự định ở thêm 6 tháng hoặc 1 năm đến khi hoàn thành khóa luận, hoặc mong muốn thỏa thuận lịch thanh toán...',
               hintStyle: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
               filled: true,
               fillColor: const Color(0xFFF8FAFC),
@@ -1192,7 +1392,7 @@ class _ManHinhGiaHanHopDongState extends State<ManHinhGiaHanHopDong> {
                 SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Lưu ý: Kỳ hạn tối thiểu từ 3 tháng trở lên để được áp dụng chính sách bảo lưu tiền cọc theo quy chế Kiêu Giang House.',
+                    'Lưu ý: Thời gian gia hạn tối thiểu 6 tháng và tối đa 1 năm (12 tháng) theo quy định của Kiêu Giang House.',
                     style: TextStyle(fontSize: 11.5, color: Color(0xFF0369A1), height: 1.35),
                   ),
                 ),

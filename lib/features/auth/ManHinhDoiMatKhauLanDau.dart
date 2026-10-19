@@ -108,7 +108,7 @@ class _ManHinhDoiMatKhauLanDauState extends State<ManHinhDoiMatKhauLanDau> {
             ],
           ),
           content: const Text(
-            'Bạn đã đổi mật khẩu lần đầu thành công! Vui lòng đăng nhập lại bằng mật khẩu mới vừa tạo.',
+            'Bạn đã đổi mật khẩu lần đầu thành công! Hệ thống sẽ tự động đăng nhập và đưa bạn vào kiểm tra bàn giao phòng.',
             style: TextStyle(
               fontSize: 13,
               height: 1.4,
@@ -119,7 +119,7 @@ class _ManHinhDoiMatKhauLanDauState extends State<ManHinhDoiMatKhauLanDau> {
             ElevatedButton(
               onPressed: () {
                 Navigator.pop(ctx); // Đóng dialog
-                Navigator.pop(context, true); // Quay về lại trang đăng nhập
+                Navigator.pop(context, passMoi); // Trả về mật khẩu mới để tự động đăng nhập
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: _primary,
@@ -128,7 +128,7 @@ class _ManHinhDoiMatKhauLanDauState extends State<ManHinhDoiMatKhauLanDau> {
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
-              child: const Text('Đăng nhập lại'),
+              child: const Text('Tiếp tục nhận phòng →'),
             ),
           ],
         ),

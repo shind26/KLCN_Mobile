@@ -59,10 +59,18 @@ class AuthService {
     }
   }
 
-  /// Khởi tạo AuthService, đọc session lưu trước đó
+  /// Khởi tạo AuthService, đọc session lưu trước đó (chỉ phục hồi khi có chọn Ghi nhớ đăng nhập)
   static Future<void> init() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      final rememberMe = prefs.getBool(_keyRememberMe) ?? false;
+      if (!rememberMe) {
+        // Nếu không tick 'Ghi nhớ đăng nhập', xóa session cũ để người dùng vào với tư cách Khách vãng lai
+        await prefs.remove(_keyCurrentUser);
+        currentUserNotifier.value = null;
+        debugPrint('>>> [AuthService.init] rememberMe = false -> Chế độ Khách vãng lai (Chưa đăng nhập)');
+        return;
+      }
       final userJsonStr = prefs.getString(_keyCurrentUser);
       debugPrint(
         '>>> [AuthService.init] Đang đọc session từ SharedPreferences: $userJsonStr',
@@ -73,9 +81,12 @@ class AuthService {
         debugPrint(
           '>>> [AuthService.init] Phục hồi phiên đăng nhập thành công: ${currentUserNotifier.value?.tenDangNhap} (Vai trò: ${currentUserNotifier.value?.vaiTro})',
         );
+      } else {
+        currentUserNotifier.value = null;
       }
     } catch (e) {
       debugPrint('Lỗi khởi tạo AuthService: $e');
+      currentUserNotifier.value = null;
     }
   }
 
@@ -125,19 +136,19 @@ class AuthService {
         );
       }
 
-      // Lưu phiên đăng nhập
+      // Lưu phiên đăng nhập nếu được chọn ghi nhớ
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_keyCurrentUser, jsonEncode(user.toJson()));
-
       if (rememberMe) {
+        await prefs.setString(_keyCurrentUser, jsonEncode(user.toJson()));
         await prefs.setString(_keySavedUsername, username.trim());
         await prefs.setBool(_keyRememberMe, true);
       } else {
+        await prefs.remove(_keyCurrentUser);
         await prefs.remove(_keySavedUsername);
         await prefs.setBool(_keyRememberMe, false);
       }
 
-      // Cập nhật State toàn cục
+      // Cập nhật State toàn cục trong RAM cho phiên hiện tại
       currentUserNotifier.value = user;
 
       return (success: true, error: null, user: user);
@@ -228,9 +239,13 @@ class AuthService {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_keyCurrentUser);
+      await prefs.remove(_keySavedUsername);
+      await prefs.setBool(_keyRememberMe, false);
       currentUserNotifier.value = null;
+      debugPrint('>>> [AuthService.logout] Đã đăng xuất và xóa toàn bộ session lưu');
     } catch (e) {
       debugPrint('Lỗi khi đăng xuất: $e');
+      currentUserNotifier.value = null;
     }
   }
 
@@ -243,6 +258,17 @@ class AuthService {
   /// Lấy trạng thái ghi nhớ
   static Future<bool> getRememberMe() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_keyRememberMe) ?? true;
+    return prefs.getBool(_keyRememberMe) ?? false;
+  }
+
+  /// Cập nhật user hiện tại và lưu vào SharedPreferences
+  static Future<void> updateCurrentUser(UserModel updatedUser) async {
+    try {
+      currentUserNotifier.value = updatedUser;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_keyCurrentUser, jsonEncode(updatedUser.toJson()));
+    } catch (e) {
+      debugPrint('Lỗi updateCurrentUser: $e');
+    }
   }
 }

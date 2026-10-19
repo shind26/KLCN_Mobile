@@ -1,4 +1,7 @@
-﻿import 'package:flutter/material.dart';
+import 'dart:typed_data';
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:nhatro_kieugiang/core/services/DichVuQuetDongHo.dart';
 import 'package:nhatro_kieugiang/core/utils/ThongBaoHelper.dart';
 import 'package:nhatro_kieugiang/core/utils/TienIchDinhDang.dart';
 import 'package:nhatro_kieugiang/data/models/MoHinhHopDong.dart';
@@ -46,6 +49,19 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
 
   late TextEditingController _noteController;
 
+  // ── Chụp chỉ số điện nước khi rời phòng & Quét AI ──
+  Uint8List? _anhChiSoDien;
+  Uint8List? _anhChiSoNuoc;
+  final TextEditingController _chiSoDienController = TextEditingController();
+  final TextEditingController _chiSoNuocController = TextEditingController();
+
+  bool _isScanningDien = false;
+  bool _isScanningNuoc = false;
+  String? _thongBaoQuetDien;
+  String? _thongBaoQuetNuoc;
+  double? _chiSoDienTruoc;
+  double? _chiSoNuocTruoc;
+
   /// Tính ngày cuối tháng hợp lý: từ ngày 28 đến ngày cuối tháng hoặc mùng 1 đầu tháng sau
   DateTime _tinhNgayCuoiThangHopLy() {
     final now = DateTime.now();
@@ -72,6 +88,61 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
           'Xuống tầng ${widget.targetRoom["tang"]} cho tiện đi lại, mong BQL hỗ trợ mượn xe đẩy vào ngày dọn ạ.',
     );
     _checkPendingRequest();
+    _taiDanhSachDichVu();
+    _taiChiSoCu();
+  }
+
+  List<Map<String, dynamic>> _danhSachDichVu = [];
+  bool _isLoadingDichVu = true;
+
+  Future<void> _taiChiSoCu() async {
+    try {
+      final activeHD = widget.maHopDong ?? widget.hopDong?.maHopDong ?? 'HD001';
+      final cleanHd = activeHD.replaceAll(' ', '');
+      final res = await Supabase.instance.client
+          .from('chi_so_dien_nuoc')
+          .select()
+          .eq('ma_hop_dong', cleanHd)
+          .order('ngay_ghi_nhan', ascending: false)
+          .limit(1);
+      if (res.isNotEmpty && mounted) {
+        final r = res.first;
+        setState(() {
+          _chiSoDienTruoc = double.tryParse(r['chi_so_dien_moi']?.toString() ?? '') ??
+              double.tryParse(r['chi_so_dien_cu']?.toString() ?? '');
+          _chiSoNuocTruoc = double.tryParse(r['chi_so_nuoc_moi']?.toString() ?? '') ??
+              double.tryParse(r['chi_so_nuoc_cu']?.toString() ?? '');
+        });
+      }
+    } catch (e) {
+      debugPrint('[CHUYEN_PHONG] Lỗi tải chỉ số cũ: $e');
+    }
+  }
+
+  Future<void> _taiDanhSachDichVu() async {
+    try {
+      final res = await Supabase.instance.client
+          .from('dich_vu')
+          .select()
+          .order('ma_dich_vu', ascending: true);
+      if (res.isNotEmpty && mounted) {
+        setState(() {
+          _danhSachDichVu = List<Map<String, dynamic>>.from(res);
+          _isLoadingDichVu = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('[DICH_VU] Lỗi tải danh sách dịch vụ: $e');
+      if (mounted) setState(() => _isLoadingDichVu = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _noteController.dispose();
+    _chiSoDienController.dispose();
+    _chiSoNuocController.dispose();
+    super.dispose();
   }
 
   Future<void> _checkPendingRequest() async {
@@ -101,10 +172,292 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
     }
   }
 
-  @override
-  void dispose() {
-    _noteController.dispose();
-    super.dispose();
+  // ── Chụp hoặc chọn ảnh chỉ số điện/nước & Quét AI OCR ──
+  Future<void> _chupAnhChiSo({required bool isDien}) async {
+    final picker = ImagePicker();
+    final result = await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                isDien ? 'Chụp ảnh Đồng hồ Điện rời phòng' : 'Chụp ảnh Đồng hồ Nước rời phòng',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: _textDark),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'AI sẽ tự động nhận diện và trích xuất chỉ số mới trên công tơ',
+                style: TextStyle(fontSize: 12, color: Color(0xFF0284C7)),
+              ),
+              const SizedBox(height: 14),
+              ListTile(
+                leading: const Icon(Icons.camera_alt_rounded, color: _primary),
+                title: const Text('Chụp ảnh trực tiếp bằng Camera'),
+                subtitle: const Text('Chụp vuông góc mặt số, rõ nét, đủ ánh sáng', style: TextStyle(fontSize: 11)),
+                onTap: () => Navigator.pop(ctx, ImageSource.camera),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library_rounded, color: _primary),
+                title: const Text('Chọn từ Thư viện (Bộ sưu tập)'),
+                onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (result == null || !mounted) return;
+
+    try {
+      final img = await picker.pickImage(
+        source: result,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 75,
+      );
+      if (img == null || !mounted) return;
+      final bytes = await img.readAsBytes();
+
+      setState(() {
+        if (isDien) {
+          _anhChiSoDien = bytes;
+          _isScanningDien = true;
+          _thongBaoQuetDien = null;
+        } else {
+          _anhChiSoNuoc = bytes;
+          _isScanningNuoc = true;
+          _thongBaoQuetNuoc = null;
+        }
+      });
+
+      // ── AI OCR TỰ ĐỘNG QUÉT CHỈ SỐ RỜI PHÒNG ──
+      final ketQua = await DichVuQuetDongHo.quetChiSoDongHoBytes(
+        bytes,
+        isDien: isDien,
+        chiSoCu: isDien ? (_chiSoDienTruoc ?? 0) : (_chiSoNuocTruoc ?? 0),
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        if (isDien) {
+          _isScanningDien = false;
+        } else {
+          _isScanningNuoc = false;
+        }
+      });
+
+      if (ketQua.thanhCong && ketQua.chiSo != null) {
+        final soQuet = ketQua.chiSo!;
+        final hienThiStr = (soQuet % 1 == 0 ? soQuet.toInt().toString() : soQuet.toStringAsFixed(1));
+        setState(() {
+          if (isDien) {
+            _chiSoDienController.text = hienThiStr;
+            _thongBaoQuetDien = 'AI quét: $hienThiStr kWh';
+          } else {
+            _chiSoNuocController.text = hienThiStr;
+            _thongBaoQuetNuoc = 'AI quét: $hienThiStr m³';
+          }
+        });
+
+        _hienThiPopupQuetDongHoThanhCong(isDien, soQuet);
+      } else {
+        ThongBaoHelper.hienToast(
+          context,
+          tieuDe: 'Chưa đọc rõ chỉ số',
+          noiDung: ketQua.thongDiep ??
+              'Chưa nhận diện rõ chỉ số trên ảnh. Bạn có thể chụp lại gần hơn hoặc nhập tay chỉ số nhé!',
+          type: ThongBaoType.canhBao,
+          duration: const Duration(seconds: 3),
+        );
+      }
+    } catch (e) {
+      debugPrint('Lỗi chụp ảnh chỉ số: $e');
+      if (mounted) {
+        setState(() {
+          _isScanningDien = false;
+          _isScanningNuoc = false;
+        });
+      }
+    }
+  }
+
+  // ── POPUP DIALOG KHI QUÉT AI THÀNH CÔNG ──
+  void _hienThiPopupQuetDongHoThanhCong(bool isDien, double soQuet) {
+    final chiSoCu = isDien ? _chiSoDienTruoc : _chiSoNuocTruoc;
+    final donVi = isDien ? 'kWh' : 'm³';
+    final soQuetStr = (soQuet % 1 == 0 ? soQuet.toInt().toString() : soQuet.toStringAsFixed(1));
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+        backgroundColor: Colors.white,
+        elevation: 8,
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: isDien ? const Color(0xFFFEF3C7) : const Color(0xFFDBEAFE),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: isDien ? const Color(0xFFFCD34D) : const Color(0xFF93C5FD),
+                      width: 2,
+                    ),
+                  ),
+                  child: Icon(
+                    isDien ? Icons.bolt_rounded : Icons.water_drop_rounded,
+                    color: isDien ? const Color(0xFFD97706) : const Color(0xFF2563EB),
+                    size: 32,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Quét Chỉ Số ${isDien ? 'Điện' : 'Nước'} Thành Công!',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF0F172A),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'AI đã tự động nhận diện chỉ số khi rời phòng và điền vào form:',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF64748B),
+                    height: 1.3,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Column(
+                    children: [
+                      if (chiSoCu != null) ...[
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Số kỳ trước:', style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B))),
+                            Text(
+                              '${chiSoCu.toStringAsFixed(chiSoCu % 1 == 0 ? 0 : 1)} $donVi',
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                      ],
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Chỉ số mới (AI quét):', style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B))),
+                          Text(
+                            '$soQuetStr $donVi',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: isDien ? const Color(0xFFD97706) : const Color(0xFF2563EB),
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (chiSoCu != null && soQuet >= chiSoCu) ...[
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 6),
+                          child: Divider(height: 1, color: Color(0xFFE2E8F0)),
+                        ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Tiêu thụ phát sinh:', style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B))),
+                            Text(
+                              '${(soQuet - chiSoCu).toStringAsFixed((soQuet - chiSoCu) % 1 == 0 ? 0 : 1)} $donVi',
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF16A34A)),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.edit_note_rounded, size: 16, color: Color(0xFF64748B)),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Mẹo: Bạn có thể chạm vào ô chỉ số để điều chỉnh nếu cần thiết.',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF475569),
+                            fontStyle: FontStyle.italic,
+                            height: 1.3,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+                SizedBox(
+                  width: double.infinity,
+                  height: 42,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _primary,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: const Text(
+                      'Xác nhận & Điền chỉ số',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   String get _moveInDateFormatted {
@@ -290,7 +643,13 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
 
       final String reason = _reasons[_selectedReasonIndex];
       final String note = _noteController.text.trim();
-      final String fullReason = note.isNotEmpty ? '$reason - $note' : reason;
+      final chiSoDienNum = num.tryParse(_chiSoDienController.text.trim()) ?? 0;
+      final chiSoNuocNum = num.tryParse(_chiSoNuocController.text.trim()) ?? 0;
+      String meterNote = '';
+      if (chiSoDienNum > 0 || chiSoNuocNum > 0) {
+        meterNote = ' [Chỉ số rời phòng: Điện $chiSoDienNum kWh, Nước $chiSoNuocNum m³]';
+      }
+      final String fullReason = note.isNotEmpty ? '$reason - $note$meterNote' : '$reason$meterNote';
 
       // 2. Ghi bản ghi vào bảng yeu_cau_chuyen_phong
       await Supabase.instance.client.from('yeu_cau_chuyen_phong').insert({
@@ -304,7 +663,7 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
         'tien_phat_sinh': diffDeposit > 0 ? diffDeposit : 0,
         'tien_dien_nuoc_cu': 0,
         'tien_hu_hai_cu': 0,
-        'ghi_chu_hu_hai': null,
+        'ghi_chu_hu_hai': meterNote.isNotEmpty ? meterNote.trim() : null,
         'ly_do_chuyen': fullReason,
         'trang_thai_tien_do': 'Chờ duyệt',
         'ngay_tao': DateTime.now().toIso8601String(),
@@ -320,13 +679,13 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
           'ma_hop_dong': activeHopDong,
           'loai_bien_ban': 'Kiểm tra chuyển phòng',
           'nguoi_kiem_tra': 'Kỹ thuật BQL Kiều Giang',
-          'chi_so_dien_cuoi': 0,
-          'chi_so_nuoc_cuoi': 0,
+          'chi_so_dien_cuoi': chiSoDienNum,
+          'chi_so_nuoc_cuoi': chiSoNuocNum,
           'tien_dien_nuoc': 0,
           'tien_khau_tru': 0,
           'tien_coc_hoan_tra': 0,
           'trang_thai': 'Chờ BQL kiểm tra',
-          'ghi_chu': _noteController.text.trim(),
+          'ghi_chu': note + meterNote,
           'created_at': DateTime.now().toIso8601String(),
         });
       } catch (_) {}
@@ -391,6 +750,8 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
                           _buildComparisonCard(target, diff),
                           const SizedBox(height: 16),
                           _buildAmenitiesCard(),
+                          const SizedBox(height: 16),
+                          _buildMeterReadingCard(),
                           const SizedBox(height: 16),
                           _buildMovePlanCard(),
                           const SizedBox(height: 20),
@@ -1154,82 +1515,136 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
           ),
           const SizedBox(height: 14),
 
-          // Chi phí cố định
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Định mức chi phí dịch vụ cố định:',
+          // Chi phí cố định (Load từ bảng dich_vu Supabase)
+          _buildDinhMucChiPhiDichVu(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDinhMucChiPhiDichVu() {
+    num giaDien = 3500;
+    String dvtDien = 'kWh';
+    num giaNuoc = 20000;
+    String dvtNuoc = 'm³';
+    num giaRac = 30000;
+    String dvtRac = 'người/th';
+    num giaXe = 0;
+    num giaWifi = 50000;
+    String dvtWifi = 'phòng/th';
+
+    for (final dv in _danhSachDichVu) {
+      final code = (dv['ma_dich_vu'] ?? '').toString().toUpperCase();
+      final gia = num.tryParse(dv['don_gia']?.toString() ?? '') ?? 0;
+      final dvt = (dv['don_vi_tinh'] ?? '').toString();
+
+      if (code.contains('DIEN')) {
+        giaDien = gia;
+        if (dvt.isNotEmpty) dvtDien = dvt;
+      } else if (code.contains('NUOC')) {
+        giaNuoc = gia;
+        if (dvt.isNotEmpty) dvtNuoc = dvt;
+      } else if (code.contains('RAC')) {
+        giaRac = gia;
+        if (dvt.isNotEmpty) dvtRac = dvt.replaceAll('tháng', 'th');
+      } else if (code.contains('XE')) {
+        giaXe = gia;
+      } else if (code.contains('WIFI')) {
+        giaWifi = gia;
+        if (dvt.isNotEmpty) dvtWifi = dvt.replaceAll('tháng', 'th');
+      }
+    }
+
+    final String textXe = giaXe == 0 ? 'Miễn phí (0đ)' : '${FormatUtils.currency(giaXe)}đ/xe';
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.receipt_long_rounded, size: 14, color: _primary),
+              const SizedBox(width: 6),
+              const Expanded(
+                child: Text(
+                  'Định mức chi phí dịch vụ cố định (Bảng giá dịch vụ):',
                   style: TextStyle(
-                    fontSize: 11,
+                    fontSize: 11.5,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF475569),
+                    color: Color(0xFF334155),
                   ),
                 ),
-                SizedBox(height: 6),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        '⚡ Điện: 3.500đ/kWh',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF64748B),
-                        ),
-                      ),
-                    ),
-                    SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        '💧 Nước: 15.000đ/m³',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF64748B),
-                        ),
-                      ),
-                    ),
-                  ],
+              ),
+              if (_isLoadingDichVu)
+                const SizedBox(
+                  width: 12,
+                  height: 12,
+                  child: CircularProgressIndicator(strokeWidth: 1.5, color: _primary),
                 ),
-                SizedBox(height: 4),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        '🧹 Rác: 100k/th',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF64748B),
-                        ),
-                      ),
-                    ),
-                    SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        '🛵 Xe: Miễn phí',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF64748B),
-                        ),
-                      ),
-                    ),
-                  ],
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '⚡ Điện: ${FormatUtils.currency(giaDien)}đ/$dvtDien',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 11, color: Color(0xFF475569), fontWeight: FontWeight.w500),
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  '💧 Nước: ${FormatUtils.currency(giaNuoc)}đ/$dvtNuoc',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 11, color: Color(0xFF475569), fontWeight: FontWeight.w500),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 5),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '🧹 Rác: ${FormatUtils.currency(giaRac)}đ/$dvtRac',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 11, color: Color(0xFF475569), fontWeight: FontWeight.w500),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  '🛵 Xe: $textXe',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 11, color: Color(0xFF475569), fontWeight: FontWeight.w500),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 5),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '📶 Wifi: ${FormatUtils.currency(giaWifi)}đ/$dvtWifi',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 11, color: Color(0xFF475569), fontWeight: FontWeight.w500),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -1289,6 +1704,370 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  // ─── 5.5 CHỤP CHỈ SỐ ĐIỆN NƯỚC RỜI PHÒNG (QUÉT AI OCR) ───
+  Widget _buildMeterReadingCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(Icons.speed_rounded, color: Colors.orange.shade700, size: 18),
+              ),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Chỉ Số Điện & Nước Khi Rời Phòng',
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.bold,
+                    color: _textDark,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0FDF4),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: const Color(0xFF86EFAC)),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.auto_awesome, size: 11, color: Color(0xFF16A34A)),
+                    SizedBox(width: 3),
+                    Text(
+                      'AI Tự Động Quét',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF15803D),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Chụp ảnh đồng hồ điện, nước để AI nhận diện và trích xuất chỉ số tự động làm cơ sở chốt công nợ minh bạch cùng BQL.',
+            style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B), height: 1.35),
+          ),
+          const SizedBox(height: 14),
+
+          // 2 Columns: Điện & Nước
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Đồng hồ điện
+              Expanded(
+                child: _buildMeterBox(
+                  isDien: true,
+                  title: 'Đồng hồ điện',
+                  unit: 'kWh',
+                  imageBytes: _anhChiSoDien,
+                  controller: _chiSoDienController,
+                  icon: Icons.electric_bolt_rounded,
+                  iconColor: Colors.amber.shade700,
+                  bgColor: Colors.amber.shade50,
+                  isScanning: _isScanningDien,
+                  thongBaoQuet: _thongBaoQuetDien,
+                  chiSoCu: _chiSoDienTruoc,
+                ),
+              ),
+              const SizedBox(width: 12),
+              // Đồng hồ nước
+              Expanded(
+                child: _buildMeterBox(
+                  isDien: false,
+                  title: 'Đồng hồ nước',
+                  unit: 'm³',
+                  imageBytes: _anhChiSoNuoc,
+                  controller: _chiSoNuocController,
+                  icon: Icons.water_drop_rounded,
+                  iconColor: Colors.blue.shade600,
+                  bgColor: Colors.blue.shade50,
+                  isScanning: _isScanningNuoc,
+                  thongBaoQuet: _thongBaoQuetNuoc,
+                  chiSoCu: _chiSoNuocTruoc,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMeterBox({
+    required bool isDien,
+    required String title,
+    required String unit,
+    required Uint8List? imageBytes,
+    required TextEditingController controller,
+    required IconData icon,
+    required Color iconColor,
+    required Color bgColor,
+    required bool isScanning,
+    required String? thongBaoQuet,
+    required double? chiSoCu,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 14, color: iconColor),
+            const SizedBox(width: 4),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: _textDark,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        // Khung ảnh & Overlay quét AI
+        InkWell(
+          onTap: isScanning ? null : () => _chupAnhChiSo(isDien: isDien),
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            height: 104,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: imageBytes != null ? Colors.transparent : bgColor,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: isScanning
+                    ? iconColor
+                    : (imageBytes != null
+                        ? _primary.withValues(alpha: 0.4)
+                        : const Color(0xFFCBD5E1)),
+                width: isScanning ? 1.5 : 1,
+              ),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(9),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (imageBytes != null)
+                    Image.memory(imageBytes, fit: BoxFit.cover)
+                  else
+                    Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: iconColor.withValues(alpha: 0.2),
+                                blurRadius: 4,
+                              ),
+                            ],
+                          ),
+                          child: Icon(Icons.camera_alt_rounded, size: 18, color: iconColor),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Chụp để AI quét',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: iconColor,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        const Text(
+                          'Tự động đọc số',
+                          style: TextStyle(
+                            fontSize: 9.5,
+                            color: Color(0xFF64748B),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                  // Overlay khi AI đang quét
+                  if (isScanning)
+                    Container(
+                      color: Colors.black.withValues(alpha: 0.65),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          const Text(
+                            'AI đang quét số...',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                  // Nút Chụp lại khi đã có ảnh
+                  if (imageBytes != null && !isScanning)
+                    Positioned(
+                      right: 4,
+                      bottom: 4,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.65),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.refresh_rounded,
+                              size: 11,
+                              color: Colors.white,
+                            ),
+                            SizedBox(width: 3),
+                            Text(
+                              'Chụp lại',
+                              style: TextStyle(
+                                fontSize: 9.5,
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+
+        // Thông báo AI đã quét & Số kỳ trước
+        if (thongBaoQuet != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Row(
+              children: [
+                const Icon(Icons.auto_awesome, size: 10, color: Color(0xFF16A34A)),
+                const SizedBox(width: 3),
+                Expanded(
+                  child: Text(
+                    thongBaoQuet,
+                    style: const TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF15803D),
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+        if (chiSoCu != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 3),
+            child: Text(
+              'Số kỳ trước: ${chiSoCu.toStringAsFixed(chiSoCu % 1 == 0 ? 0 : 1)} $unit',
+              style: const TextStyle(
+                fontSize: 10,
+                color: Color(0xFF64748B),
+                fontStyle: FontStyle.italic,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+
+        const SizedBox(height: 6),
+
+        // Ô nhập chỉ số (AI tự điền hoặc chỉnh tay)
+        SizedBox(
+          height: 38,
+          child: TextField(
+            controller: controller,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.bold,
+              color: controller.text.isNotEmpty ? iconColor : _textDark,
+            ),
+            decoration: InputDecoration(
+              hintText: 'Chỉ số ($unit)',
+              hintStyle: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              suffixText: unit,
+              suffixStyle: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: iconColor,
+              ),
+              filled: true,
+              fillColor: const Color(0xFFF8FAFC),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(
+                  color: controller.text.isNotEmpty ? iconColor.withValues(alpha: 0.5) : const Color(0xFFE2E8F0),
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: const BorderRadius.all(Radius.circular(8)),
+                borderSide: BorderSide(color: iconColor, width: 1.2),
+              ),
+            ),
+            onChanged: (_) => setState(() {}),
+          ),
+        ),
+      ],
     );
   }
 

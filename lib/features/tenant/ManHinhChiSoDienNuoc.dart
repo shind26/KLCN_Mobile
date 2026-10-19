@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:nhatro_kieugiang/core/services/DichVuQuetDongHo.dart';
+import 'package:nhatro_kieugiang/core/utils/ThongBaoHelper.dart';
+import 'package:nhatro_kieugiang/core/widgets/LoadingMeoMeo.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 // ============================================================
@@ -100,6 +102,11 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
   String _maCongTo = '#CTO-P302';
   String _maDongHo = '#DHN-P302';
 
+  // Trạng thái đơn chốt số kỳ này (mỗi tháng chỉ gửi 1 đơn từ ngày 28)
+  Map<String, dynamic>? _daGuiDonKyNay;
+  String? _urlAnhDienDaGui;
+  String? _urlAnhNuocDaGui;
+
   // Animation
   late AnimationController _slideController;
   late Animation<Offset> _slideAnimation;
@@ -168,16 +175,67 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
         debugPrint('Lỗi tải đơn giá dịch vụ: $e');
       }
 
-      // 2. Tải chỉ số cũ từ bảng chi_so_dien_nuoc thực tế trên Supabase!
+      final cleanHd = (widget.maHopDong.trim().isEmpty ? 'HD001' : widget.maHopDong).replaceAll(' ', '');
+      final now = DateTime.now();
+      final thang = now.month.toString().padLeft(2, '0');
+      final nam = now.year.toString();
+      final thangNam = '$thang/$nam';
+      final hdPart = cleanHd.length > 5 ? cleanHd.substring(cleanHd.length - 5) : cleanHd;
+      final maKy = 'KY${thang}_$hdPart';
+
+      // 2. Tải chỉ số từ bảng chi_so_dien_nuoc thực tế trên Supabase!
       try {
         final chiSoList = await db
             .from('chi_so_dien_nuoc')
             .select()
-            .eq('ma_hop_dong', widget.maHopDong)
+            .eq('ma_hop_dong', cleanHd)
             .order('ngay_ghi_nhan', ascending: false);
 
-        if ((chiSoList as List).isNotEmpty) {
-          final latest = chiSoList.first;
+        final list = (chiSoList as List);
+
+        // Kiểm tra xem kỳ tháng này đã gửi đơn chưa (chỉ cho gửi 1 đơn/tháng)
+        Map<String, dynamic>? recordKyNay;
+        for (final item in list) {
+          final maKyItem = item['ma_ky']?.toString() ?? '';
+          final thangNamItem = item['thang_nam']?.toString() ?? '';
+          final ngayGhiNhanStr = item['ngay_ghi_nhan']?.toString() ?? '';
+          DateTime? ngayGhiNhan;
+          if (ngayGhiNhanStr.isNotEmpty) {
+            ngayGhiNhan = DateTime.tryParse(ngayGhiNhanStr);
+          }
+
+          final bool matchKy = maKyItem == maKy ||
+              thangNamItem == thangNam ||
+              (ngayGhiNhan != null &&
+                  ngayGhiNhan.month == now.month &&
+                  ngayGhiNhan.year == now.year);
+          if (matchKy) {
+            recordKyNay = Map<String, dynamic>.from(item);
+            break;
+          }
+        }
+
+        if (recordKyNay != null) {
+          // Đã nộp đơn trong kỳ này -> Điền sẵn thông tin & lưu trạng thái đã gửi
+          _daGuiDonKyNay = recordKyNay;
+          final dienMoi = recordKyNay['chi_so_dien_moi'];
+          final nuocMoi = recordKyNay['chi_so_nuoc_moi'];
+          if (dienMoi != null) {
+            final dVal = double.tryParse(dienMoi.toString());
+            _dienController.text = dVal != null ? (dVal % 1 == 0 ? dVal.toInt().toString() : dVal.toString()) : dienMoi.toString();
+          }
+          if (nuocMoi != null) {
+            final nVal = double.tryParse(nuocMoi.toString());
+            _nuocController.text = nVal != null ? (nVal % 1 == 0 ? nVal.toInt().toString() : nVal.toString()) : nuocMoi.toString();
+          }
+
+          _chiSoDienTruoc = double.tryParse(recordKyNay['chi_so_dien_cu']?.toString() ?? '210') ?? 210.0;
+          _chiSoNuocTruoc = double.tryParse(recordKyNay['chi_so_nuoc_cu']?.toString() ?? '36') ?? 36.0;
+
+          _urlAnhDienDaGui = recordKyNay['anh_dien']?.toString();
+          _urlAnhNuocDaGui = recordKyNay['anh_nuoc']?.toString();
+        } else if (list.isNotEmpty) {
+          final latest = list.first;
           final dienMoiCu = double.tryParse(latest['chi_so_dien_moi']?.toString() ?? '');
           final nuocMoiCu = double.tryParse(latest['chi_so_nuoc_moi']?.toString() ?? '');
 
@@ -276,7 +334,106 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
     return true;
   }
 
+  void _thongBaoDaGuiDon() {
+    final now = DateTime.now();
+    final int nextThang = now.month == 12 ? 1 : now.month + 1;
+    final int nextNam = now.month == 12 ? now.year + 1 : now.year;
+
+    String ngayGui = 'Kỳ này';
+    if (_daGuiDonKyNay != null && _daGuiDonKyNay!['ngay_ghi_nhan'] != null) {
+      final dt = DateTime.tryParse(_daGuiDonKyNay!['ngay_ghi_nhan'].toString());
+      if (dt != null) {
+        ngayGui =
+            '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year} lúc ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+      }
+    }
+
+    final trangThai = _daGuiDonKyNay?['trang_thai_duyet']?.toString() ?? 'Chờ duyệt';
+    final isDaDuyet = trangThai == 'Đã duyệt';
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: const [
+            Icon(Icons.verified_rounded, color: Color(0xFF16A34A), size: 24),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Đã Gửi Chỉ Số Kỳ Này',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0FDF4),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFF86EFAC)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    isDaDuyet ? Icons.check_circle_rounded : Icons.hourglass_top_rounded,
+                    color: isDaDuyet ? const Color(0xFF16A34A) : const Color(0xFFD97706),
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Bạn đã gửi thành công chỉ số điện nước kỳ Tháng ${now.month}/${now.year}.\nTrạng thái: $trangThai',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.bold,
+                        color: isDaDuyet ? const Color(0xFF166534) : const Color(0xFF92400E),
+                        height: 1.35,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              '• Thời gian gửi: $ngayGui\n'
+              '• Số điện nộp: ${_daGuiDonKyNay?['chi_so_dien_moi'] ?? _dienController.text} kWh\n'
+              '• Số nước nộp: ${_daGuiDonKyNay?['chi_so_nuoc_moi'] ?? _nuocController.text} m³\n\n'
+              '⚠️ Quy định: Mỗi tháng hệ thống mở cổng từ ngày 28 và chỉ nhận 01 đơn chốt chỉ số duy nhất để Ban Quản Lý đối soát và lập hóa đơn.\n\n'
+              '📅 Đợt chốt chỉ số tiếp theo sẽ mở vào ngày 28/$nextThang/$nextNam.',
+              style: const TextStyle(fontSize: 12.5, color: Color(0xFF334155), height: 1.45),
+            ),
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF09638E),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text('Đã hiểu', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _goToConfirm() {
+    // 0. Nếu đã gửi đơn kỳ này rồi: Khóa gửi đơn tiếp
+    if (_daGuiDonKyNay != null) {
+      _thongBaoDaGuiDon();
+      return;
+    }
+
     final now = DateTime.now();
     // 1. RÀNG BUỘC: Qua ngày 28 mỗi tháng mới được mở cổng gửi chỉ số
     if (now.day < 28) {
@@ -372,13 +529,11 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
     } else if (_nuocMoi < _chiSoNuocTruoc) {
       msg = 'Chỉ số nước mới ($_nuocMoi m³) phải ≥ chỉ số cũ ($_chiSoNuocTruoc m³).';
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg),
-        backgroundColor: const Color(0xFFDC2626),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
+    ThongBaoHelper.hienToast(
+      context,
+      tieuDe: 'Kiểm tra chỉ số',
+      noiDung: msg,
+      type: ThongBaoType.canhBao,
     );
   }
 
@@ -440,7 +595,7 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
       }
 
       // Ghi nhận trực tiếp vào bảng chi_so_dien_nuoc bao gồm cả ảnh chụp minh chứng
-      await db.from('chi_so_dien_nuoc').upsert({
+      final upsertData = {
         'ma_ky': maKy,
         'thang_nam': thangNam,
         'chi_so_dien_cu': _chiSoDienTruoc,
@@ -452,7 +607,14 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
         'ma_hop_dong': cleanHd,
         if (urlAnhDien != null) 'anh_dien': urlAnhDien,
         if (urlAnhNuoc != null) 'anh_nuoc': urlAnhNuoc,
-      });
+      };
+
+      await db.from('chi_so_dien_nuoc').upsert(upsertData);
+
+      // Cập nhật trạng thái đã nộp đơn kỳ này để khóa màn hình lập tức
+      _daGuiDonKyNay = Map<String, dynamic>.from(upsertData);
+      _urlAnhDienDaGui = urlAnhDien;
+      _urlAnhNuocDaGui = urlAnhNuoc;
 
       debugPrint('[METER] Đã lưu thành công vào chi_so_dien_nuoc trên Supabase kèm ảnh: $maKy');
 
@@ -465,12 +627,11 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
     } catch (e) {
       debugPrint('Lỗi lưu chi_so_dien_nuoc vào Supabase: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Lỗi gửi chỉ số điện nước: $e'),
-            backgroundColor: Colors.redAccent,
-            duration: const Duration(seconds: 5),
-          ),
+        ThongBaoHelper.hienToast(
+          context,
+          tieuDe: 'Lỗi gửi chỉ số',
+          noiDung: 'Lỗi gửi chỉ số điện nước: $e',
+          type: ThongBaoType.thatBai,
         );
       }
     }
@@ -478,6 +639,11 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
 
   // ── CHỌN NGUỒN ẢNH VÀ QUÉT TỰ ĐỘNG BẰNG AI ────────────────
   void _chonNguonAnhVaQuet(bool isDien) {
+    if (_daGuiDonKyNay != null) {
+      _thongBaoDaGuiDon();
+      return;
+    }
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
@@ -570,6 +736,7 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
       });
 
       if (ketQua.thanhCong && ketQua.chiSo != null) {
+        // OCR thành công → điền số và hiện popup kết quả (KHÔNG hiện toast cảnh báo)
         final soQuet = ketQua.chiSo!;
         setState(() {
           final hienThiStr = (soQuet % 1 == 0 ? soQuet.toInt().toString() : soQuet.toStringAsFixed(1));
@@ -582,30 +749,20 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
           }
         });
 
-        // Bật popup thông báo thành công ở giữa màn hình
+        // Chỉ bật popup kết quả thành công
         _hienThiPopupQuetDongHoThanhCong(isDien, soQuet);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 22),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    ketQua.thongDiep ??
-                        'Chưa đọc rõ chỉ số trên ảnh. Vui lòng chụp lại gần hơn hoặc nhập tay nhé!',
-                    style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: const Color(0xFFD97706),
-            duration: const Duration(seconds: 4),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          ),
-        );
+        // OCR thất bại → mới hiện toast cảnh báo để người dùng biết cần chụp lại
+        if (mounted) {
+          ThongBaoHelper.hienToast(
+            context,
+            tieuDe: 'Chưa đọc rõ chỉ số',
+            noiDung: ketQua.thongDiep ??
+                'Chưa đọc rõ chỉ số trên ảnh. Vui lòng chụp lại gần hơn hoặc nhập tay nhé!',
+            type: ThongBaoType.canhBao,
+            duration: const Duration(seconds: 3),
+          );
+        }
       }
     } catch (e) {
       debugPrint('Lỗi chọn/chụp ảnh: $e');
@@ -802,22 +959,9 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
       backgroundColor: const Color(0xFFF0F7FB),
       body: SafeArea(
         child: _isLoading
-            ? Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const CircularProgressIndicator(color: Color(0xFF09638E)),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Đang tải dữ liệu...',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Color(0xFF09638E),
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
+            ? const LoadingMeoMeo(
+                message: 'Đang tải chỉ số điện nước...',
+                subMessage: 'Đợi mèo con kiểm tra công tơ xíu nha~ 🐾',
               )
             : SlideTransition(
                 position: _slideAnimation,
@@ -870,6 +1014,7 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                   donVi: 'kWh',
                   controller: _dienController,
                   imageBytes: _bytesDien,
+                  urlAnhDaLuu: _urlAnhDienDaGui,
                   isScanning: _isScanningDien,
                   thongBaoQuet: _thongBaoQuetDien,
                 ),
@@ -887,6 +1032,7 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                   donVi: 'm³',
                   controller: _nuocController,
                   imageBytes: _bytesNuoc,
+                  urlAnhDaLuu: _urlAnhNuocDaGui,
                   isScanning: _isScanningNuoc,
                   thongBaoQuet: _thongBaoQuetNuoc,
                 ),
@@ -901,12 +1047,29 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                 const SizedBox(height: 24),
 
                 // Nút tiếp theo
-                _buildPrimaryButton(
-                  label: DateTime.now().day >= 28
-                      ? 'Xác nhận & Gửi chỉ số cho Quản lý'
-                      : 'Chốt chỉ số ngày 28 hàng tháng',
-                  icon: DateTime.now().day >= 28 ? Icons.send_rounded : Icons.lock_clock_rounded,
-                  onTap: _goToConfirm,
+                Builder(
+                  builder: (context) {
+                    final isSent = _daGuiDonKyNay != null;
+                    final isAfter28 = DateTime.now().day >= 28;
+                    final nextMonth = DateTime.now().month == 12 ? 1 : DateTime.now().month + 1;
+
+                    return _buildPrimaryButton(
+                      label: isSent
+                          ? 'Đã gửi chỉ số Tháng ${DateTime.now().month} (Mở lại 28/$nextMonth)'
+                          : (isAfter28
+                              ? 'Xác nhận & Gửi chỉ số cho Quản lý'
+                              : 'Chốt chỉ số ngày 28 hàng tháng (còn ${28 - DateTime.now().day} ngày)'),
+                      icon: isSent
+                          ? Icons.check_circle_rounded
+                          : (isAfter28 ? Icons.send_rounded : Icons.lock_clock_rounded),
+                      gradientColors: isSent
+                          ? const [Color(0xFF64748B), Color(0xFF475569)]
+                          : (!isAfter28
+                              ? const [Color(0xFFD97706), Color(0xFFB45309)]
+                              : null),
+                      onTap: _goToConfirm,
+                    );
+                  },
                 ),
                 const SizedBox(height: 12),
               ],
@@ -919,24 +1082,30 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
 
   Widget _buildKyBanner() {
     final now = DateTime.now();
+    final isSent = _daGuiDonKyNay != null;
     final isOpen = now.day >= 28;
     final int thang = now.month;
     final int nam = now.year;
+    final int nextThang = thang == 12 ? 1 : thang + 1;
     final daysLeft = 28 - now.day;
 
-    final String statusText = isOpen
-        ? 'Đang mở đợt chốt số kỳ Tháng $thang/$nam (Áp dụng từ 28/$thang)'
-        : 'Chốt chỉ số ngày 28 hàng tháng (còn $daysLeft ngày)';
-    final Color statusTextColor = isOpen ? const Color(0xFF15803D) : const Color(0xFFD97706);
-    final IconData statusIcon = isOpen ? Icons.check_circle_rounded : Icons.lock_clock_rounded;
+    final String statusText = isSent
+        ? 'Đã gửi chỉ số kỳ Tháng $thang/$nam (Mở đợt mới ngày 28/$nextThang)'
+        : (isOpen
+            ? 'Đang mở đợt chốt số kỳ Tháng $thang/$nam (Áp dụng từ 28/$thang)'
+            : 'Chốt chỉ số ngày 28 hàng tháng (còn $daysLeft ngày)');
+    final Color statusTextColor = (isSent || isOpen) ? const Color(0xFF15803D) : const Color(0xFFD97706);
+    final IconData statusIcon = isSent
+        ? Icons.verified_rounded
+        : (isOpen ? Icons.check_circle_rounded : Icons.lock_clock_rounded);
 
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: isOpen ? const Color(0xFFF0FDF4) : const Color(0xFFFFFBEB),
+        color: (isSent || isOpen) ? const Color(0xFFF0FDF4) : const Color(0xFFFFFBEB),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isOpen ? const Color(0xFF86EFAC) : const Color(0xFFFDE68A),
+          color: (isSent || isOpen) ? const Color(0xFF86EFAC) : const Color(0xFFFDE68A),
         ),
         boxShadow: [
           BoxShadow(
@@ -958,11 +1127,13 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                   Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: isOpen ? const Color(0xFF16A34A) : const Color(0xFFD97706),
+                      color: (isSent || isOpen) ? const Color(0xFF16A34A) : const Color(0xFFD97706),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Icon(
-                      isOpen ? Icons.verified_rounded : Icons.calendar_month_rounded,
+                      isSent
+                          ? Icons.verified_rounded
+                          : (isOpen ? Icons.event_available_rounded : Icons.calendar_month_rounded),
                       color: Colors.white,
                       size: 15,
                     ),
@@ -973,9 +1144,28 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                     style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.bold,
-                      color: isOpen ? const Color(0xFF166534) : const Color(0xFF92400E),
+                      color: (isSent || isOpen) ? const Color(0xFF166534) : const Color(0xFF92400E),
                     ),
                   ),
+                  if (isSent) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFDCFCE7),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: const Color(0xFF86EFAC)),
+                      ),
+                      child: const Text(
+                        'ĐÃ NỘP 1 ĐƠN',
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF15803D),
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
               Flexible(
@@ -1003,11 +1193,11 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
 
           // Hàng 2: Tiêu đề lớn đầy đủ không bị rớt chữ
           Text(
-            'Chốt Chỉ Số Điện Nước',
+            isSent ? 'Chỉ Số Điện Nước Đã Chốt' : 'Chốt Chỉ Số Điện Nước',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w800,
-              color: isOpen ? const Color(0xFF14532D) : const Color(0xFF78350F),
+              color: (isSent || isOpen) ? const Color(0xFF14532D) : const Color(0xFF78350F),
               letterSpacing: -0.2,
             ),
           ),
@@ -1039,6 +1229,158 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
     );
   }
 
+  Widget _buildMeterImageWidget({
+    Uint8List? imageBytes,
+    String? imageUrlOrBase64,
+    BoxFit fit = BoxFit.cover,
+  }) {
+    if (imageBytes != null && imageBytes.isNotEmpty) {
+      return Image.memory(
+        imageBytes,
+        fit: fit,
+        errorBuilder: (_, __, ___) => _buildBrokenImagePlaceholder(),
+      );
+    }
+
+    if (imageUrlOrBase64 == null || imageUrlOrBase64.trim().isEmpty) {
+      return _buildBrokenImagePlaceholder();
+    }
+
+    final clean = imageUrlOrBase64.trim();
+
+    // 1. Chuỗi Data URI Base64 (ví dụ: data:image/jpeg;base64,...)
+    if (clean.startsWith('data:image')) {
+      try {
+        final b64 = clean.contains(',') ? clean.split(',').last : clean;
+        final bytes = base64Decode(b64.replaceAll(RegExp(r'\s+'), ''));
+        return Image.memory(
+          bytes,
+          fit: fit,
+          errorBuilder: (_, __, ___) => _buildBrokenImagePlaceholder(),
+        );
+      } catch (e) {
+        debugPrint('Lỗi decode base64 data:image: $e');
+        return _buildBrokenImagePlaceholder();
+      }
+    }
+
+    // 2. Đường dẫn mạng HTTP / HTTPS
+    if (clean.startsWith('http://') || clean.startsWith('https://')) {
+      return Image.network(
+        clean,
+        fit: fit,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Container(
+            color: const Color(0xFFF1F5F9),
+            child: const Center(
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          );
+        },
+        errorBuilder: (_, __, ___) => _buildBrokenImagePlaceholder(),
+      );
+    }
+
+    // 3. Chuỗi Base64 thô (không có tiền tố data:image)
+    try {
+      final bytes = base64Decode(clean.replaceAll(RegExp(r'\s+'), ''));
+      return Image.memory(
+        bytes,
+        fit: fit,
+        errorBuilder: (_, __, ___) => _buildBrokenImagePlaceholder(),
+      );
+    } catch (_) {
+      return _buildBrokenImagePlaceholder();
+    }
+  }
+
+  Widget _buildBrokenImagePlaceholder() {
+    return Container(
+      color: const Color(0xFFF1F5F9),
+      child: const Center(
+        child: Icon(Icons.broken_image_rounded, color: Colors.grey, size: 28),
+      ),
+    );
+  }
+
+  void _showZoomImageDialog({
+    required String title,
+    Uint8List? imageBytes,
+    String? imageUrlOrBase64,
+  }) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: const BoxDecoration(
+                color: Color(0xFF0F172A),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.photo_rounded, color: Colors.white, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(ctx),
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: Colors.white24,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.close_rounded, color: Colors.white, size: 18),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
+              child: Container(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.7,
+                ),
+                color: Colors.black,
+                child: InteractiveViewer(
+                  panEnabled: true,
+                  minScale: 0.5,
+                  maxScale: 4.0,
+                  child: _buildMeterImageWidget(
+                    imageBytes: imageBytes,
+                    imageUrlOrBase64: imageUrlOrBase64,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildMeterCard({
     required bool isDien,
     required IconData icon,
@@ -1050,9 +1392,12 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
     required String donVi,
     required TextEditingController controller,
     required Uint8List? imageBytes,
+    String? urlAnhDaLuu,
     required bool isScanning,
     required String? thongBaoQuet,
   }) {
+    final isDaGui = _daGuiDonKyNay != null;
+    final hasImage = imageBytes != null || (urlAnhDaLuu != null && urlAnhDaLuu.isNotEmpty);
     final val = double.tryParse(controller.text.replaceAll(',', '.')) ?? 0;
     final hasInput = controller.text.trim().isNotEmpty;
     final diff = val - chiSoTruoc;
@@ -1067,7 +1412,7 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
         border: Border.all(
           color: isNegative
               ? const Color(0xFFFCA5A5)
-              : (imageBytes != null ? color.withValues(alpha: 0.3) : const Color(0xFFE2E8F0)),
+              : (hasImage ? color.withValues(alpha: 0.3) : const Color(0xFFE2E8F0)),
           width: isNegative ? 1.5 : 1,
         ),
         boxShadow: [
@@ -1145,18 +1490,28 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
 
           // Ảnh chụp công tơ & AI Scanner
           GestureDetector(
-            onTap: () => _chonNguonAnhVaQuet(isDien),
+            onTap: () {
+              if (hasImage) {
+                _showZoomImageDialog(
+                  title: isDien ? 'Ảnh Công tơ Điện ($maMay)' : 'Ảnh Đồng hồ Nước ($maMay)',
+                  imageBytes: imageBytes,
+                  imageUrlOrBase64: urlAnhDaLuu,
+                );
+              } else {
+                _chonNguonAnhVaQuet(isDien);
+              }
+            },
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 300),
               width: double.infinity,
               height: 125,
               decoration: BoxDecoration(
-                color: imageBytes != null ? Colors.black : bgColor.withValues(alpha: 0.35),
+                color: hasImage ? Colors.black : bgColor.withValues(alpha: 0.35),
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
                   color: isScanning
                       ? color
-                      : (imageBytes != null ? color.withValues(alpha: 0.6) : const Color(0xFFCBD5E1)),
+                      : (hasImage ? color.withValues(alpha: 0.6) : const Color(0xFFCBD5E1)),
                   width: isScanning ? 2 : 1.5,
                 ),
               ),
@@ -1164,8 +1519,11 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  if (imageBytes != null)
-                    Image.memory(imageBytes, fit: BoxFit.cover)
+                  if (hasImage)
+                    _buildMeterImageWidget(
+                      imageBytes: imageBytes,
+                      imageUrlOrBase64: urlAnhDaLuu,
+                    )
                   else
                     Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -1243,50 +1601,106 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                         ],
                       ),
                     ),
+
+                  // Badge gợi ý chạm phóng to ảnh
+                  if (hasImage && !isScanning)
+                    Positioned(
+                      right: 8,
+                      bottom: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.65),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: Colors.white30, width: 0.8),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Icon(Icons.zoom_in_rounded, color: Colors.white, size: 13),
+                            SizedBox(width: 4),
+                            Text(
+                              'Chạm xem ảnh lớn',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
           ),
 
-          if (imageBytes != null && !isScanning) ...[
+          if (hasImage && !isScanning) ...[
             const SizedBox(height: 6),
-            Row(
-              children: [
-                if (thongBaoQuet != null)
-                  Expanded(
-                    child: Text(
-                      thongBaoQuet,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF16A34A),
-                      ),
-                    ),
-                  )
-                else
-                  const Spacer(),
-                const SizedBox(width: 8),
-                GestureDetector(
-                  onTap: () => _chonNguonAnhVaQuet(isDien),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.refresh_rounded, size: 14, color: color),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Chụp lại ảnh khác',
+            if (isDaGui)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0FDF4),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFF86EFAC)),
+                ),
+                child: Row(
+                  children: const [
+                    Icon(Icons.lock_rounded, size: 14, color: Color(0xFF16A34A)),
+                    SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Đã nộp chỉ số kỳ này (Đã khóa, mở đợt mới ngày 28 tháng sau)',
                         style: TextStyle(
-                          fontSize: 12,
-                          color: color,
+                          fontSize: 11,
+                          color: Color(0xFF15803D),
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              )
+            else
+              Row(
+                children: [
+                  if (thongBaoQuet != null)
+                    Expanded(
+                      child: Text(
+                        thongBaoQuet,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF16A34A),
+                        ),
+                      ),
+                    )
+                  else
+                    const Spacer(),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: () => _chonNguonAnhVaQuet(isDien),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.refresh_rounded, size: 14, color: color),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Chụp lại ảnh khác',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: color,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
           ],
 
           const SizedBox(height: 14),
@@ -1380,6 +1794,7 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                       const SizedBox(height: 4),
                       TextFormField(
                         controller: controller,
+                        readOnly: isDaGui,
                         keyboardType: const TextInputType.numberWithOptions(
                           decimal: true,
                         ),
@@ -1395,6 +1810,13 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                             color: color.withValues(alpha: 0.3),
                             fontWeight: FontWeight.bold,
                           ),
+                          suffixIcon: isDaGui
+                              ? const Padding(
+                                  padding: EdgeInsets.only(right: 4),
+                                  child: Icon(Icons.lock_rounded, size: 16, color: Color(0xFF64748B)),
+                                )
+                              : null,
+                          suffixIconConstraints: const BoxConstraints(minWidth: 20, minHeight: 20),
                           suffixText: donVi,
                           suffixStyle: TextStyle(
                             fontSize: 11,
@@ -1483,7 +1905,7 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
             ],
           ],
 
-          if (imageBytes == null)
+          if (!hasImage)
             Padding(
               padding: const EdgeInsets.only(top: 8),
               child: Row(
@@ -1820,6 +2242,7 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                       child: _buildImagePreviewCard(
                         isDien: true,
                         imageBytes: _bytesDien,
+                        imageUrlOrBase64: _urlAnhDienDaGui,
                         chiSo: m.chiSoDienMoi,
                         chiSoTruoc: m.chiSoDienTruoc,
                         donVi: 'kWh',
@@ -1836,6 +2259,7 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                       child: _buildImagePreviewCard(
                         isDien: false,
                         imageBytes: _bytesNuoc,
+                        imageUrlOrBase64: _urlAnhNuocDaGui,
                         chiSo: m.chiSoNuocMoi,
                         chiSoTruoc: m.chiSoNuocTruoc,
                         donVi: 'm³',
@@ -1889,6 +2313,7 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
   Widget _buildImagePreviewCard({
     required bool isDien,
     required Uint8List? imageBytes,
+    String? imageUrlOrBase64,
     required double chiSo,
     required double chiSoTruoc,
     required String donVi,
@@ -1900,6 +2325,8 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
     required String ma,
   }) {
     final tieuThu = (chiSo - chiSoTruoc).clamp(0.0, double.infinity);
+    final hasImg = imageBytes != null || (imageUrlOrBase64 != null && imageUrlOrBase64.isNotEmpty);
+
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -1941,38 +2368,53 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
           const SizedBox(height: 8),
 
           // Ảnh hoặc placeholder
-          Container(
-            height: 80,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: bgColor.withValues(alpha: 0.4),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: color.withValues(alpha: 0.3),
-                width: 1.5,
+          GestureDetector(
+            onTap: () {
+              if (hasImg) {
+                _showZoomImageDialog(
+                  title: isDien ? 'Ảnh Công tơ Điện ($ma)' : 'Ảnh Đồng hồ Nước ($ma)',
+                  imageBytes: imageBytes,
+                  imageUrlOrBase64: imageUrlOrBase64,
+                );
+              }
+            },
+            child: Container(
+              height: 80,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: bgColor.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: color.withValues(alpha: 0.3),
+                  width: 1.5,
+                ),
               ),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: imageBytes != null
-                ? Image.memory(imageBytes, fit: BoxFit.cover)
-                : Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.image_not_supported_rounded,
-                        color: color.withValues(alpha: 0.5),
-                        size: 22,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Chưa có ảnh',
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: color.withValues(alpha: 0.6),
+              clipBehavior: Clip.antiAlias,
+              child: hasImg
+                  ? _buildMeterImageWidget(
+                      imageBytes: imageBytes,
+                      imageUrlOrBase64: imageUrlOrBase64,
+                      fit: BoxFit.cover,
+                    )
+                  : Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.image_not_supported_rounded,
+                          color: color.withValues(alpha: 0.5),
+                          size: 22,
                         ),
-                      ),
-                    ],
-                  ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Chưa có ảnh',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: color.withValues(alpha: 0.6),
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
           ),
           const SizedBox(height: 8),
 
@@ -2800,6 +3242,7 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
     required String label,
     required IconData icon,
     required VoidCallback onTap,
+    List<Color>? gradientColors,
   }) {
     return GestureDetector(
       onTap: onTap,
@@ -2807,15 +3250,15 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
         width: double.infinity,
         height: 52,
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF07516E), Color(0xFF0A8FCA)],
+          gradient: LinearGradient(
+            colors: gradientColors ?? const [Color(0xFF07516E), Color(0xFF0A8FCA)],
             begin: Alignment.centerLeft,
             end: Alignment.centerRight,
           ),
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF09638E).withValues(alpha: 0.4),
+              color: (gradientColors?.first ?? const Color(0xFF09638E)).withValues(alpha: 0.4),
               blurRadius: 12,
               offset: const Offset(0, 5),
             ),
@@ -2826,12 +3269,15 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
           children: [
             Icon(icon, color: Colors.white, size: 20),
             const SizedBox(width: 10),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
+            Flexible(
+              child: Text(
+                label,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
               ),
             ),
           ],

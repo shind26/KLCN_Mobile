@@ -6,6 +6,7 @@ import 'package:nhatro_kieugiang/data/models/MoHinhHopDong.dart';
 import 'package:nhatro_kieugiang/features/tenant/ManHinhThanhToan.dart';
 import 'package:nhatro_kieugiang/features/tenant/ManHinhThanhToanXong.dart';
 import 'package:nhatro_kieugiang/features/tenant/ManHinhTrangChuCuDan.dart';
+import 'package:nhatro_kieugiang/core/widgets/LoadingMeoMeo.dart';
 
 /// Màn hình: Lịch sử hóa đơn & Thống kê chi phí
 /// Lấy trực tiếp từ bảng hoa_don & chi_tiet_hoa_don trên Supabase
@@ -197,8 +198,9 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
             _buildTopAppBar(),
             Expanded(
               child: _isLoading
-                  ? const Center(
-                      child: CircularProgressIndicator(color: _navyDark),
+                  ? const LoadingMeoMeo(
+                      message: 'Đang tải hóa đơn...',
+                      subMessage: 'Mèo con đang tính toán chi phí cho bạn nha~ 🐾',
                     )
                   : RefreshIndicator(
                       onRefresh: _fetchInvoices,

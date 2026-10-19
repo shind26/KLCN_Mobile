@@ -5,6 +5,10 @@ import 'package:nhatro_kieugiang/data/models/MoHinhThongSoPhong.dart';
 import 'package:nhatro_kieugiang/data/models/MoHinhDichVu.dart';
 import 'package:nhatro_kieugiang/features/guest/ManHinhDatPhong.dart';
 import 'package:nhatro_kieugiang/features/tenant/ManHinhChiTietChuyenPhong.dart';
+import 'package:nhatro_kieugiang/core/widgets/LoadingMeoMeo.dart';
+import 'package:nhatro_kieugiang/core/services/DichVuDatCoc.dart';
+import 'package:nhatro_kieugiang/core/utils/LienHeHelper.dart';
+import 'package:nhatro_kieugiang/core/utils/ThongBaoHelper.dart';
 
 
 class RoomDetailScreen extends StatefulWidget {
@@ -593,9 +597,10 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
                           ? const Center(
                               child: Padding(
                                 padding: EdgeInsets.all(12),
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Color(0xFF09638E),
+                                child: LoadingMeoMeo(
+                                  compact: true,
+                                  size: 60,
+                                  message: 'Đang tải thông số...',
                                 ),
                               ),
                             )
@@ -742,20 +747,6 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
                       ),
                     ),
 
-                    const SizedBox(height: 10),
-
-                    // ====== NỘI QUY & CAM KẾT THUÊ ======
-                    _buildSection(
-                      title: 'Nội quy & Cam kết thuê',
-                      content: Column(
-                        children: const [
-                          _RuleRow(text: 'Không nuôi súc vật lớn gây ồn ào hoặc mùi trong khu dân cư chung.'),
-                          _RuleRow(text: 'Giữ trật tự và yên tĩnh chung sau 23:00 mỗi ngày để đảm bảo giấc ngủ cộng đồng.'),
-                          _RuleRow(text: 'Thời hạn ký hợp đồng tối thiểu 06 tháng hoặc 12 tháng (áp dụng giảm 200k tháng đầu kỳ 12 tháng).'),
-                        ],
-                      ),
-                    ),
-
                     // Bottom padding cho bottom bar
                     const SizedBox(height: 90),
                   ],
@@ -849,7 +840,7 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
                           borderRadius: BorderRadius.circular(14),
                           child: InkWell(
                             borderRadius: BorderRadius.circular(14),
-                            onTap: () {},
+                            onTap: () => LienHeHelper.moZaloChat(context),
                             child: Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
@@ -968,124 +959,108 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
                                   ),
                                 ),
                               )
-                            : Row(
-                                children: [
-                                  // Nút Hẹn xem phòng
-                                  Expanded(
-                                    flex: 4,
-                                    child: Container(
-                                      height: 48,
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(14),
-                                        border: Border.all(color: const Color(0xFF09638E), width: 1.5),
-                                        color: const Color(0xFFF0F9FF),
-                                      ),
-                                      child: Material(
-                                        color: Colors.transparent,
-                                        child: InkWell(
-                                          borderRadius: BorderRadius.circular(13),
-                                          onTap: () {
-                                            Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder: (_) => BookingScreen(room: room, isDepositMode: false),
-                                              ),
-                                            );
-                                          },
-                                          child: const Center(
-                                            child: Padding(
-                                              padding: EdgeInsets.symmetric(horizontal: 4),
-                                              child: FittedBox(
-                                                fit: BoxFit.scaleDown,
-                                                child: Row(
-                                                  mainAxisAlignment: MainAxisAlignment.center,
-                                                  children: [
-                                                    Icon(
-                                                      Icons.calendar_today_rounded,
-                                                      size: 15,
-                                                      color: Color(0xFF09638E),
-                                                    ),
-                                                    SizedBox(width: 6),
-                                                    Text(
-                                                      'Hẹn xem',
-                                                      style: TextStyle(
-                                                        color: Color(0xFF09638E),
-                                                        fontWeight: FontWeight.bold,
-                                                        fontSize: 13,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-
-                                  // Nút Đặt cọc giữ chỗ 100k
-                                  Expanded(
-                                    flex: 6,
-                                    child: Container(
-                                      height: 48,
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(14),
-                                        gradient: const LinearGradient(
+                            : Container(
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(14),
+                                  gradient: (room.trangThai.trim().toLowerCase() == 'trống')
+                                      ? const LinearGradient(
                                           colors: [
-                                            Color(0xFF16A34A),
-                                            Color(0xFF15803D),
+                                            Color(0xFF09638E),
+                                            Color(0xFF0284C7),
+                                          ],
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                        )
+                                      : const LinearGradient(
+                                          colors: [
+                                            Color(0xFF94A3B8),
+                                            Color(0xFF64748B),
                                           ],
                                           begin: Alignment.topLeft,
                                           end: Alignment.bottomRight,
                                         ),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: const Color(0xFF16A34A).withValues(alpha: 0.35),
-                                            blurRadius: 10,
-                                            offset: const Offset(0, 4),
-                                          ),
-                                        ],
-                                      ),
-                                      child: Material(
-                                        color: Colors.transparent,
-                                        child: InkWell(
-                                          borderRadius: BorderRadius.circular(14),
-                                          onTap: () {
-                                            Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder: (_) => BookingScreen(room: room, isDepositMode: true),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: (room.trangThai.trim().toLowerCase() == 'trống')
+                                          ? const Color(0xFF09638E).withValues(alpha: 0.35)
+                                          : Colors.black.withValues(alpha: 0.15),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(14),
+                                    onTap: () async {
+                                      String freshStatus = room.trangThai.trim().toLowerCase();
+                                      try {
+                                        final pRes = await Supabase.instance.client
+                                            .from('phong')
+                                            .select('trang_thai')
+                                            .eq('ma_phong', room.maPhong)
+                                            .maybeSingle();
+                                        if (pRes != null && pRes['trang_thai'] != null) {
+                                          freshStatus = pRes['trang_thai'].toString().trim().toLowerCase();
+                                        }
+                                      } catch (_) {}
+
+                                      final isLocked = await DepositService.isRoomLocked(room.maPhong);
+                                      if (isLocked || freshStatus != 'trống') {
+                                        if (context.mounted) {
+                                          ThongBaoHelper.hienThongBao(
+                                            context,
+                                            tieuDe: 'Phòng Đã Có Người / Đã Cọc',
+                                            noiDung:
+                                                'Phòng ${room.tenHienThi} hiện đang có người thuê hoặc đã có khách đặt cọc giữ chỗ trước. Vui lòng tham khảo các phòng trống khác bạn nhé!',
+                                            type: ThongBaoType.canhBao,
+                                          );
+                                        }
+                                        return;
+                                      }
+                                      if (!context.mounted) return;
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => BookingScreen(room: room),
+                                        ),
+                                      );
+                                    },
+                                    child: Center(
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                                        child: FittedBox(
+                                          fit: BoxFit.scaleDown,
+                                          child: Row(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              Icon(
+                                                (room.trangThai.trim().toLowerCase() == 'trống')
+                                                    ? Icons.calendar_month_rounded
+                                                    : Icons.lock_clock_rounded,
+                                                size: 18,
+                                                color: Colors.white,
                                               ),
-                                            );
-                                          },
-                                          child: const Center(
-                                            child: Row(
-                                              mainAxisAlignment: MainAxisAlignment.center,
-                                              children: [
-                                                Icon(
-                                                  Icons.security_rounded,
-                                                  size: 16,
+                                              const SizedBox(width: 6),
+                                              Text(
+                                                (room.trangThai.trim().toLowerCase() == 'trống')
+                                                    ? 'Đặt Lịch & Giữ Chỗ (100k)'
+                                                    : 'Phòng Đã Có Khách Giữ Chỗ',
+                                                style: const TextStyle(
                                                   color: Colors.white,
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 14,
                                                 ),
-                                                SizedBox(width: 6),
-                                                Text(
-                                                  'Đặt cọc ngay (100k)',
-                                                  style: TextStyle(
-                                                    color: Colors.white,
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: 13.5,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
+                                              ),
+                                            ],
                                           ),
                                         ),
                                       ),
                                     ),
                                   ),
-                                ],
+                                ),
                               ),
                       ),
                     ],
@@ -1616,40 +1591,6 @@ class _ServiceFeeRow extends StatelessWidget {
         if (showDivider)
           const Divider(height: 1, thickness: 0.8, color: Color(0xFFF1F5F9)),
       ],
-    );
-  }
-}
-
-// ====== WIDGET PHỤ: Hàng nội quy ======
-class _RuleRow extends StatelessWidget {
-  final String text;
-  const _RuleRow({required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.only(top: 3),
-            child: Icon(Icons.check_circle_rounded,
-                size: 16, color: Color(0xFF09638E)),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(
-                fontSize: 12.5,
-                color: Color(0xFF334155),
-                height: 1.4,
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

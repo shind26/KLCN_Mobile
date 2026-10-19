@@ -7,14 +7,22 @@ class KetQuaQuetCccd {
   final String hoTen;
   final String soCccd;
   final String? ngaySinh;
+  final String? gioiTinh;
   final String? queQuan;
+  final String? diaChiThuongTru;
+  final String? ngayCap;
+  final String? noiCap;
   final String rawText;
 
   KetQuaQuetCccd({
     required this.hoTen,
     required this.soCccd,
     this.ngaySinh,
+    this.gioiTinh,
     this.queQuan,
+    this.diaChiThuongTru,
+    this.ngayCap,
+    this.noiCap,
     this.rawText = '',
   });
 
@@ -76,11 +84,16 @@ class DichVuQuetCccd {
     }
   }
 
-  /// Bóc tách các trường: Số CCCD (12 số), Họ và tên từ text thô
+  /// Bóc tách các trường: Số CCCD (12 số), Họ và tên, Giới tính, Thường trú, Ngày sinh...
   static KetQuaQuetCccd _phanTichThongTinCccd(String text) {
     String hoTen = '';
     String soCccd = '';
     String? ngaySinh;
+    String? gioiTinh;
+    String? queQuan;
+    String? diaChiThuongTru;
+    String? ngayCap;
+    String? noiCap;
 
     final lines = text
         .split('\n')
@@ -103,15 +116,41 @@ class DichVuQuetCccd {
     // 2. Tìm ngày sinh: dạng dd/mm/yyyy
     final dobRegex = RegExp(r'\b(\d{2}/\d{2}/\d{4})\b');
     for (final line in lines) {
-      final match = dobRegex.firstMatch(line);
-      if (match != null) {
-        ngaySinh = match.group(1);
-        break;
+      final lower = line.toLowerCase();
+      if (lower.contains('sinh') || lower.contains('birth') || lower.contains('ngày')) {
+        final match = dobRegex.firstMatch(line);
+        if (match != null) {
+          ngaySinh = match.group(1);
+          break;
+        }
+      }
+    }
+    // Fallback ngày sinh nếu chưa có
+    if (ngaySinh == null) {
+      for (final line in lines) {
+        final match = dobRegex.firstMatch(line);
+        if (match != null) {
+          ngaySinh = match.group(1);
+          break;
+        }
       }
     }
 
-    // 3. Tìm Họ và tên:
-    // Thường nằm ngay sau dòng chứa "Họ và tên", "Full name", "Họ và chữ đệm"
+    // 3. Giới tính
+    for (final line in lines) {
+      final lower = line.toLowerCase();
+      if (lower.contains('giới tính') || lower.contains('sex')) {
+        if (lower.contains('nữ') || lower.contains('nu') || lower.contains('female')) {
+          gioiTinh = 'Nữ';
+          break;
+        } else if (lower.contains('nam') || lower.contains('male')) {
+          gioiTinh = 'Nam';
+          break;
+        }
+      }
+    }
+
+    // 4. Tìm Họ và tên:
     final nameKeyRegex = RegExp(
       r'(họ\s*và\s*tên|full\s*name|họ\s*tên|họ\s*và\s*chữ\s*đệm)',
       caseSensitive: false,
@@ -121,7 +160,6 @@ class DichVuQuetCccd {
       final line = lines[i];
 
       if (nameKeyRegex.hasMatch(line)) {
-        // Kiểm tra xem tên có nằm trên cùng dòng (sau dấu hai chấm :) không
         final colonIdx = line.indexOf(':');
         if (colonIdx != -1 && colonIdx < line.length - 1) {
           final potentialName = line.substring(colonIdx + 1).trim();
@@ -131,7 +169,6 @@ class DichVuQuetCccd {
           }
         }
 
-        // Hoặc tên nằm ở dòng tiếp theo
         if (i + 1 < lines.length) {
           final nextLine = lines[i + 1].trim();
           if (_laTenNguoiHopLe(nextLine)) {
@@ -142,14 +179,13 @@ class DichVuQuetCccd {
       }
     }
 
-    // Nếu chưa tìm thấy họ tên theo keyword, tìm dòng viết hoa toàn bộ ký tự tiếng Việt
+    // Fallback tìm tên bằng chữ in hoa toàn bộ tiếng Việt
     if (hoTen.isEmpty) {
       final uppercaseVietnameseRegex = RegExp(
         r'^[A-ZÀÁẢÃẠÂẦẤẨẪẬĂẰẮẲẴẶÈÉẺẼẸÊỀẾỂỄỆÌÍỈĨỊÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢÙÚỦŨỤƯỪỨỬỮỰỲÝỶỸỴĐ\s]{5,}$',
       );
 
       for (final line in lines) {
-        // Bỏ qua các dòng tiêu đề cố định của CCCD
         final upper = line.toUpperCase();
         if (upper.contains('CỘNG HÒA') ||
             upper.contains('ĐỘC LẬP') ||
@@ -167,10 +203,80 @@ class DichVuQuetCccd {
       }
     }
 
+    // 5. Nơi thường trú (Place of residence)
+    final resRegex = RegExp(
+      r'(nơi\s*thường\s*trú|place\s*of\s*residence|thường\s*trú)',
+      caseSensitive: false,
+    );
+    for (int i = 0; i < lines.length; i++) {
+      final line = lines[i];
+      if (resRegex.hasMatch(line)) {
+        String address = '';
+        final colonIdx = line.indexOf(':');
+        if (colonIdx != -1 && colonIdx < line.length - 1) {
+          address = line.substring(colonIdx + 1).trim();
+        }
+        // Kiểm tra các dòng kế tiếp nếu địa chỉ dài nhiều dòng
+        int nextIdx = i + 1;
+        while (nextIdx < lines.length) {
+          final nextL = lines[nextIdx].trim();
+          if (nextL.toLowerCase().contains('ngày') ||
+              nextL.toLowerCase().contains('có giá trị') ||
+              nextL.toLowerCase().contains('date of expiry')) {
+            break;
+          }
+          if (address.isEmpty) {
+            address = nextL;
+          } else {
+            address += ', $nextL';
+          }
+          nextIdx++;
+          if (nextIdx > i + 2) break; // Lấy tối đa 2 dòng tiếp theo
+        }
+        if (address.isNotEmpty) {
+          diaChiThuongTru = address;
+          break;
+        }
+      }
+    }
+
+    // 6. Quê quán (Place of origin)
+    final originRegex = RegExp(
+      r'(quê\s*quán|place\s*of\s*origin)',
+      caseSensitive: false,
+    );
+    for (int i = 0; i < lines.length; i++) {
+      final line = lines[i];
+      if (originRegex.hasMatch(line)) {
+        final colonIdx = line.indexOf(':');
+        if (colonIdx != -1 && colonIdx < line.length - 1) {
+          queQuan = line.substring(colonIdx + 1).trim();
+          break;
+        } else if (i + 1 < lines.length) {
+          queQuan = lines[i + 1].trim();
+          break;
+        }
+      }
+    }
+
+    // 7. Nơi cấp / Cục CS QLHC về TTXH
+    for (final line in lines) {
+      final upper = line.toUpperCase();
+      if (upper.contains('CỤC CẢNH SÁT') || upper.contains('QLHC VỀ TTXH')) {
+        noiCap = 'Cục Cảnh sát QLHC về TTXH';
+        break;
+      }
+    }
+
     return KetQuaQuetCccd(
       hoTen: hoTen,
       soCccd: soCccd,
       ngaySinh: ngaySinh,
+      gioiTinh: gioiTinh,
+      queQuan: queQuan,
+      diaChiThuongTru: diaChiThuongTru,
+      ngayCap: ngayCap,
+      noiCap: noiCap ?? 'Cục Cảnh sát QLHC về TTXH',
       rawText: text,
     );
   }
@@ -179,7 +285,6 @@ class DichVuQuetCccd {
     if (str.length < 4) return false;
     final words = str.split(' ').where((w) => w.isNotEmpty).toList();
     if (words.length < 2) return false;
-    // Không chứa các từ khóa hệ thống
     final upper = str.toUpperCase();
     if (upper.contains('CỘNG HÒA') ||
         upper.contains('CĂN CƯỚC') ||
@@ -191,7 +296,6 @@ class DichVuQuetCccd {
   }
 
   static String _chuanHoaTen(String raw) {
-    // Chuyển từ ALL CAPS sang Title Case đẹp mắt: "LÊ THỊ THU THẢO" -> "Lê Thị Thu Thảo"
     final words = raw.trim().split(RegExp(r'\s+'));
     return words.map((w) {
       if (w.isEmpty) return '';

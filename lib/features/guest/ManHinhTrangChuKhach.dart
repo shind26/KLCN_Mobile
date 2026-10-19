@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:nhatro_kieugiang/core/services/DichVuLuuDatPhong.dart';
 import 'package:nhatro_kieugiang/core/services/DichVuXacThuc.dart';
+import 'package:nhatro_kieugiang/core/widgets/LoadingMeoMeo.dart';
 import 'package:nhatro_kieugiang/data/models/MoHinhNguoiDung.dart';
 import 'package:nhatro_kieugiang/data/models/MoHinhPhong.dart';
 import 'package:nhatro_kieugiang/features/auth/ManHinhDangNhap.dart';
@@ -8,6 +9,9 @@ import 'package:nhatro_kieugiang/features/guest/ManHinhChiTietPhong.dart';
 import 'package:nhatro_kieugiang/features/guest/ManHinhDatPhong.dart';
 import 'package:nhatro_kieugiang/features/guest/ManHinhLichSuDatPhong.dart';
 import 'package:nhatro_kieugiang/features/tenant/ManHinhTrangChuCuDan.dart';
+import 'package:nhatro_kieugiang/core/services/DichVuDatCoc.dart';
+import 'package:nhatro_kieugiang/core/utils/ThongBaoHelper.dart';
+import 'package:nhatro_kieugiang/core/utils/LienHeHelper.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class GuestHomeScreen extends StatefulWidget {
@@ -23,7 +27,6 @@ class _GuestHomeScreenState extends State<GuestHomeScreen> {
   bool _isLoading = true;
   String _selectedCategory = 'Tất cả';
   bool _sortAscending = true;
-  int _currentBottomIndex = 0;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   RealtimeChannel? _homeBookingRealtimeChannel;
@@ -47,40 +50,27 @@ class _GuestHomeScreenState extends State<GuestHomeScreen> {
     super.dispose();
   }
 
-  /// Lắng nghe và kiểm tra xem có lịch hẹn nào của khách vừa được duyệt không
+  /// Lắng nghe và kiểm tra xem có phiếu giữ chỗ nào của khách đã thanh toán thành công không
   Future<void> _initBookingRealtimeTracking() async {
     final phone = await BookingStorageService.getLastPhone();
     if (phone == null || phone.isEmpty) return;
 
-    // 1. Kiểm tra ban đầu xem có lịch hẹn đã xác nhận chưa được thông báo không
+    // 1. Kiểm tra ban đầu xem có giữ chỗ đã thanh toán chưa được thông báo không
     _checkUnnotifiedBookings(phone);
 
-    // 2. Thiết lập Supabase Realtime lắng nghe thay đổi
+    // 2. Thiết lập Supabase Realtime lắng nghe thay đổi bảng giu_cho
     try {
       _homeBookingRealtimeChannel = Supabase.instance.client
-          .channel('public:dat_lich_xem_phong_home_$phone')
+          .channel('public:giu_cho_home_$phone')
           .onPostgresChanges(
             event: PostgresChangeEvent.all,
             schema: 'public',
-            table: 'dat_lich_xem_phong',
-            filter: PostgresChangeFilter(
-              type: PostgresChangeFilterType.eq,
-              column: 'so_dien_thoai',
-              value: phone,
-            ),
+            table: 'giu_cho',
             callback: (payload) {
-              debugPrint(
-                'Realtime GuestHomeScreen phát hiện thay đổi lịch hẹn: ${payload.newRecord}',
-              );
               final newRecord = payload.newRecord;
-              if (newRecord.isNotEmpty) {
-                final status = newRecord['trang_thai'];
-                final maLichHen = newRecord['ma_lich_hen']?.toString() ?? '';
-                if (status == 'Đã xác nhận') {
-                  if (mounted) {
-                    setState(() => _hasConfirmedNotice = true);
-                    _handleConfirmedBooking(newRecord);
-                  }
+              if (newRecord.isNotEmpty && newRecord['trang_thai'] == 'Đã thanh toán') {
+                if (mounted) {
+                  _checkUnnotifiedBookings(phone);
                 }
               }
             },
@@ -93,30 +83,43 @@ class _GuestHomeScreenState extends State<GuestHomeScreen> {
 
   Future<void> _checkUnnotifiedBookings(String phone) async {
     try {
+      final khachRes = await Supabase.instance.client
+          .from('khach_thue')
+          .select('ma_khach')
+          .eq('so_dt', phone)
+          .maybeSingle();
+      if (khachRes == null) return;
+      final maKhach = khachRes['ma_khach']?.toString() ?? '';
+      if (maKhach.isEmpty) return;
+
       final response = await Supabase.instance.client
-          .from('dat_lich_xem_phong')
+          .from('giu_cho')
           .select()
-          .eq('so_dien_thoai', phone)
-          .eq('trang_thai', 'Đã xác nhận')
-          .order('created_at', ascending: false)
+          .eq('ma_khach', maKhach)
+          .eq('trang_thai', 'Đã thanh toán')
+          .order('thoi_gian_giu_cho', ascending: false)
           .limit(1);
 
       if (response.isNotEmpty) {
         final booking = Map<String, dynamic>.from(response.first as Map);
-        final maLichHen = booking['ma_lich_hen']?.toString() ?? '';
+        final maGiuCho = booking['ma_giu_cho']?.toString() ?? '';
         final isNotified = await BookingStorageService.isAlreadyNotified(
-          maLichHen,
+          maGiuCho,
         );
         if (!isNotified && mounted) {
           setState(() => _hasConfirmedNotice = true);
-          // Đợi màn hình build xong mới hiện popup
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            _handleConfirmedBooking(booking);
+            _handleConfirmedBooking({
+              'ma_lich_hen': maGiuCho,
+              'ma_phong': booking['ma_phong'],
+              'ngay_hen': booking['ngay_du_kien_o'] ?? '',
+              'khung_gio': booking['ghi_chu'] ?? '',
+            });
           });
         }
       }
     } catch (e) {
-      debugPrint('Lỗi kiểm tra lịch hẹn chưa thông báo: $e');
+      debugPrint('Lỗi kiểm tra giữ chỗ chưa thông báo: $e');
     }
   }
 
@@ -308,20 +311,25 @@ class _GuestHomeScreenState extends State<GuestHomeScreen> {
           label,
           style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
         ),
-        const Spacer(),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 12.5,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF0F172A),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF0F172A),
+            ),
           ),
         ),
       ],
     );
   }
 
-  // Tải dữ liệu phòng trực tiếp từ bảng phong trên Supabase (chỉ lấy phòng có trạng thái 'Trống')
+  // Tải dữ liệu phòng trực tiếp từ bảng phong trên Supabase (chỉ lấy phòng có trạng thái 'Trống' và không bị giữ chỗ/đã xác nhận)
   Future<void> _fetchRoomsFromSupabase() async {
     if (mounted) {
       setState(() {
@@ -335,16 +343,57 @@ class _GuestHomeScreenState extends State<GuestHomeScreen> {
           .select()
           .eq('trang_thai', 'Trống');
       debugPrint('Kết quả Supabase phong trống: $response');
-      final List<RoomModel> loaded = response
+      final List<RoomModel> loaded = (response as List)
           .map(
             (data) =>
                 RoomModel.fromJson(Map<String, dynamic>.from(data as Map)),
           )
           .where((room) => room.trangThai.trim().toLowerCase() == 'trống')
           .toList();
+
+      // Kiểm tra toàn diện danh sách phòng đang có người ở (hợp đồng), giữ chỗ hoặc lịch hẹn
+      final Set<String> lockedRoomCodes = {};
+      try {
+        final nowUtc = DateTime.now().toUtc();
+
+        // 1. Loại bỏ các phòng đang có người thuê / hợp đồng còn hạn
+        final hdRows = await client
+            .from('hop_dong')
+            .select('ma_phong')
+            .inFilter('trang_thai', ['Đang thuê', 'Còn hạn', 'HieuLuc']);
+        for (final row in (hdRows as List)) {
+          final p = row['ma_phong']?.toString();
+          if (p != null && p.isNotEmpty) lockedRoomCodes.add(p);
+        }
+
+        // 2. Loại bỏ các phòng đang giữ chỗ (DangGiu, DaDatCoc, hoặc ChoThanhToan chưa hết hạn)
+        final giuChoRows = await client
+            .from('giu_cho')
+            .select('ma_phong, trang_thai, expires_at');
+        for (final row in (giuChoRows as List)) {
+          final p = row['ma_phong']?.toString();
+          final st = row['trang_thai']?.toString();
+          final expStr = row['expires_at']?.toString();
+          if (p == null || p.isEmpty) continue;
+          if (st == 'Đã thanh toán' || st == 'DangGiu' || st == 'DaDatCoc') {
+            lockedRoomCodes.add(p);
+          } else if (st == 'ChoThanhToan' && expStr != null && expStr.isNotEmpty) {
+            final exp = DateTime.tryParse(expStr)?.toUtc();
+            if (exp != null && exp.isAfter(nowUtc)) {
+              lockedRoomCodes.add(p);
+            }
+          }
+        }
+
+      } catch (eLock) {
+        debugPrint('Lỗi truy vấn locked rooms: $eLock');
+      }
+
+      final available = loaded.where((r) => !lockedRoomCodes.contains(r.maPhong)).toList();
+
       if (mounted) {
         setState(() {
-          _allRooms = loaded;
+          _allRooms = available;
           _isLoading = false;
         });
         _applyFilter();
@@ -426,97 +475,83 @@ class _GuestHomeScreenState extends State<GuestHomeScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF4F8FA),
       body: SafeArea(
-        child: _currentBottomIndex == 1
-            ? BookingScreen(
-                availableRooms: _allRooms,
-                isTabMode: true,
-                onBookingSuccess: () {
-                  setState(() {
-                    _currentBottomIndex = 0;
-                  });
-                },
-              )
-            : Column(
-                children: [
-                  // 1. TOP APP BAR
-                  _buildTopAppBar(),
+        child: Column(
+          children: [
+            // 1. TOP APP BAR
+            _buildTopAppBar(),
 
-                  // 2. NỘI DUNG CUỘN CHÍNH (TAB KHÁM PHÁ)
-                  Expanded(
-                    child: _isLoading
-                        ? const Center(
-                            child: CircularProgressIndicator(
-                              color: Color(0xFF09638E),
-                            ),
-                          )
-                        : RefreshIndicator(
-                            onRefresh: _fetchRoomsFromSupabase,
-                            color: const Color(0xFF09638E),
-                            child: SingleChildScrollView(
-                              physics: const BouncingScrollPhysics(),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
+            // 2. NỘI DUNG CUỘN CHÍNH (TAB KHÁM PHÁ)
+            Expanded(
+              child: _isLoading
+                  ? const LoadingMeoMeo(
+                      message: 'Đang tải danh sách phòng...',
+                      subMessage: 'Đợi mèo con tìm phòng đẹp cho bạn nha~ 🐾',
+                    )
+                  : RefreshIndicator(
+                      onRefresh: _fetchRoomsFromSupabase,
+                      color: const Color(0xFF09638E),
+                      child: SingleChildScrollView(
+                        physics: const BouncingScrollPhysics(),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 12),
+
+                            // HERO BANNER CARD
+                            _buildHeroBanner(),
+
+                            const SizedBox(height: 14),
+
+                            // THANH TÌM KIẾM PHÒNG TRỌ
+                            _buildSearchBar(),
+
+                            const SizedBox(height: 16),
+
+                            // BỘ LỌC CATEGORY CHIPS
+                            _buildCategoryChips(),
+
+                            const SizedBox(height: 14),
+
+                            // THANH THÔNG BÁO SỐ PHÒNG TRỐNG & SẮP XẾP GIÁ
+                            _buildInfoAndSortRow(),
+
+                            const SizedBox(height: 14),
+
+                            // DANH SÁCH THẺ PHÒNG TRỌ (DYNAMIC ROOM CARDS) HOẶC RỖNG
+                            if (_filteredRooms.isEmpty)
+                              _buildEmptySearchResults()
+                            else ...[
+                              ..._getPaginatedRooms().map(
+                                (room) => _buildRoomCard(room),
                               ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const SizedBox(height: 12),
+                              if (_getTotalPages() > 1) ...[
+                                const SizedBox(height: 16),
+                                _buildPaginationSection(),
+                              ],
+                            ],
 
-                                  // HERO BANNER CARD
-                                  _buildHeroBanner(),
+                            const SizedBox(height: 24),
 
-                                  const SizedBox(height: 14),
+                            // ĐẶC QUYỀN CƯ DÂN (TIỆN ÍCH MIỄN PHÍ)
+                            _buildAmenitiesSection(),
 
-                                  // THANH TÌM KIẾM PHÒNG TRỌ
-                                  _buildSearchBar(),
+                            const SizedBox(height: 20),
 
-                                  const SizedBox(height: 16),
+                            // HOTLINE & TƯ VẤN CHỦ NHÀ
+                            _buildHotlineBanner(),
 
-                                  // BỘ LỌC CATEGORY CHIPS
-                                  _buildCategoryChips(),
-
-                                  const SizedBox(height: 14),
-
-                                  // THANH THÔNG BÁO SỐ PHÒNG TRỐNG & SẮP XẾP GIÁ
-                                  _buildInfoAndSortRow(),
-
-                                  const SizedBox(height: 14),
-
-                                  // DANH SÁCH THẺ PHÒNG TRỌ (DYNAMIC ROOM CARDS) HOẶC RỖNG
-                                  if (_filteredRooms.isEmpty)
-                                    _buildEmptySearchResults()
-                                  else ...[
-                                    ..._getPaginatedRooms().map(
-                                      (room) => _buildRoomCard(room),
-                                    ),
-                                    if (_getTotalPages() > 1) ...[
-                                      const SizedBox(height: 16),
-                                      _buildPaginationSection(),
-                                    ],
-                                  ],
-
-                                  const SizedBox(height: 24),
-
-                                  // ĐẶC QUYỀN CƯ DÂN (TIỆN ÍCH MIỄN PHÍ)
-                                  _buildAmenitiesSection(),
-
-                                  const SizedBox(height: 20),
-
-                                  // HOTLINE & TƯ VẤN CHỦ NHÀ
-                                  _buildHotlineBanner(),
-
-                                  const SizedBox(height: 28),
-                                ],
-                              ),
-                            ),
-                          ),
-                  ),
-                ],
-              ),
+                            const SizedBox(height: 28),
+                          ],
+                        ),
+                      ),
+                    ),
+            ),
+          ],
+        ),
       ),
-
-      // 3. BOTTOM NAVIGATION BAR
-      bottomNavigationBar: _buildBottomNavigationBar(),
     );
   }
 
@@ -1020,7 +1055,7 @@ class _GuestHomeScreenState extends State<GuestHomeScreen> {
                 ),
               ),
               title: const Text(
-                'Phòng đã thuê của tôi (Phòng 302)',
+                'Vào trang quản lý phòng của tôi',
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
@@ -1028,7 +1063,7 @@ class _GuestHomeScreenState extends State<GuestHomeScreen> {
                 ),
               ),
               subtitle: const Text(
-                'Xem hóa đơn, sự cố, hợp đồng & thành viên',
+                'Xem phòng đang thuê, hóa đơn, sự cố & hợp đồng',
                 style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
               ),
               trailing: const Icon(
@@ -1108,7 +1143,7 @@ class _GuestHomeScreenState extends State<GuestHomeScreen> {
                 style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
               ),
               subtitle: const Text(
-                '0987.654.321 (Hỗ trợ 24/7)',
+                '${LienHeHelper.defaultHotlineDisplay} (Zalo / Call 24/7)',
                 style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
               ),
               trailing: const Icon(
@@ -1118,16 +1153,11 @@ class _GuestHomeScreenState extends State<GuestHomeScreen> {
               ),
               onTap: () {
                 Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Hotline BQL: 0987.654.321 (Zalo & Phone)'),
-                    backgroundColor: Color(0xFF09638E),
-                  ),
-                );
+                LienHeHelper.moZaloChat(context);
               },
             ),
 
-            const SizedBox(height: 12),
+            const SizedBox(height: 18),
             const Divider(color: Color(0xFFF1F5F9), thickness: 1.2),
             const SizedBox(height: 8),
 
@@ -1199,12 +1229,11 @@ class _GuestHomeScreenState extends State<GuestHomeScreen> {
               Navigator.pop(ctx);
               await AuthService.logout();
               if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Đã đăng xuất thành công.'),
-                    backgroundColor: Color(0xFF09638E),
-                    duration: Duration(seconds: 2),
-                  ),
+                ThongBaoHelper.hienToast(
+                  context,
+                  tieuDe: 'Đã đăng xuất',
+                  noiDung: 'Đã đăng xuất tài khoản thành công.',
+                  type: ThongBaoType.thongTin,
                 );
               }
             },
@@ -1267,7 +1296,7 @@ class _GuestHomeScreenState extends State<GuestHomeScreen> {
                 ),
                 SizedBox(width: 5),
                 Text(
-                  'Ưu đãi chào tân cư dân',
+                  'Hệ thống Kiêu Giang House',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 11,
@@ -1294,54 +1323,6 @@ class _GuestHomeScreenState extends State<GuestHomeScreen> {
               color: Colors.white.withValues(alpha: 0.88),
               fontSize: 12.5,
               height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 14),
-
-          // Promo Container
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.18),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.25),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(
-                    Icons.local_offer_rounded,
-                    color: Colors.white,
-                    size: 18,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
-                      Text(
-                        'Giảm ngay 10% tháng đầu',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                        ),
-                      ),
-                      SizedBox(height: 1),
-                      Text(
-                        'Khi tạo tài khoản & đặt phòng',
-                        style: TextStyle(color: Colors.white70, fontSize: 11),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
             ),
           ),
         ],
@@ -2120,7 +2101,22 @@ class _GuestHomeScreenState extends State<GuestHomeScreen> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: ElevatedButton.icon(
-                          onPressed: () {
+                          onPressed: () async {
+                            final isLocked = await DepositService.isRoomLocked(room.maPhong);
+                            if (isLocked) {
+                              if (context.mounted) {
+                                ThongBaoHelper.hienThongBao(
+                                  context,
+                                  tieuDe: 'Phòng Đã Có Người / Đã Cọc',
+                                  noiDung:
+                                      'Phòng ${room.tenHienThi} hiện đang có người ở hoặc vừa được khách khác đặt giữ chỗ. Vui lòng chọn phòng trống khác bạn nhé!',
+                                  type: ThongBaoType.canhBao,
+                                );
+                                _fetchRoomsFromSupabase();
+                              }
+                              return;
+                            }
+                            if (!context.mounted) return;
                             Navigator.push(
                               context,
                               MaterialPageRoute(
@@ -2359,7 +2355,7 @@ class _GuestHomeScreenState extends State<GuestHomeScreen> {
                 ),
                 const SizedBox(width: 6),
                 const Text(
-                  '0987.654.321',
+                  LienHeHelper.defaultHotlineDisplay,
                   style: TextStyle(
                     fontSize: 14.5,
                     fontWeight: FontWeight.bold,
@@ -2399,7 +2395,7 @@ class _GuestHomeScreenState extends State<GuestHomeScreen> {
             children: [
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: () {},
+                  onPressed: () => LienHeHelper.goiDien(context),
                   icon: const Icon(
                     Icons.call_rounded,
                     size: 16,
@@ -2425,7 +2421,7 @@ class _GuestHomeScreenState extends State<GuestHomeScreen> {
               const SizedBox(width: 10),
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: () {},
+                  onPressed: () => LienHeHelper.moZaloChat(context),
                   icon: const Icon(
                     Icons.chat_bubble_outline_rounded,
                     size: 16,
@@ -2455,46 +2451,5 @@ class _GuestHomeScreenState extends State<GuestHomeScreen> {
     );
   }
 
-  // BOTTOM NAVIGATION BAR
-  Widget _buildBottomNavigationBar() {
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
-        boxShadow: [
-          BoxShadow(
-            color: Color(0x08000000),
-            blurRadius: 8,
-            offset: Offset(0, -2),
-          ),
-        ],
-      ),
-      child: BottomNavigationBar(
-        currentIndex: _currentBottomIndex,
-        onTap: (index) {
-          setState(() {
-            _currentBottomIndex = index;
-          });
-        },
-        selectedItemColor: const Color(0xFF09638E),
-        unselectedItemColor: const Color(0xFF64748B),
-        selectedFontSize: 12,
-        unselectedFontSize: 12,
-        selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold),
-        type: BottomNavigationBarType.fixed,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home_rounded),
-            label: 'Khám phá',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.calendar_month_outlined),
-            activeIcon: Icon(Icons.calendar_month_rounded),
-            label: 'Đặt lịch hẹn',
-          ),
-        ],
-      ),
-    );
-  }
+
 }

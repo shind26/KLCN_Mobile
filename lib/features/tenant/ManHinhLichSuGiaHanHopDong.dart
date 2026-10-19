@@ -4,6 +4,8 @@ import 'package:nhatro_kieugiang/core/services/DichVuXacThuc.dart';
 import 'package:nhatro_kieugiang/core/utils/TienIchDinhDang.dart';
 import 'package:nhatro_kieugiang/data/models/MoHinhHopDong.dart';
 import 'package:nhatro_kieugiang/features/tenant/ManHinhGiaHanHopDong.dart';
+import 'package:nhatro_kieugiang/core/widgets/LoadingMeoMeo.dart';
+import 'package:nhatro_kieugiang/core/utils/ThongBaoHelper.dart';
 
 /// Màn hình: Lịch Sử Gia Hạn Hợp Đồng (Contract Renewal History)
 /// Quản lý và theo dõi toàn bộ các đơn yêu cầu gia hạn và các phụ lục hợp đồng gia hạn.
@@ -30,8 +32,105 @@ class _ManHinhLichSuGiaHanHopDongState extends State<ManHinhLichSuGiaHanHopDong>
 
   int _selectedFilterIndex = 0; // 0: Tất cả, 1: Chờ duyệt, 2: Đã duyệt, 3: Từ chối
   bool _isLoading = true;
+  bool _isDaiDien = true;
   List<Map<String, dynamic>> _danhSachPhuLuc = [];
   RealtimeChannel? _rtChannel;
+
+  void _thongBaoKhongCoQuyen({required String hanhDong}) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF3C7),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.admin_panel_settings_outlined,
+                color: Color(0xFFD97706),
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                'Quyền Hạn Đại Diện',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Bạn đang đăng nhập với tư cách Thành viên phòng (Bạn cùng phòng).',
+              style: TextStyle(fontSize: 13.5, color: Colors.grey.shade700, height: 1.4),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.info_outline, size: 18, color: Color(0xFF09638E)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Theo quy định hợp đồng, thủ tục "$hanhDong" chỉ có Người đại diện (Trưởng phòng đứng tên trên hợp đồng) mới có thẩm quyền thực hiện.',
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF1E293B),
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Vui lòng báo cho Người đại diện của phòng bạn để tiến hành thủ tục này nhé!',
+              style: TextStyle(fontSize: 13, color: Colors.grey.shade600, height: 1.3),
+            ),
+          ],
+        ),
+        actions: [
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () => Navigator.pop(ctx),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF09638E),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              child: const Text('Đã hiểu', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -89,25 +188,56 @@ class _ManHinhLichSuGiaHanHopDongState extends State<ManHinhLichSuGiaHanHopDong>
       final db = Supabase.instance.client;
       String cCode = _contractCode;
 
-      // Nếu mã mặc định, thử lấy mã thực từ tài khoản đang đăng nhập
-      if (cCode == 'HD001') {
-        final user = AuthService.currentUser;
-        if (user != null && user.maTaiKhoan.isNotEmpty) {
+      final user = AuthService.currentUser;
+      bool userIsDaiDien = true;
+      if (user != null) {
+        final authRole = user.vaiTro.toLowerCase();
+        if (authRole.contains('admin') || authRole.contains('chutro') || authRole.contains('quanly')) {
+          userIsDaiDien = true;
+        } else if (authRole.contains('thanhvien') || authRole.contains('banocung') || authRole.contains('ocung')) {
+          userIsDaiDien = false;
+        } else if (user.maTaiKhoan.isNotEmpty) {
           final kt = await db
               .from('khach_thue')
               .select('ma_khach')
               .eq('ma_tai_khoan', user.maTaiKhoan)
               .maybeSingle();
           if (kt != null) {
+            final maKhach = kt['ma_khach']?.toString() ?? '';
             final cthd = await db
                 .from('chi_tiet_hop_dong_khach_thue')
-                .select('ma_hop_dong')
-                .eq('ma_khach', kt['ma_khach'])
-                .limit(1)
+                .select('ma_hop_dong, vai_tro')
+                .eq('ma_khach', maKhach)
                 .maybeSingle();
             if (cthd != null) {
               cCode = cthd['ma_hop_dong']?.toString() ?? cCode;
+              final vt = (cthd['vai_tro']?.toString() ?? '').toLowerCase();
+              if (vt.contains('ở cùng') || vt.contains('thành viên') || vt.contains('ocung')) {
+                userIsDaiDien = false;
+              } else if (vt.contains('đại diện') || vt.contains('trưởng phòng')) {
+                userIsDaiDien = true;
+              }
             }
+          }
+        }
+      }
+
+      // Nếu mã mặc định, thử lấy mã thực từ tài khoản đang đăng nhập
+      if (cCode == 'HD001' && user != null && user.maTaiKhoan.isNotEmpty) {
+        final kt = await db
+            .from('khach_thue')
+            .select('ma_khach')
+            .eq('ma_tai_khoan', user.maTaiKhoan)
+            .maybeSingle();
+        if (kt != null) {
+          final cthd = await db
+              .from('chi_tiet_hop_dong_khach_thue')
+              .select('ma_hop_dong')
+              .eq('ma_khach', kt['ma_khach'])
+              .limit(1)
+              .maybeSingle();
+          if (cthd != null) {
+            cCode = cthd['ma_hop_dong']?.toString() ?? cCode;
           }
         }
       }
@@ -131,6 +261,7 @@ class _ManHinhLichSuGiaHanHopDongState extends State<ManHinhLichSuGiaHanHopDong>
         }).map((e) => Map<String, dynamic>.from(e)).toList();
 
         setState(() {
+          _isDaiDien = userIsDaiDien;
           _danhSachPhuLuc = giaHanList;
           _isLoading = false;
         });
@@ -170,7 +301,10 @@ class _ManHinhLichSuGiaHanHopDongState extends State<ManHinhLichSuGiaHanHopDong>
               _buildFilterChips(),
               Expanded(
                 child: _isLoading
-                    ? const Center(child: CircularProgressIndicator(color: _primary))
+                    ? const LoadingMeoMeo(
+                        message: 'Đang tải lịch sử gia hạn...',
+                        subMessage: 'Mèo con đang kiểm tra các đơn gia hạn~ 🐾',
+                      )
                     : _filteredList.isEmpty
                         ? _buildEmptyState()
                         : ListView.separated(
@@ -190,27 +324,50 @@ class _ManHinhLichSuGiaHanHopDongState extends State<ManHinhLichSuGiaHanHopDong>
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => ManHinhGiaHanHopDong(
-                hopDong: widget.hopDong,
-                tenPhong: _roomName,
-                maPhong: widget.hopDong?.maPhong ?? 'P203',
+      floatingActionButton: _isDaiDien
+          ? FloatingActionButton.extended(
+              onPressed: () async {
+                if (!_isDaiDien) {
+                  _thongBaoKhongCoQuyen(hanhDong: 'Gia hạn hợp đồng');
+                  return;
+                }
+                int daysLeft = 999;
+                if (widget.hopDong?.ngayKt != null && widget.hopDong!.ngayKt.isNotEmpty) {
+                  try {
+                    final dt = DateTime.parse(widget.hopDong!.ngayKt);
+                    daysLeft = dt.difference(DateTime.now()).inDays;
+                  } catch (_) {}
+                }
+                if (daysLeft > 30) {
+                  ThongBaoHelper.hienToast(
+                    context,
+                    tieuDe: 'Chưa Đến Hạn Gia Hạn',
+                    noiDung:
+                        'Hợp đồng còn $daysLeft ngày. Theo quy định, chỉ được gửi đơn gia hạn khi hợp đồng sắp hết hạn (trong vòng 30 ngày cuối / còn 1 tháng)!',
+                    type: ThongBaoType.canhBao,
+                  );
+                  return;
+                }
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ManHinhGiaHanHopDong(
+                      hopDong: widget.hopDong,
+                      tenPhong: _roomName,
+                      maPhong: widget.hopDong?.maPhong ?? 'P203',
+                    ),
+                  ),
+                );
+                _fetchLichSuGiaHan(isSilent: true);
+              },
+              backgroundColor: _primary,
+              icon: const Icon(Icons.add_rounded, color: Colors.white),
+              label: const Text(
+                'Tạo Đơn Gia Hạn',
+                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
               ),
-            ),
-          );
-          _fetchLichSuGiaHan(isSilent: true);
-        },
-        backgroundColor: _primary,
-        icon: const Icon(Icons.add_rounded, color: Colors.white),
-        label: const Text(
-          'Tạo Đơn Gia Hạn',
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-        ),
-      ),
+            )
+          : null,
     );
   }
 
@@ -675,30 +832,36 @@ class _ManHinhLichSuGiaHanHopDongState extends State<ManHinhLichSuGiaHanHopDong>
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B), height: 1.4),
             ),
-            const SizedBox(height: 20),
-            ElevatedButton.icon(
-              onPressed: () async {
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => ManHinhGiaHanHopDong(
-                      hopDong: widget.hopDong,
-                      tenPhong: _roomName,
-                      maPhong: widget.hopDong?.maPhong ?? 'P203',
+            if (_isDaiDien) ...[
+              const SizedBox(height: 20),
+              ElevatedButton.icon(
+                onPressed: () async {
+                  if (!_isDaiDien) {
+                    _thongBaoKhongCoQuyen(hanhDong: 'Gia hạn hợp đồng');
+                    return;
+                  }
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ManHinhGiaHanHopDong(
+                        hopDong: widget.hopDong,
+                        tenPhong: _roomName,
+                        maPhong: widget.hopDong?.maPhong ?? 'P203',
+                      ),
                     ),
-                  ),
-                );
-                _fetchLichSuGiaHan(isSilent: true);
-              },
-              icon: const Icon(Icons.edit_calendar_rounded, size: 18),
-              label: const Text('Tạo Yêu Cầu Gia Hạn Ngay'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _primary,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  );
+                  _fetchLichSuGiaHan(isSilent: true);
+                },
+                icon: const Icon(Icons.edit_calendar_rounded, size: 18),
+                label: const Text('Tạo Yêu Cầu Gia Hạn Ngay'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
               ),
-            ),
+            ],
           ],
         ),
       ),

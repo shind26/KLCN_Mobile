@@ -11,11 +11,13 @@ import 'package:http/http.dart' as http;
 import 'package:nhatro_kieugiang/core/services/DichVuThongBaoHeThong.dart';
 import 'package:nhatro_kieugiang/core/services/VnPayService.dart';
 import 'package:nhatro_kieugiang/core/utils/AmThanhThanhToanHelper.dart';
+import 'package:nhatro_kieugiang/core/utils/ThongBaoHelper.dart';
 import 'package:nhatro_kieugiang/core/utils/TienIchDinhDang.dart';
 import 'package:nhatro_kieugiang/core/utils/VietQrHelper.dart';
 import 'package:nhatro_kieugiang/data/models/MoHinhHopDong.dart';
 import 'package:nhatro_kieugiang/features/tenant/ManHinhThanhToanXong.dart';
 import 'package:nhatro_kieugiang/features/tenant/ManHinhTrangChuCuDan.dart';
+import 'package:nhatro_kieugiang/features/tenant/ManHinhVnPayWebView.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -107,7 +109,8 @@ class _PaymentScreenState extends State<PaymentScreen>
   StreamSubscription? _realtimeSub;
 
   // ─── Ràng buộc chia 2 đợt & Phí phạt trễ hạn ────────────────────────────────────
-  int get _soNgayQuaHan => 0;
+  int get _soNgayQuaHan =>
+      widget.hoaDon.soNgayConLai < 0 ? -widget.hoaDon.soNgayConLai : 0;
 
   num get _phiPhatTreHan => 0;
 
@@ -124,7 +127,26 @@ class _PaymentScreenState extends State<PaymentScreen>
   num get _dotMotMin => (_tongGiaTriHoaDon * 0.5).ceilToDouble();
   num get _dotHai => _tongGiaTriHoaDon - _dotMotMin;
 
-  DateTime get _hanChotDot2Date => DateTime.now().add(const Duration(days: 5));
+  DateTime get _hanChotDot2Date {
+    DateTime base = DateTime.now();
+    if (widget.hoaDon.hanDongTien.isNotEmpty) {
+      try {
+        base = DateTime.parse(widget.hoaDon.hanDongTien);
+      } catch (_) {}
+    } else if (widget.hoaDon.ngayLap.isNotEmpty) {
+      try {
+        base = DateTime.parse(widget.hoaDon.ngayLap);
+      } catch (_) {}
+    }
+    // Ngày 15 giữa tháng của kỳ hóa đơn
+    DateTime mid = DateTime(base.year, base.month, 15);
+    // Nếu ngày hạn đợt 1 gốc rơi vào sau ngày 15, dời sang ngày 15 tháng kế tiếp
+    if (base.day > 15) {
+      mid = DateTime(base.year, base.month + 1, 15);
+    }
+    return mid;
+  }
+
   String get _hanChotDot2Formatted {
     final d = _hanChotDot2Date;
     return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
@@ -169,6 +191,9 @@ class _PaymentScreenState extends State<PaymentScreen>
     if (_isPayingRemainingDebt) {
       _paymentMode = PaymentMode.payAll;
       _installmentStep = 2;
+    } else if (_soNgayQuaHan > 0) {
+      // Hóa đơn đã trễ hạn: Khóa hình thức chia đợt, bắt buộc thanh toán toàn bộ
+      _paymentMode = PaymentMode.payAll;
     }
 
     WidgetsBinding.instance.addObserver(this);
@@ -448,25 +473,12 @@ class _PaymentScreenState extends State<PaymentScreen>
 
   void _copyToClipboard(String text, String label) {
     Clipboard.setData(ClipboardData(text: text));
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(
-              Icons.check_circle_rounded,
-              color: Colors.white,
-              size: 18,
-            ),
-            const SizedBox(width: 8),
-            Text('Đã sao chép $label: $text'),
-          ],
-        ),
-        backgroundColor: const Color(0xFF16A34A),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        duration: const Duration(seconds: 2),
-      ),
+    ThongBaoHelper.hienToast(
+      context,
+      tieuDe: 'Đã sao chép',
+      noiDung: 'Đã sao chép $label: $text vào bộ nhớ tạm!',
+      type: ThongBaoType.thongTin,
+      duration: const Duration(milliseconds: 1800),
     );
   }
 
@@ -574,7 +586,7 @@ Nội dung: ${widget.hoaDon.noiDungChuyenKhoan}''';
 
       final String noiDungThongBao = isAllOrStep2
           ? 'Bạn đã thanh toán xong Đợt 2 (${FormatUtils.currency(_soTienCanThanhToan.toDouble())}). Hóa đơn kỳ ${widget.hoaDon.thangNam} đã được quyết toán đủ.'
-          : 'Đã thanh toán Đợt 1 (${FormatUtils.currency(_soTienCanThanhToan.toDouble())}). Hạn nộp Đợt 2 còn lại: $_hanChotDot2Formatted.';
+          : 'Đã thanh toán Đợt 1 (${FormatUtils.currency(_soTienCanThanhToan.toDouble())}). Hạn nộp Đợt 2: Ngày 15 giữa tháng ($_hanChotDot2Formatted).';
 
       // Dùng tag kèm timestamp để không bị Android chặn trùng lặp
       final notifTag =
@@ -1062,25 +1074,56 @@ Nội dung: ${widget.hoaDon.noiDungChuyenKhoan}''';
                     ],
                   ),
                 ),
-                if (_phiPhatTreHan > 0) ...[
+                if (_soNgayQuaHan >= 5) ...[
                   const SizedBox(height: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 10,
-                      vertical: 4,
+                      vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFEF2F2),
+                      color: _soNgayQuaHan >= 10
+                          ? const Color(0xFFFEF2F2)
+                          : const Color(0xFFFFFBEB),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFFFECACA)),
-                    ),
-                    child: Text(
-                      'Đã gồm ${FormatUtils.currency(_phiPhatTreHan.toDouble())}đ phí phạt trễ $_soNgayQuaHan ngày (50k/ngày)',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFFDC2626),
+                      border: Border.all(
+                        color: _soNgayQuaHan >= 10
+                            ? const Color(0xFFFCA5A5)
+                            : const Color(0xFFFCD34D),
                       ),
+                    ),
+                    child: Column(
+                      children: [
+                        Text(
+                          _soNgayQuaHan >= 10
+                              ? (_isPayingRemainingDebt
+                                  ? '🔒 ĐÃ KHÓA VÂN TAY (Trễ hạn Đợt 2 $_soNgayQuaHan ngày)'
+                                  : '🔒 ĐÃ KHÓA VÂN TAY (Trễ hạn $_soNgayQuaHan ngày)')
+                              : (_isPayingRemainingDebt
+                                  ? '⚠️ CẢNH BÁO: Sắp khóa vân tay nếu không đóng nợ Đợt 2 (Trễ $_soNgayQuaHan ngày)'
+                                  : '⚠️ CẢNH BÁO: Sắp khóa vân tay nếu không thanh toán (Trễ $_soNgayQuaHan ngày)'),
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: _soNgayQuaHan >= 10
+                                ? const Color(0xFFDC2626)
+                                : const Color(0xFFB45309),
+                          ),
+                        ),
+                        if (_soNgayQuaHan >= 10) ...[
+                          const SizedBox(height: 4),
+                          const Text(
+                            'Sau khi thanh toán, vui lòng liên hệ BQL qua SĐT/Zalo 0328.004.663 để được hỗ trợ mở lại vân tay.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              color: Color(0xFF991B1B),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 ],
@@ -1166,12 +1209,6 @@ Nội dung: ${widget.hoaDon.noiDungChuyenKhoan}''';
                   _buildFeeItem('Dịch vụ khác / Wifi / Rác', hd.tienDichVuKhac),
                   if (hd.noCu > 0)
                     _buildFeeItem('Nợ kỳ trước', hd.noCu, isWarning: true),
-                  if (_phiPhatTreHan > 0)
-                    _buildFeeItem(
-                      'Phí phạt trễ hạn ($_soNgayQuaHan ngày x 50.000đ)',
-                      _phiPhatTreHan,
-                      isWarning: true,
-                    ),
                 ],
               ),
             ),
@@ -1216,12 +1253,18 @@ Nội dung: ${widget.hoaDon.noiDungChuyenKhoan}''';
   // ──────────────────────── PAYMENT MODE SELECTOR ────────────────────────
   Widget _buildPaymentModeSelector() {
     if (_isPayingRemainingDebt) {
+      final isOverdue = _soNgayQuaHan > 0;
+      final isLocked = _soNgayQuaHan >= 10;
+      final isWarn = _soNgayQuaHan >= 5;
+
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFFFFFBEB),
+          color: isOverdue ? const Color(0xFFFEF2F2) : const Color(0xFFFFFBEB),
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0xFFFDE68A)),
+          border: Border.all(
+            color: isOverdue ? const Color(0xFFFECACA) : const Color(0xFFFDE68A),
+          ),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.04),
@@ -1238,35 +1281,49 @@ Nội dung: ${widget.hoaDon.noiDungChuyenKhoan}''';
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFEF3C7),
+                    color: isOverdue ? const Color(0xFFFEE2E2) : const Color(0xFFFEF3C7),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(
-                    Icons.receipt_long_rounded,
-                    color: Color(0xFFD97706),
+                  child: Icon(
+                    isLocked
+                        ? Icons.lock_rounded
+                        : (isWarn
+                            ? Icons.warning_amber_rounded
+                            : (isOverdue
+                                ? Icons.error_outline_rounded
+                                : Icons.receipt_long_rounded)),
+                    color: isOverdue ? const Color(0xFFDC2626) : const Color(0xFFD97706),
                     size: 20,
                   ),
                 ),
                 const SizedBox(width: 10),
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'THANH TOÁN KHOẢN NỢ CÒN LẠI (ĐỢT 2)',
+                        isLocked
+                            ? '🔒 ĐÃ KHÓA VÂN TAY (TRỄ ĐỢT 2 $_soNgayQuaHan NGÀY)'
+                            : (isWarn
+                                ? '⚠️ CẢNH BÁO SẮP KHÓA VÂN TAY (TRỄ ĐỢT 2)'
+                                : (isOverdue
+                                    ? 'TRỄ HẠN ĐỢT 2 $_soNgayQuaHan NGÀY'
+                                    : 'THANH TOÁN KHOẢN NỢ CÒN LẠI (ĐỢT 2)')),
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w800,
-                          color: Color(0xFF92400E),
+                          color: isOverdue ? const Color(0xFF991B1B) : const Color(0xFF92400E),
                           letterSpacing: 0.2,
                         ),
                       ),
-                      SizedBox(height: 2),
+                      const SizedBox(height: 2),
                       Text(
-                        'Hóa đơn đã được thanh toán đợt 1 trước đó',
+                        isOverdue
+                            ? 'Hạn chót Đợt 2: ${widget.hoaDon.hanDongTienFormatted} (Quá hạn $_soNgayQuaHan ngày)'
+                            : 'Hóa đơn đã được thanh toán đợt 1 trước đó',
                         style: TextStyle(
                           fontSize: 11,
-                          color: Color(0xFFB45309),
+                          color: isOverdue ? const Color(0xFFB91C1C) : const Color(0xFFB45309),
                         ),
                       ),
                     ],
@@ -1278,11 +1335,137 @@ Nội dung: ${widget.hoaDon.noiDungChuyenKhoan}''';
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFD97706),
+                    color: isOverdue ? const Color(0xFFDC2626) : const Color(0xFFD97706),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    isLocked
+                        ? 'Đã khóa vân tay'
+                        : (isWarn
+                            ? 'Sắp khóa vân tay'
+                            : (isOverdue ? 'Quá hạn Đợt 2' : 'Đợt 2/2')),
+                    style: const TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isOverdue ? const Color(0xFFFECACA) : const Color(0xFFFDE68A),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    isLocked
+                        ? Icons.lock_rounded
+                        : (isOverdue ? Icons.warning_amber_rounded : Icons.lock_outline_rounded),
+                    size: 16,
+                    color: isOverdue ? const Color(0xFFDC2626) : const Color(0xFFD97706),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      isLocked
+                          ? 'Khoản nợ Đợt 2 đã quá hạn $_soNgayQuaHan ngày (từ 10 ngày trở lên). Hệ thống ĐÃ KHÓA VÂN TAY ra vào phòng. Quý khách vui lòng thanh toán nốt ${FormatUtils.currency(_tongTien.toDouble())}đ hoặc liên hệ BQL qua SĐT/Zalo 0328.004.663 để được hỗ trợ mở khóa.'
+                          : (isWarn
+                              ? 'Khoản nợ Đợt 2 đã quá hạn $_soNgayQuaHan ngày từ ngày ${widget.hoaDon.hanDongTienFormatted}. Nếu không tiếp tục đóng tiền trước ngày thứ 10 quá hạn, hệ thống sẽ TẠM KHÓA VÂN TAY ra vào. Vui lòng thanh toán ${FormatUtils.currency(_tongTien.toDouble())}đ ngay.'
+                              : (isOverdue
+                                  ? 'Khoản nợ Đợt 2 đã trễ hạn từ ngày ${widget.hoaDon.hanDongTienFormatted}. Quý khách vui lòng thanh toán ${FormatUtils.currency(_tongTien.toDouble())}đ sớm để tránh bị khóa vân tay ra vào (khi trễ từ 5-10 ngày).'
+                                  : 'Hóa đơn đang còn nợ ${FormatUtils.currency(_tongTien.toDouble())}. Quý khách vui lòng chuyển khoản toàn bộ số tiền này để tất toán hóa đơn (khoản nợ còn lại không áp dụng chia nhỏ thêm đợt).')),
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: isOverdue ? const Color(0xFF7F1D1D) : const Color(0xFF78350F),
+                        height: 1.35,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // ⛔ Khi hóa đơn đã trễ hạn: Không cho chọn hình thức thanh toán nữa, bắt buộc thanh toán toàn bộ
+    if (_soNgayQuaHan > 0) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFEF2F2),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFFFECACA)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEE2E2),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.warning_amber_rounded,
+                    color: Color(0xFFDC2626),
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'HÓA ĐƠN TRỄ HẠN $_soNgayQuaHan NGÀY',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF991B1B),
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Hạn thanh toán: ${widget.hoaDon.hanDongTienFormatted}',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFFB91C1C),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFDC2626),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: const Text(
-                    'Đợt 2/2',
+                    'Khóa chia đợt',
                     style: TextStyle(
                       fontSize: 10.5,
                       fontWeight: FontWeight.bold,
@@ -1298,25 +1481,80 @@ Nội dung: ${widget.hoaDon.noiDungChuyenKhoan}''';
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFFDE68A)),
+                border: Border.all(color: const Color(0xFFFECACA)),
               ),
               child: Row(
                 children: [
                   const Icon(
                     Icons.lock_outline_rounded,
                     size: 16,
-                    color: Color(0xFFD97706),
+                    color: Color(0xFFDC2626),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Hóa đơn đang còn nợ ${FormatUtils.currency(_tongTien.toDouble())}. Quý khách vui lòng chuyển khoản toàn bộ số tiền này để tất toán hóa đơn (khoản nợ còn lại không áp dụng chia nhỏ thêm đợt).',
+                      'Hóa đơn đã quá hạn thanh toán nên không áp dụng hình thức chia 2 đợt. Quý khách vui lòng thanh toán toàn bộ số tiền để tránh gián đoạn dịch vụ và khóa vân tay ra vào.',
                       style: const TextStyle(
                         fontSize: 11.5,
-                        color: Color(0xFF78350F),
+                        color: Color(0xFF7F1D1D),
                         height: 1.35,
                       ),
                     ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: _primary, width: 2),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: const BoxDecoration(
+                      color: _primary,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.check_circle_outline_rounded,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Thanh toán toàn bộ (Bắt buộc)',
+                          style: TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.bold,
+                            color: _primary,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Một lần – ${FormatUtils.currency(_tongTien.toDouble())}đ',
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            color: Color(0xFF64748B),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(
+                    Icons.lock_rounded,
+                    size: 16,
+                    color: Color(0xFF94A3B8),
                   ),
                 ],
               ),
@@ -1372,7 +1610,7 @@ Nội dung: ${widget.hoaDon.noiDungChuyenKhoan}''';
             icon: Icons.splitscreen_rounded,
             label: 'Chia thành 2 đợt',
             sublabel:
-                'Đợt 1 ≥ ${FormatUtils.currency(_dotMotMin.toDouble())}đ  •  Đợt 2: ${FormatUtils.currency(_dotHai.toDouble())}đ\n⏰ Hạn chót Đợt 2: $_hanChotDot2Formatted (Tối đa 5 ngày)',
+                'Đợt 1 ≥ ${FormatUtils.currency(_dotMotMin.toDouble())}đ  •  Đợt 2: ${FormatUtils.currency(_dotHai.toDouble())}đ\n⏰ Hạn chót Đợt 2: Ngày 15 giữa tháng ($_hanChotDot2Formatted)',
             accentColor: const Color(0xFFD97706),
             accentBg: const Color(0xFFFFF7ED),
           ),
@@ -1398,7 +1636,7 @@ Nội dung: ${widget.hoaDon.noiDungChuyenKhoan}''';
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'RÀNG BUỘC HẠN THANH TOÁN ĐỢT 2: $_hanChotDot2Formatted',
+                          'RÀNG BUỘC HẠN THANH TOÁN ĐỢT 2: NGÀY 15 GIỮA THÁNG ($_hanChotDot2Formatted)',
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w800,
@@ -1412,8 +1650,8 @@ Nội dung: ${widget.hoaDon.noiDungChuyenKhoan}''';
                   Text(
                     _installmentStep == 1
                         ? '• Đợt 1: Thanh toán ngay hôm nay (tối thiểu ${FormatUtils.currency(_dotMotMin.toDouble())}đ).\n'
-                              '• Đợt 2: Phần còn lại ${FormatUtils.currency(_dotHai.toDouble())}đ BẮT BUỘC đóng trước ngày $_hanChotDot2Formatted (thời hạn tối đa 5 ngày, không được để nợ kéo dài).'
-                        : 'Đang thanh toán đợt 2 – Số tiền ${FormatUtils.currency(_dotHai.toDouble())}đ (Hạn chót: $_hanChotDot2Formatted).',
+                              '• Đợt 2: Phần còn lại ${FormatUtils.currency(_dotHai.toDouble())}đ BẮT BUỘC đóng trước ngày 15 giữa tháng ($_hanChotDot2Formatted), không được để nợ kéo dài.'
+                        : 'Đang thanh toán đợt 2 – Số tiền ${FormatUtils.currency(_dotHai.toDouble())}đ (Hạn chót: Ngày 15 giữa tháng - $_hanChotDot2Formatted).',
                     style: const TextStyle(
                       fontSize: 11.5,
                       color: Color(0xFF92400E),
@@ -1989,10 +2227,8 @@ Nội dung: ${widget.hoaDon.noiDungChuyenKhoan}''';
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: () async {
-                // Lấy chính xác số tiền cần đóng theo đợt đang chọn
+              onPressed: () {
                 final double soTienThanhToan = _soTienCanThanhToan.toDouble();
-
                 final paymentUrl = VnPayService.generatePaymentUrl(
                   orderId:
                       '${widget.hoaDon.maHoaDon}${DateTime.now().millisecondsSinceEpoch}',
@@ -2000,77 +2236,22 @@ Nội dung: ${widget.hoaDon.noiDungChuyenKhoan}''';
                   orderInfo: 'Thanh toan tien phong ${widget.tenPhong}',
                 );
 
-                final uri = Uri.parse(paymentUrl);
-                if (await canLaunchUrl(uri)) {
-                  // Mở trình duyệt Chrome tích hợp (Custom Tab) nạp VNPAY cực mượt
-                  await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
-
-                  if (!mounted) return;
-                  showDialog(
-                    context: context,
-                    barrierDismissible: false,
-                    builder: (ctx) => AlertDialog(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      title: const Row(
-                        children: [
-                          Icon(Icons.payment_rounded, color: Color(0xFF09638E)),
-                          SizedBox(width: 8),
-                          Text(
-                            'Xác nhận thanh toán',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                      content: Text(
-                        'Số tiền thanh toán: ${FormatUtils.currency(soTienThanhToan)}đ.\nSau khi trừ tiền xong trên VNPAY, bấm nút bên dưới để cập nhật hóa đơn.',
-                        style: const TextStyle(fontSize: 13.5),
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(ctx),
-                          child: const Text(
-                            'Đóng / Hủy',
-                            style: TextStyle(color: Color(0xFF64748B)),
-                          ),
-                        ),
-                        ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF16A34A),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          onPressed: () async {
-                            Navigator.pop(ctx);
-
-                            // Tự động gạch nợ đợt 1 hoặc toàn bộ trên Supabase
-                            await _handleConfirmPayment(
-                              reason: 'Thanh toán qua Cổng VNPAY Sandbox',
-                            );
-                          },
-                          child: const Text(
-                            'Đã thanh toán xong',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => VnPayWebViewScreen(
+                      paymentUrl: paymentUrl,
+                      maHoaDon: widget.hoaDon.maHoaDon,
+                      amount: soTienThanhToan,
+                      tenPhong: widget.tenPhong,
+                      onSuccess: () async {
+                        await _handleConfirmPayment(
+                          reason: 'Thanh toán qua Cổng VNPAY',
+                        );
+                      },
                     ),
-                  );
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Không thể kết nối cổng VNPAY!'),
-                    ),
-                  );
-                }
+                  ),
+                );
               },
               icon: const Icon(
                 Icons.payment_rounded,
@@ -2795,8 +2976,11 @@ Nội dung: ${widget.hoaDon.noiDungChuyenKhoan}''';
     } catch (e) {
       debugPrint('Lỗi mở app ngân hàng: $e');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Không thể mở ứng dụng $bankName')),
+      ThongBaoHelper.hienToast(
+        context,
+        tieuDe: 'Không thể mở ứng dụng',
+        noiDung: 'Không thể mở ứng dụng ngân hàng $bankName',
+        type: ThongBaoType.thatBai,
       );
     }
   }
@@ -3084,34 +3268,22 @@ Nội dung: ${widget.hoaDon.noiDungChuyenKhoan}''';
       await Gal.putImage(file.path, album: 'Kiêu Giang');
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Row(
-            children: [
-              Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
-              SizedBox(width: 8),
-              Expanded(child: Text('Đã lưu mã QR vào Bộ sưu tập thành công!')),
-            ],
-          ),
-          backgroundColor: const Color(0xFF16A34A),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          duration: const Duration(seconds: 3),
-        ),
+      ThongBaoHelper.hienToast(
+        context,
+        tieuDe: 'Đã lưu ảnh QR',
+        noiDung: 'Đã lưu mã QR vào Bộ sưu tập thành công!',
+        type: ThongBaoType.thanhCong,
       );
     } catch (e) {
       debugPrint('Lỗi lưu ảnh: $e');
       if (!mounted) return;
       // Nếu lỗi quyền hoặc không tìm thấy file ảnh thì fallback copy STK
       _copyToClipboard(_accountNo, 'Số tài khoản');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Không thể lưu ảnh vào máy, đã sao chép STK!'),
-          backgroundColor: Color(0xFFDC2626),
-        ),
+      ThongBaoHelper.hienToast(
+        context,
+        tieuDe: 'Không thể lưu ảnh',
+        noiDung: 'Không thể lưu ảnh vào máy, đã sao chép STK!',
+        type: ThongBaoType.canhBao,
       );
     }
   }

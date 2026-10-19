@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:nhatro_kieugiang/core/utils/ThongBaoHelper.dart';
 import 'package:nhatro_kieugiang/core/utils/TienIchDinhDang.dart';
+import 'package:nhatro_kieugiang/core/widgets/LoadingMeoMeo.dart';
 import 'package:nhatro_kieugiang/data/models/MoHinhHopDong.dart';
 import 'package:nhatro_kieugiang/data/models/MoHinhPhong.dart';
 import 'package:nhatro_kieugiang/features/guest/ManHinhChiTietPhong.dart';
 import 'package:nhatro_kieugiang/features/tenant/ManHinhChiTietChuyenPhong.dart';
 import 'package:nhatro_kieugiang/features/tenant/ManHinhChuyenPhongThanhCong.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:nhatro_kieugiang/core/services/DichVuXacThuc.dart';
 
 /// Màn hình 2: Chọn Phòng Trống cho Chức năng Chuyển Phòng Khách Thuê
 /// Tìm kiếm, lọc theo giá, đối chiếu chênh lệch và chọn phòng để làm thủ tục chuyển.
@@ -357,6 +359,20 @@ class _RoomTransferSearchScreenState extends State<RoomTransferSearchScreen> {
 
   /// Điều hướng sang màn hình xác nhận thủ tục chuyển phòng
   void _navigateToTransfer(Map<String, dynamic> room) {
+    final user = AuthService.currentUser;
+    if (user != null) {
+      final role = user.vaiTro.toLowerCase();
+      if (role.contains('thanhvien') || role.contains('banocung') || role.contains('ocung')) {
+        ThongBaoHelper.hienThongBao(
+          context,
+          tieuDe: 'Không Có Quyền Thực Hiện',
+          noiDung: 'Bạn đang đăng nhập với tư cách Thành viên phòng (Bạn cùng phòng). Thủ tục chuyển phòng chỉ có Người đại diện (Trưởng phòng) mới có thẩm quyền thực hiện!',
+          type: ThongBaoType.canhBao,
+        );
+        return;
+      }
+    }
+
     if (_pendingTransfer != null) {
       ThongBaoHelper.hienThongBao(
         context,
@@ -452,26 +468,12 @@ class _RoomTransferSearchScreenState extends State<RoomTransferSearchScreen> {
                       ),
                       const SizedBox(height: 10),
                       if (_isLoading) ...[
-                        const SizedBox(height: 40),
-                        const Center(
-                          child: Column(
-                            children: [
-                              CircularProgressIndicator(
-                                color: _primary,
-                                strokeWidth: 2.5,
-                              ),
-                              SizedBox(height: 14),
-                              Text(
-                                'Đang tải dữ liệu...',
-                                style: TextStyle(
-                                  fontSize: 12.5,
-                                  color: Color(0xFF64748B),
-                                ),
-                              ),
-                            ],
-                          ),
+                        const SizedBox(height: 20),
+                        const LoadingMeoMeo(
+                          message: 'Đang tìm phòng trống...',
+                          subMessage: 'Đợi mèo con tìm phòng ưng ý cho bạn nha~ 🐾',
                         ),
-                        const SizedBox(height: 40),
+                        const SizedBox(height: 20),
                       ] else if (filtered.isEmpty) ...[
                         _buildEmptyState(),
                       ] else ...[

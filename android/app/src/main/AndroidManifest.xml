@@ -8,9 +8,10 @@
 
     <application
         android:usesCleartextTraffic="true"
-        android:label="nhatro_kieugiang"
+        android:label="Nhà Trọ Kiêu Giang"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round">
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -47,6 +48,7 @@
         <package android:name="com.vietinbank.ipay" />
         <package android:name="com.vnpay.bidv" />
         <package android:name="com.mservice.momopay" />
+        <package android:name="com.zing.zalo" />
         
         <intent>
             <action android:name="android.intent.action.VIEW" />
@@ -71,6 +73,18 @@
         <intent>
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="momo" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.DIAL" />
+            <data android:scheme="tel" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="zalo" />
         </intent>
     </queries>
 </manifest>

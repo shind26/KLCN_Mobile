@@ -7,6 +7,7 @@ import 'package:nhatro_kieugiang/data/models/MoHinhHopDong.dart';
 import 'package:nhatro_kieugiang/features/tenant/ManHinhChiTietHopDong.dart';
 import 'package:nhatro_kieugiang/features/tenant/ManHinhChuyenPhongThanhCong.dart';
 import 'package:nhatro_kieugiang/features/tenant/ManHinhTimKiemChuyenPhong.dart';
+import 'package:nhatro_kieugiang/core/widgets/LoadingMeoMeo.dart';
 
 /// Màn hình: Lịch Sử Chuyển Phòng (Room Transfer History)
 /// Theo dõi toàn bộ danh sách đơn yêu cầu chuyển phòng, tiến độ phê duyệt,
@@ -38,11 +39,108 @@ class _RoomTransferHistoryScreenState extends State<RoomTransferHistoryScreen> {
 
   int _selectedFilterIndex = 0; // 0: Tất cả, 1: Đang xử lý, 2: Đã duyệt, 3: Đã hủy/Từ chối
   bool _isLoading = true;
+  bool _isDaiDien = true;
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
 
   List<Map<String, dynamic>> _danhSachYccp = [];
   RealtimeChannel? _rtChannel;
+
+  void _thongBaoKhongCoQuyen({required String hanhDong}) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF3C7),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.admin_panel_settings_outlined,
+                color: Color(0xFFD97706),
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                'Quyền Hạn Đại Diện',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Bạn đang đăng nhập với tư cách Thành viên phòng (Bạn cùng phòng).',
+              style: TextStyle(fontSize: 13.5, color: Colors.grey.shade700, height: 1.4),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.info_outline, size: 18, color: Color(0xFF09638E)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Theo quy định hợp đồng, thủ tục "$hanhDong" chỉ có Người đại diện (Trưởng phòng đứng tên trên hợp đồng) mới có thẩm quyền thực hiện.',
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF1E293B),
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Vui lòng báo cho Người đại diện của phòng bạn để tiến hành thủ tục này nhé!',
+              style: TextStyle(fontSize: 13, color: Colors.grey.shade600, height: 1.3),
+            ),
+          ],
+        ),
+        actions: [
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () => Navigator.pop(ctx),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF09638E),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              child: const Text('Đã hiểu', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -82,8 +180,41 @@ class _RoomTransferHistoryScreenState extends State<RoomTransferHistoryScreen> {
       String? contractCode = widget.maHopDong ?? widget.hopDong?.maHopDong;
       final curRoom = widget.currentRoomNumber ?? widget.hopDong?.maPhong ?? 'P203';
 
+      final user = AuthService.currentUser;
+      bool userIsDaiDien = true;
+      if (user != null) {
+        final authRole = user.vaiTro.toLowerCase();
+        if (authRole.contains('admin') || authRole.contains('chutro') || authRole.contains('quanly')) {
+          userIsDaiDien = true;
+        } else if (authRole.contains('thanhvien') || authRole.contains('banocung') || authRole.contains('ocung')) {
+          userIsDaiDien = false;
+        } else if (user.maTaiKhoan.isNotEmpty) {
+          final kt = await db
+              .from('khach_thue')
+              .select('ma_khach')
+              .eq('ma_tai_khoan', user.maTaiKhoan)
+              .maybeSingle();
+          if (kt != null) {
+            final maKhach = kt['ma_khach']?.toString() ?? '';
+            final cthd = await db
+                .from('chi_tiet_hop_dong_khach_thue')
+                .select('ma_hop_dong, vai_tro')
+                .eq('ma_khach', maKhach)
+                .maybeSingle();
+            if (cthd != null) {
+              contractCode ??= cthd['ma_hop_dong']?.toString();
+              final vt = (cthd['vai_tro']?.toString() ?? '').toLowerCase();
+              if (vt.contains('ở cùng') || vt.contains('thành viên') || vt.contains('ocung')) {
+                userIsDaiDien = false;
+              } else if (vt.contains('đại diện') || vt.contains('trưởng phòng')) {
+                userIsDaiDien = true;
+              }
+            }
+          }
+        }
+      }
+
       if (contractCode == null || contractCode.isEmpty) {
-        final user = AuthService.currentUser;
         if (user != null && user.maTaiKhoan.isNotEmpty) {
           final kt = await db
               .from('khach_thue')
@@ -114,6 +245,7 @@ class _RoomTransferHistoryScreenState extends State<RoomTransferHistoryScreen> {
 
       if (mounted) {
         setState(() {
+          _isDaiDien = userIsDaiDien;
           _danhSachYccp = List<Map<String, dynamic>>.from(rows as List);
           _isLoading = false;
         });
@@ -310,8 +442,9 @@ class _RoomTransferHistoryScreenState extends State<RoomTransferHistoryScreen> {
             _buildTopAppBar(),
             Expanded(
               child: _isLoading
-                  ? const Center(
-                      child: CircularProgressIndicator(color: _navyDark),
+                  ? const LoadingMeoMeo(
+                      message: 'Đang tải lịch sử chuyển phòng...',
+                      subMessage: 'Mèo con đang kiểm tra dữ liệu yêu cầu~ 🐾',
                     )
                   : RefreshIndicator(
                       onRefresh: _fetchTransferRequests,
@@ -341,33 +474,39 @@ class _RoomTransferHistoryScreenState extends State<RoomTransferHistoryScreen> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          final curRoom = widget.currentRoomNumber ?? widget.hopDong?.maPhong ?? 'P203';
-          final curPrice = widget.hopDong?.giaThueThaoThuan ?? 2800000;
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => RoomTransferSearchScreen(
-                currentRoomNumber: curRoom,
-                currentPrice: curPrice,
-                maHopDong: widget.maHopDong ?? widget.hopDong?.maHopDong,
-                hopDong: widget.hopDong,
+      floatingActionButton: _isDaiDien
+          ? FloatingActionButton.extended(
+              onPressed: () {
+                if (!_isDaiDien) {
+                  _thongBaoKhongCoQuyen(hanhDong: 'Chuyển phòng');
+                  return;
+                }
+                final curRoom = widget.currentRoomNumber ?? widget.hopDong?.maPhong ?? 'P203';
+                final curPrice = widget.hopDong?.giaThueThaoThuan ?? 2800000;
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => RoomTransferSearchScreen(
+                      currentRoomNumber: curRoom,
+                      currentPrice: curPrice,
+                      maHopDong: widget.maHopDong ?? widget.hopDong?.maHopDong,
+                      hopDong: widget.hopDong,
+                    ),
+                  ),
+                ).then((_) => _fetchTransferRequests(isSilent: true));
+              },
+              backgroundColor: _navyDark,
+              elevation: 4,
+              label: const Text(
+                'Đổi phòng mới',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13.5,
+                ),
               ),
-            ),
-          ).then((_) => _fetchTransferRequests(isSilent: true));
-        },
-        backgroundColor: _navyDark,
-        elevation: 4,
-        label: const Text(
-          'Đổi phòng mới',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 13.5,
-          ),
-        ),
-      ),
+            )
+          : null,
     );
   }
 
@@ -657,31 +796,37 @@ class _RoomTransferHistoryScreenState extends State<RoomTransferHistoryScreen> {
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 11.5, color: Color(0xFF94A3B8)),
             ),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: () {
-                final curRoom = widget.currentRoomNumber ?? widget.hopDong?.maPhong ?? 'P203';
-                final curPrice = widget.hopDong?.giaThueThaoThuan ?? 2800000;
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => RoomTransferSearchScreen(
-                      currentRoomNumber: curRoom,
-                      currentPrice: curPrice,
-                      maHopDong: widget.maHopDong ?? widget.hopDong?.maHopDong,
-                      hopDong: widget.hopDong,
+            if (_isDaiDien) ...[
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: () {
+                  if (!_isDaiDien) {
+                    _thongBaoKhongCoQuyen(hanhDong: 'Chuyển phòng');
+                    return;
+                  }
+                  final curRoom = widget.currentRoomNumber ?? widget.hopDong?.maPhong ?? 'P203';
+                  final curPrice = widget.hopDong?.giaThueThaoThuan ?? 2800000;
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => RoomTransferSearchScreen(
+                        currentRoomNumber: curRoom,
+                        currentPrice: curPrice,
+                        maHopDong: widget.maHopDong ?? widget.hopDong?.maHopDong,
+                        hopDong: widget.hopDong,
+                      ),
                     ),
-                  ),
-                ).then((_) => _fetchTransferRequests(isSilent: true));
-              },
-              icon: const Icon(Icons.add_home_rounded, size: 16),
-              label: const Text('Tìm phòng mới để chuyển'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _navyDark,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ).then((_) => _fetchTransferRequests(isSilent: true));
+                },
+                icon: const Icon(Icons.add_home_rounded, size: 16),
+                label: const Text('Tìm phòng mới để chuyển'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _navyDark,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
               ),
-            ),
+            ],
           ],
         ),
       );
@@ -1047,25 +1192,26 @@ class _RoomTransferHistoryScreenState extends State<RoomTransferHistoryScreen> {
                   ),
                 ),
               ] else if (isProcessing) ...[
-                OutlinedButton.icon(
-                  onPressed: () => _xacNhanHuyDon(r),
-                  icon: const Icon(Icons.close_rounded, size: 14, color: Color(0xFFEF4444)),
-                  label: const Text(
-                    'Hủy yêu cầu',
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      color: Color(0xFFEF4444),
-                      fontWeight: FontWeight.bold,
+                if (_isDaiDien)
+                  OutlinedButton.icon(
+                    onPressed: () => _xacNhanHuyDon(r),
+                    icon: const Icon(Icons.close_rounded, size: 14, color: Color(0xFFEF4444)),
+                    label: const Text(
+                      'Hủy yêu cầu',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: Color(0xFFEF4444),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Color(0xFFFCA5A5)),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
                   ),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Color(0xFFFCA5A5)),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                ),
                 const Spacer(),
                 ElevatedButton.icon(
                   onPressed: () => _moManHinhNghiemThu(r),
