@@ -132,6 +132,9 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Future<void> _handleLogin() async {
+    if (_isLoading) return;
+    FocusScope.of(context).unfocus();
+
     setState(() => _errorMessage = null);
     final username = _usernameController.text.trim();
     final password = _passwordController.text;
@@ -145,42 +148,35 @@ class _LoginScreenState extends State<LoginScreen>
 
     setState(() => _isLoading = true);
 
-    final result = await AuthService.login(
-      username: username,
-      password: password,
-      rememberMe: _rememberMe,
-    );
-
-    if (!mounted) return;
-    setState(() => _isLoading = false);
-
-    if (!result.success || result.user == null) {
-      final err = result.error ?? 'Đăng nhập thất bại. Vui lòng thử lại!';
-      setState(() {
-        _errorMessage = err;
-      });
-      ThongBaoHelper.hienToast(
-        context,
-        tieuDe: 'Đăng nhập thất bại',
-        noiDung: err,
-        type: ThongBaoType.thatBai,
-      );
-      return;
-    }
-
-    // ── KIỂM TRA ĐỔI MẬT KHẨU LẦN ĐẦU (Ảnh hưởng đến luồng điều hướng) ──
     try {
-      final db = Supabase.instance.client;
-      final tkRow = await db
-          .from('tai_khoan')
-          .select('da_doi_mat_khau')
-          .eq('ten_dang_nhap', username)
-          .maybeSingle();
+      final result = await AuthService.login(
+        username: username,
+        password: password,
+        rememberMe: _rememberMe,
+      );
 
-      final daDoi = tkRow?['da_doi_mat_khau'] == true;
+      if (!mounted) return;
 
-      // Nếu chưa đổi mật khẩu lần đầu:
-      if (!daDoi) {
+      if (!result.success || result.user == null) {
+        final err = result.error ?? 'Đăng nhập thất bại. Vui lòng thử lại!';
+        setState(() {
+          _errorMessage = err;
+          _isLoading = false;
+        });
+        ThongBaoHelper.hienToast(
+          context,
+          tieuDe: 'Đăng nhập thất bại',
+          noiDung: err,
+          type: ThongBaoType.thatBai,
+        );
+        return;
+      }
+
+      final user = result.user!;
+
+      // ── KIỂM TRA ĐỔI MẬT KHẨU LẦN ĐẦU ──
+      if (!user.daDoiMatKhau) {
+        setState(() => _isLoading = false);
         if (!mounted) return;
         final passMoi = await Navigator.push<String>(
           context,
@@ -193,6 +189,7 @@ class _LoginScreenState extends State<LoginScreen>
 
         if (passMoi != null && passMoi.isNotEmpty) {
           _passwordController.text = passMoi;
+          setState(() => _isLoading = true);
           final loginMoi = await AuthService.login(
             username: username,
             password: passMoi,
@@ -200,6 +197,9 @@ class _LoginScreenState extends State<LoginScreen>
           );
           if (loginMoi.success && loginMoi.user != null) {
             await _kiemTraVaDieuHuong(loginMoi.user!);
+            return;
+          } else {
+            setState(() => _isLoading = false);
             return;
           }
         } else {
@@ -212,12 +212,14 @@ class _LoginScreenState extends State<LoginScreen>
           return;
         }
       }
-    } catch (e) {
-      debugPrint('Lỗi kiểm tra da_doi_mat_khau: $e');
-    }
 
-    if (!mounted) return;
-    await _kiemTraVaDieuHuong(result.user!);
+      await _kiemTraVaDieuHuong(user);
+    } catch (e) {
+      debugPrint('Lỗi _handleLogin: $e');
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   Future<void> _kiemTraVaDieuHuong(UserModel user) async {
@@ -261,6 +263,7 @@ class _LoginScreenState extends State<LoginScreen>
 
         // 2. Tìm hợp đồng của khách thuê (ưu tiên hợp đồng chưa xác nhận bàn giao)
         Map<String, dynamic>? hdRow;
+        String? vaiTroFromCthd;
 
         try {
           final cthdList = await db
@@ -269,22 +272,33 @@ class _LoginScreenState extends State<LoginScreen>
               .eq('ma_khach', maKhach);
 
           if (cthdList.isNotEmpty) {
-            for (final item in cthdList) {
-              final maHd = item['ma_hop_dong']?.toString() ?? '';
-              if (maHd.isNotEmpty) {
-                final row = await db
-                    .from('hop_dong')
-                    .select()
-                    .eq('ma_hop_dong', maHd)
-                    .maybeSingle();
-                if (row != null) {
-                  if (row['da_xac_nhan_ban_giao'] != true) {
-                    hdRow = row; // Ưu tiên hàng đầu: hợp đồng chưa bàn giao
-                    break;
-                  } else if (hdRow == null) {
-                    hdRow = row;
-                  }
+            final maHdList = cthdList
+                .map((e) => e['ma_hop_dong']?.toString())
+                .whereType<String>()
+                .where((s) => s.isNotEmpty)
+                .toList();
+
+            if (maHdList.isNotEmpty) {
+              final rows = await db
+                  .from('hop_dong')
+                  .select()
+                  .inFilter('ma_hop_dong', maHdList)
+                  .order('ngay_bd', ascending: false);
+
+              for (final row in rows) {
+                if (row['da_xac_nhan_ban_giao'] != true) {
+                  hdRow = row;
+                  break;
                 }
+                hdRow ??= row;
+              }
+
+              if (hdRow != null) {
+                final match = cthdList.firstWhere(
+                  (c) => c['ma_hop_dong']?.toString() == hdRow!['ma_hop_dong']?.toString(),
+                  orElse: () => <String, dynamic>{},
+                );
+                vaiTroFromCthd = match['vai_tro']?.toString();
               }
             }
           }
@@ -299,14 +313,14 @@ class _LoginScreenState extends State<LoginScreen>
                 .from('hop_dong')
                 .select()
                 .eq('ma_khach_dai_dien', maKhach)
-                .order('ngay_bd', ascending: false);
+                .order('ngay_bd', ascending: false)
+                .limit(5);
             for (final row in (hdList as List)) {
               if (row['da_xac_nhan_ban_giao'] != true) {
                 hdRow = Map<String, dynamic>.from(row as Map);
                 break;
-              } else if (hdRow == null) {
-                hdRow = Map<String, dynamic>.from(row as Map);
               }
+              hdRow ??= Map<String, dynamic>.from(row as Map);
             }
           } catch (eHd) {
             debugPrint('Lỗi truy vấn hop_dong theo ma_khach_dai_dien: $eHd');
@@ -332,19 +346,11 @@ class _LoginScreenState extends State<LoginScreen>
             isDaiDien = true;
           }
 
-          if (!isDaiDien) {
-            try {
-              final cthdRow = await db
-                  .from('chi_tiet_hop_dong_khach_thue')
-                  .select('vai_tro')
-                  .eq('ma_hop_dong', hdRow['ma_hop_dong'])
-                  .eq('ma_khach', maKhach)
-                  .maybeSingle();
-              final vt = cthdRow?['vai_tro']?.toString().toLowerCase() ?? '';
-              if (vt.contains('đại diện') || vt.contains('daidien') || vt.contains('trưởng phòng') || vt.contains('truongphong')) {
-                isDaiDien = true;
-              }
-            } catch (_) {}
+          if (!isDaiDien && vaiTroFromCthd != null) {
+            final vt = vaiTroFromCthd.toLowerCase();
+            if (vt.contains('đại diện') || vt.contains('daidien') || vt.contains('trưởng phòng') || vt.contains('truongphong')) {
+              isDaiDien = true;
+            }
           }
 
           if (!isDaiDien) {
@@ -389,7 +395,7 @@ class _LoginScreenState extends State<LoginScreen>
     }
 
     if (!mounted) return;
-    // Đăng nhập hợp lệ: Chuyển thẳng vào Trang Chủ ngay lập tức, không chặn dialog bắt ấn lần 2
+    // Đăng nhập hợp lệ: Chuyển thẳng vào Trang Chủ ngay lập tức
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(
@@ -538,6 +544,7 @@ class _LoginScreenState extends State<LoginScreen>
                 Expanded(
                   child: SingleChildScrollView(
                     physics: const BouncingScrollPhysics(),
+                    keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                     padding: const EdgeInsets.symmetric(horizontal: 22),
                     child: AnimatedBuilder(
                       animation: _cardController,
@@ -1038,62 +1045,89 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Widget _buildSubmitButton() {
-    return GestureDetector(
-      onTap: _isLoading ? null : _handleLogin,
-      child: Container(
-        width: double.infinity,
-        height: 50,
-        decoration: BoxDecoration(
-          gradient: _isLoading
-              ? const LinearGradient(
-                  colors: [Color(0xFF94A3B8), Color(0xFF94A3B8)],
-                )
-              : const LinearGradient(
-                  colors: [Color(0xFF07516E), Color(0xFF0A8FCA)],
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
+    return Container(
+      width: double.infinity,
+      height: 50,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(13),
+        boxShadow: _isLoading
+            ? []
+            : [
+                BoxShadow(
+                  color: const Color(0xFF09638E).withValues(alpha: 0.35),
+                  blurRadius: 14,
+                  offset: const Offset(0, 5),
                 ),
-          borderRadius: BorderRadius.circular(13),
-          boxShadow: _isLoading
-              ? []
-              : [
-                  BoxShadow(
-                    color: const Color(0xFF09638E).withValues(alpha: 0.35),
-                    blurRadius: 14,
-                    offset: const Offset(0, 5),
+              ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(13),
+        child: Ink(
+          decoration: BoxDecoration(
+            gradient: _isLoading
+                ? const LinearGradient(
+                    colors: [Color(0xFF64748B), Color(0xFF475569)],
+                  )
+                : const LinearGradient(
+                    colors: [Color(0xFF07516E), Color(0xFF0A8FCA)],
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
                   ),
-                ],
-        ),
-        child: Center(
-          child: _isLoading
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    color: Colors.white,
-                    strokeWidth: 2.2,
-                  ),
-                )
-              : const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      'ĐĂNG NHẬP',
-                      style: TextStyle(
-                        fontSize: 14.5,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                        letterSpacing: 1,
-                      ),
+            borderRadius: BorderRadius.circular(13),
+          ),
+          child: InkWell(
+            onTap: _isLoading ? null : _handleLogin,
+            borderRadius: BorderRadius.circular(13),
+            splashColor: Colors.white.withValues(alpha: 0.2),
+            highlightColor: Colors.white.withValues(alpha: 0.1),
+            child: Center(
+              child: _isLoading
+                  ? const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2.2,
+                          ),
+                        ),
+                        SizedBox(width: 10),
+                        Text(
+                          'Đang đăng nhập...',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ],
+                    )
+                  : const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'ĐĂNG NHẬP',
+                          style: TextStyle(
+                            fontSize: 14.5,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                        SizedBox(width: 8),
+                        Icon(
+                          Icons.arrow_forward_rounded,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                      ],
                     ),
-                    SizedBox(width: 8),
-                    Icon(
-                      Icons.arrow_forward_rounded,
-                      color: Colors.white,
-                      size: 18,
-                    ),
-                  ],
-                ),
+            ),
+          ),
         ),
       ),
     );

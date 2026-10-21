@@ -95,6 +95,8 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
   String? _lastYccpStatus;
   final Map<String, String> _lastSuCoStatuses = {};
   final Map<String, String> _lastGuestStatuses = {};
+  String? _lastCheckedHoaDonId;
+  String? _lastCheckedHoaDonStatus;
 
   // ─── Thông báo nổi Heads-Up (Dynamic Island) & Trung tâm thông báo ───
   late AnimationController _bannerAnimController;
@@ -850,12 +852,14 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
   }
 
   /// Tải toàn bộ dữ liệu cư dân từ Supabase theo tài khoản đăng nhập
-  Future<void> _fetchTenantData() async {
+  Future<void> _fetchTenantData({bool isSilent = false}) async {
     if (!mounted) return;
-    setState(() {
-      _isLoading = true;
-      _loadError = null;
-    });
+    if (!isSilent && _hopDong == null) {
+      setState(() {
+        _isLoading = true;
+        _loadError = null;
+      });
+    }
 
     try {
       final db = Supabase.instance.client;
@@ -912,7 +916,9 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
       if (hopDongRow == null && mounted) {
         setState(() {
           _isLoading = false;
-          _loadError = 'Không tìm thấy hợp đồng hiệu lực.';
+          if (_hopDong == null) {
+            _loadError = 'Không tìm thấy hợp đồng hiệu lực.';
+          }
         });
         return;
       }
@@ -1053,11 +1059,13 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
       await _dongBoDanhSachThongBao();
       _initRealtimeTracking();
     } catch (e, st) {
-      debugPrint('Lỗi _fetchTenantData: \n$st');
+      debugPrint('Lỗi _fetchTenantData: $e\n$st');
       if (mounted) {
         setState(() {
           _isLoading = false;
-          _loadError = 'Lỗi kết nối dữ liệu.';
+          if (_hopDong == null) {
+            _loadError = 'Lỗi kết nối dữ liệu.';
+          }
         });
       }
     }
@@ -1111,7 +1119,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
           table: 'hop_dong',
           callback: (payload) {
             debugPrint('[REALTIME] Thay đổi hop_dong: ${payload.newRecord}');
-            _fetchTenantData();
+            _fetchTenantData(isSilent: true);
           },
         )
         ..onPostgresChanges(
@@ -1378,7 +1386,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
     if (status == 'Đã duyệt') {
       _notifiedApprovalKeys.add(approvalKey);
       ThongBaoHelper.danhDauDaXem(approvalKey);
-      _fetchTenantData();
+      _fetchTenantData(isSilent: true);
 
       if (isChuyenPhong) {
         final maPhongMoi = record['ma_phong_moi']?.toString() ?? '';
@@ -1437,7 +1445,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
     } else if (status == 'Từ chối') {
       _notifiedApprovalKeys.add(approvalKey);
       ThongBaoHelper.danhDauDaXem(approvalKey);
-      _fetchTenantData();
+      _fetchTenantData(isSilent: true);
 
       if (isChuyenPhong) {
         _hienThongBaoHeThong(
@@ -1606,7 +1614,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
       // 1. TỰ ĐỘNG ĐỒNG BỘ DUYỆT 1 CHẠM:
       // Tự động sinh Phụ lục hợp đồng ĐÃ DUYỆT + Đổi phòng trong hợp đồng + Đổi trạng thái phòng
       await _dongBoDuyetChuyenPhongTuDong(record);
-      await _fetchTenantData();
+      await _fetchTenantData(isSilent: true);
 
       _hienThongBaoHeThong(
         tieuDe: '🎉 BQL Đã Duyệt Chuyển Phòng $maPhongMoi!',
@@ -1635,7 +1643,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
     } else if (status == 'Từ chối') {
       _notifiedApprovalKeys.add(approvalKey);
       ThongBaoHelper.danhDauDaXem(approvalKey);
-      await _fetchTenantData();
+      await _fetchTenantData(isSilent: true);
 
       _hienThongBaoHeThong(
         tieuDe: '⚠️ Yêu Cầu Chuyển Phòng Bị Từ Chối',
@@ -1672,6 +1680,23 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
       final maPhongCu = record['ma_phong_cu']?.toString() ?? '';
       final maPhongMoi = record['ma_phong_moi']?.toString() ?? '';
       if (recMaHD.isEmpty || maPhongMoi.isEmpty) return;
+
+      // 0. Bỏ qua nếu hợp đồng đã chuyển sang phòng mới này rồi để tránh re-trigger và loop
+      if (_hopDong != null && _hopDong!.maPhong == maPhongMoi) {
+        debugPrint('[CHUYEN_PHONG] Hợp đồng hiện tại đã ở phòng $maPhongMoi, bỏ qua đồng bộ.');
+        return;
+      }
+      try {
+        final checkHd = await db
+            .from('hop_dong')
+            .select('ma_phong')
+            .eq('ma_hop_dong', recMaHD)
+            .maybeSingle();
+        if (checkHd != null && checkHd['ma_phong']?.toString() == maPhongMoi) {
+          debugPrint('[CHUYEN_PHONG] Hợp đồng trong DB đã ở phòng $maPhongMoi, bỏ qua đồng bộ.');
+          return;
+        }
+      } catch (_) {}
 
       // 1. Lấy thông tin giá phòng mới
       num giaPhongMoi = 0;
@@ -1760,166 +1785,10 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
             .eq('ma_yeu_cau', maYeuCau);
       } catch (_) {}
 
-      // 7. TỰ ĐỘNG ĐỒNG BỘ HÓA ĐƠN KỲ TỚI (CẬP NHẬT HOẶC TẠO MỚI)
-      try {
-        final tienDienNuocCu =
-            (record['tien_dien_nuoc_cu'] as num?)?.toDouble() ?? 0.0;
-        final tienHuHaiCu =
-            (record['tien_hu_hai_cu'] as num?)?.toDouble() ?? 0.0;
-        final tienPhatSinh =
-            (record['tien_phat_sinh'] as num?)?.toDouble() ?? 0.0;
-
-        final unpaidBills = await db
-            .from('hoa_don')
-            .select()
-            .eq('ma_hop_dong', recMaHD)
-            .eq('trang_thai', 'Chưa thanh toán')
-            .order('ngay_lap', ascending: false)
-            .limit(1);
-
-        if (unpaidBills.isNotEmpty) {
-          final bill = unpaidBills.first;
-          final billCode = bill['ma_hoa_don'].toString();
-          final curDienNuoc =
-              (bill['tien_dien_nuoc'] as num?)?.toDouble() ?? 0.0;
-          final curDichVu =
-              (bill['tien_dich_vu_khac'] as num?)?.toDouble() ?? 0.0;
-          final curNoCu = (bill['no_cu'] as num?)?.toDouble() ?? 0.0;
-
-          final newDienNuoc = curDienNuoc + tienDienNuocCu;
-          final newDichVu = curDichVu + tienHuHaiCu + tienPhatSinh;
-          final newTienPhong = giaPhongMoi > 0
-              ? giaPhongMoi.toDouble()
-              : ((bill['tien_phong'] as num?)?.toDouble() ?? 0.0);
-          final newTongTien = newTienPhong + newDienNuoc + newDichVu + curNoCu;
-
-          await db
-              .from('hoa_don')
-              .update({
-                'tien_phong': newTienPhong,
-                'tien_dien_nuoc': newDienNuoc,
-                'tien_dich_vu_khac': newDichVu,
-                'tong_tien': newTongTien,
-              })
-              .eq('ma_hoa_don', billCode);
-
-          final suffix = maYeuCau.replaceAll(RegExp(r'[^0-9a-zA-Z]'), '');
-          final shortCode = suffix.length > 6
-              ? suffix.substring(suffix.length - 6)
-              : suffix;
-          final cthdDn = 'CD_$shortCode';
-          final cthdHh = 'CH_$shortCode';
-          final cthdCoc = 'CC_$shortCode';
-
-          if (tienDienNuocCu > 0) {
-            await db.from('chi_tiet_hoa_don').upsert({
-              'ma_cthd': cthdDn,
-              'ma_hoa_don': billCode,
-              'ten_khoan_thu': 'Điện nước chốt bàn giao phòng cũ $maPhongCu',
-              'so_luong': 1,
-              'don_gia': tienDienNuocCu,
-              'thanh_tien': tienDienNuocCu,
-            });
-          }
-          if (tienHuHaiCu > 0) {
-            await db.from('chi_tiet_hoa_don').upsert({
-              'ma_cthd': cthdHh,
-              'ma_hoa_don': billCode,
-              'ten_khoan_thu': 'Khấu trừ hư hại thiết bị phòng $maPhongCu',
-              'so_luong': 1,
-              'don_gia': tienHuHaiCu,
-              'thanh_tien': tienHuHaiCu,
-            });
-          }
-          if (tienPhatSinh > 0) {
-            await db.from('chi_tiet_hoa_don').upsert({
-              'ma_cthd': cthdCoc,
-              'ma_hoa_don': billCode,
-              'ten_khoan_thu': 'Bù chênh lệch tiền cọc phòng mới $maPhongMoi',
-              'so_luong': 1,
-              'don_gia': tienPhatSinh,
-              'thanh_tien': tienPhatSinh,
-            });
-          }
-        } else {
-          final newBillCode =
-              'HDCP_${cleanHd.substring(0, cleanHd.length > 5 ? 5 : cleanHd.length)}';
-          final newTienPhong = giaPhongMoi > 0 ? giaPhongMoi.toDouble() : 0.0;
-          final newDichVu = tienHuHaiCu + tienPhatSinh;
-          final newTong = newTienPhong + tienDienNuocCu + newDichVu;
-
-          await db.from('hoa_don').upsert({
-            'ma_hoa_don': newBillCode,
-            'ngay_lap': ngayLapDateStr,
-            'han_dong_tien': DateTime.now()
-                .add(const Duration(days: 5))
-                .toIso8601String()
-                .substring(0, 10),
-            'tien_phong': newTienPhong,
-            'tien_dien_nuoc': tienDienNuocCu,
-            'tien_dich_vu_khac': newDichVu,
-            'no_cu': 0,
-            'tong_tien': newTong,
-            'trang_thai': 'Chưa thanh toán',
-            'loai_giao_dich': 'Tiền phòng & Dịch vụ',
-            'ma_hop_dong': recMaHD,
-          });
-
-          final suffix = maYeuCau.replaceAll(RegExp(r'[^0-9a-zA-Z]'), '');
-          final shortCode = suffix.length > 6
-              ? suffix.substring(suffix.length - 6)
-              : suffix;
-          final cthdPhong = 'CP_$shortCode';
-          final cthdDn = 'CD_$shortCode';
-          final cthdHh = 'CH_$shortCode';
-          final cthdCoc = 'CC_$shortCode';
-
-          await db.from('chi_tiet_hoa_don').upsert({
-            'ma_cthd': cthdPhong,
-            'ma_hoa_don': newBillCode,
-            'ten_khoan_thu': 'Tiền thuê phòng mới $maPhongMoi',
-            'so_luong': 1,
-            'don_gia': newTienPhong,
-            'thanh_tien': newTienPhong,
-          });
-
-          if (tienDienNuocCu > 0) {
-            await db.from('chi_tiet_hoa_don').upsert({
-              'ma_cthd': cthdDn,
-              'ma_hoa_don': newBillCode,
-              'ten_khoan_thu': 'Điện nước chốt bàn giao phòng cũ $maPhongCu',
-              'so_luong': 1,
-              'don_gia': tienDienNuocCu,
-              'thanh_tien': tienDienNuocCu,
-            });
-          }
-          if (tienHuHaiCu > 0) {
-            await db.from('chi_tiet_hoa_don').upsert({
-              'ma_cthd': cthdHh,
-              'ma_hoa_don': newBillCode,
-              'ten_khoan_thu': 'Khấu trừ hư hại thiết bị phòng $maPhongCu',
-              'so_luong': 1,
-              'don_gia': tienHuHaiCu,
-              'thanh_tien': tienHuHaiCu,
-            });
-          }
-          if (tienPhatSinh > 0) {
-            await db.from('chi_tiet_hoa_don').upsert({
-              'ma_cthd': cthdCoc,
-              'ma_hoa_don': newBillCode,
-              'ten_khoan_thu': 'Bù chênh lệch tiền cọc phòng mới $maPhongMoi',
-              'so_luong': 1,
-              'don_gia': tienPhatSinh,
-              'thanh_tien': tienPhatSinh,
-            });
-          }
-        }
-        debugPrint(
-          '[CHUYEN_PHONG] Đã tự động cập nhật hóa đơn kỳ tới thành công!',
-        );
-      } catch (billErr) {
-        debugPrint('[CHUYEN_PHONG] Lỗi tự động tính hóa đơn: $billErr');
-      }
+      // 7. Ghi chú: Không tự sinh hóa đơn tiền phòng khi chuyển phòng trong tháng
+      // vì tiền phòng kỳ hiện tại đã được thanh toán. Hóa đơn mới sẽ chỉ hiển thị
+      // khi đến chu kỳ lập hóa đơn định kỳ hàng tháng tiếp theo do BQL gửi.
+      debugPrint('[CHUYEN_PHONG] Chuyển phòng thành công sang $maPhongMoi. Không can thiệp hóa đơn kỳ hiện tại.');
     } catch (e) {
       debugPrint('[CHUYEN_PHONG] Lỗi tự động sinh phụ lục và đổi phòng: ');
     }
@@ -1947,7 +1816,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
     if (status == 'Đã xử lý' || status == 'Đã duyệt') {
       _notifiedApprovalKeys.add(approvalKey);
       ThongBaoHelper.danhDauDaXem(approvalKey);
-      _fetchTenantData();
+      _fetchTenantData(isSilent: true);
 
       final tieuDe = record['tieu_de']?.toString() ?? 'Sự cố bảo trì';
 
@@ -1985,11 +1854,11 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
     final thangNam = record['thang_nam']?.toString() ?? '';
     final hanDongTien = record['han_dong_tien']?.toString() ?? '';
 
-    // Luôn nạp lại dữ liệu trang chủ ngay nếu trạng thái hoặc mã hóa đơn khác hiện tại
+    // Cập nhật ngầm dữ liệu trang chủ nếu trạng thái hoặc mã hóa đơn khác hiện tại
     if (_hoaDonMoiNhat == null ||
         _hoaDonMoiNhat!.trangThai != status ||
         _hoaDonMoiNhat!.maHoaDon != maHoaDon) {
-      _fetchTenantData();
+      _fetchTenantData(isSilent: true);
     }
 
     final approvalKey = 'hd_${maHoaDon}_$status';
@@ -2008,7 +1877,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
     if (status != 'Chờ gửi' && status != 'Đã thanh toán' && tongTien > 0) {
       _notifiedApprovalKeys.add(approvalKey);
       ThongBaoHelper.danhDauDaXem(approvalKey);
-      _fetchTenantData();
+      _fetchTenantData(isSilent: true);
 
       final activeRoom = _hopDong?.maPhong ?? widget.roomNumber ?? 'P203';
       _hienThongBaoHeThong(
@@ -2025,7 +1894,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                 builder: (_) => PaymentScreen(
                   hoaDon: _hoaDonMoiNhat!,
                   tenPhong: 'Phòng $activeRoom',
-                  onPaymentSuccess: (_) => _fetchTenantData(),
+                  onPaymentSuccess: (_) => _fetchTenantData(isSilent: true),
                 ),
               ),
             );
@@ -2035,7 +1904,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
     } else if (status == 'Đã thanh toán') {
       _notifiedApprovalKeys.add(approvalKey);
       ThongBaoHelper.danhDauDaXem(approvalKey);
-      _fetchTenantData();
+      _fetchTenantData(isSilent: true);
 
       _hienThongBaoHeThong(
         tieuDe: '✅ Hóa Đơn Tháng $thangNam Đã Thanh Toán',
@@ -2243,7 +2112,15 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
             .order('ngay_lap', ascending: false)
             .limit(1);
         if (hdRes.isNotEmpty) {
-          _checkHoaDonRealtimeUpdate(hdRes.first);
+          final row = hdRes.first;
+          final id = row['ma_hoa_don']?.toString() ?? '';
+          final st = row['trang_thai']?.toString() ?? '';
+          if (_lastCheckedHoaDonId != null &&
+              (_lastCheckedHoaDonId != id || _lastCheckedHoaDonStatus != st)) {
+            _checkHoaDonRealtimeUpdate(row);
+          }
+          _lastCheckedHoaDonId = id;
+          _lastCheckedHoaDonStatus = st;
         }
       }
 

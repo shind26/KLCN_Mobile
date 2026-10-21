@@ -7,6 +7,7 @@ class UserModel {
   final String? ngayTao;
   final String trangThai;
   final String? hoTen; // Họ tên thật, hiển thị trên trang chủ
+  final bool daDoiMatKhau;
 
   UserModel({
     required this.maTaiKhoan,
@@ -17,6 +18,7 @@ class UserModel {
     this.ngayTao,
     required this.trangThai,
     this.hoTen,
+    this.daDoiMatKhau = true,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
@@ -29,6 +31,7 @@ class UserModel {
       ngayTao: json['ngay_tao']?.toString(),
       trangThai: json['trang_thai']?.toString() ?? 'HoatDong',
       hoTen: json['ho_ten']?.toString(),
+      daDoiMatKhau: json['da_doi_mat_khau'] == null ? true : json['da_doi_mat_khau'] == true,
     );
   }
 
@@ -42,6 +45,7 @@ class UserModel {
       'ngay_tao': ngayTao,
       'trang_thai': trangThai,
       'ho_ten': hoTen,
+      'da_doi_mat_khau': daDoiMatKhau,
     };
   }
 
@@ -62,6 +66,7 @@ class UserModel {
     String? ngayTao,
     String? trangThai,
     String? hoTen,
+    bool? daDoiMatKhau,
   }) {
     return UserModel(
       maTaiKhoan: maTaiKhoan ?? this.maTaiKhoan,
@@ -72,6 +77,7 @@ class UserModel {
       ngayTao: ngayTao ?? this.ngayTao,
       trangThai: trangThai ?? this.trangThai,
       hoTen: hoTen ?? this.hoTen,
+      daDoiMatKhau: daDoiMatKhau ?? this.daDoiMatKhau,
     );
   }
 }
