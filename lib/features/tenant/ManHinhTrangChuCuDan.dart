@@ -892,15 +892,45 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
               .toList();
 
           if (maHopDongs.isNotEmpty) {
-            hopDongRow = await db
+            final rows = await db
                 .from('hop_dong')
                 .select()
                 .inFilter('ma_hop_dong', maHopDongs)
-                .eq('trang_thai', 'Còn hạn')
-                .order('ngay_bd', ascending: false)
-                .limit(1)
-                .maybeSingle();
+                .neq('trang_thai', 'Đã hủy')
+                .order('ngay_bd', ascending: false);
+
+            if (rows.isNotEmpty) {
+              // Ưu tiên hợp đồng đang hiệu lực hoặc đang chờ thanh lý
+              hopDongRow = rows.firstWhere(
+                (r) {
+                  final st = r['trang_thai']?.toString().toLowerCase().trim() ?? '';
+                  return ['còn hạn', 'đang thuê', 'hieuluc', 'chờ tl', 'chờ thanh lý'].contains(st);
+                },
+                orElse: () => rows.first,
+              );
+            }
           }
+        }
+
+        // Fallback: Tìm qua ma_khach_dai_dien trong hop_dong
+        if (hopDongRow == null && maKhach.isNotEmpty) {
+          try {
+            final hdDaiDienList = await db
+                .from('hop_dong')
+                .select()
+                .eq('ma_khach_dai_dien', maKhach)
+                .neq('trang_thai', 'Đã hủy')
+                .order('ngay_bd', ascending: false);
+            if (hdDaiDienList.isNotEmpty) {
+              hopDongRow = hdDaiDienList.firstWhere(
+                (r) {
+                  final st = r['trang_thai']?.toString().toLowerCase().trim() ?? '';
+                  return ['còn hạn', 'đang thuê', 'hieuluc', 'chờ tl', 'chờ thanh lý'].contains(st);
+                },
+                orElse: () => hdDaiDienList.first,
+              );
+            }
+          } catch (_) {}
         }
       }
 
