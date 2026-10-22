@@ -218,7 +218,9 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
     try {
       final XFile? file = await _picker.pickImage(
         source: source,
-        imageQuality: 90,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 70,
       );
       if (file == null) return;
 
@@ -516,9 +518,9 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
     try {
       final db = Supabase.instance.client;
 
-      // ── BƯỚC A: TẢI ẢNH CCCD LÊN STORAGE HOẶC FALLBACK BASE64 ──
-      String? uploadedUrlMatTruoc = _urlMatTruoc;
-      String? uploadedUrlMatSau = _urlMatSau;
+      // ── BƯỚC A: TẢI ẢNH CCCD LÊN STORAGE HOẶC FALLBACK BASE64 (CHỈ KHI CÓ CHỌN MỚI) ──
+      String? uploadedUrlMatTruoc;
+      String? uploadedUrlMatSau;
 
       if (_bytesMatTruoc != null) {
         try {
@@ -527,7 +529,7 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
                 path,
                 _bytesMatTruoc!,
                 fileOptions: const FileOptions(contentType: 'image/jpeg', upsert: true),
-              );
+              ).timeout(const Duration(seconds: 8));
           uploadedUrlMatTruoc = db.storage.from('contracts').getPublicUrl(path);
         } catch (eStorage) {
           debugPrint('Storage upload mặt trước lỗi: $eStorage -> Fallback Base64 an toàn');
@@ -542,7 +544,7 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
                 path,
                 _bytesMatSau!,
                 fileOptions: const FileOptions(contentType: 'image/jpeg', upsert: true),
-              );
+              ).timeout(const Duration(seconds: 8));
           uploadedUrlMatSau = db.storage.from('contracts').getPublicUrl(path);
         } catch (eStorage) {
           debugPrint('Storage upload mặt sau lỗi: $eStorage -> Fallback Base64 an toàn');

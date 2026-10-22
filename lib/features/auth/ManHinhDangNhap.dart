@@ -1525,10 +1525,12 @@ class _ForgotPasswordSheetState extends State<_ForgotPasswordSheet> {
           ],
         ),
         padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+        child: SingleChildScrollView(
+          physics: const ClampingScrollPhysics(),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             // Handle bar
             Center(
               child: Container(
@@ -1669,6 +1671,7 @@ class _ForgotPasswordSheetState extends State<_ForgotPasswordSheet> {
 
             const SizedBox(height: 8),
           ],
+        ),
         ),
       ),
     );

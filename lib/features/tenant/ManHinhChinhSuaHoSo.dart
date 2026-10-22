@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -157,42 +156,40 @@ class _ManHinhChinhSuaHoSoState extends State<ManHinhChinhSuaHoSo> {
         'ngay_cap_cccd': DateFormat('yyyy-MM-dd').format(_ngayCapCccd!),
       };
 
-      // Tải ảnh CCCD lên storage hoặc fallback Base64
-      String? uploadedUrlMatTruoc = _urlMatTruoc;
-      String? uploadedUrlMatSau = _urlMatSau;
-
+      // Tải ảnh CCCD lên storage hoặc fallback Base64 CHỈ KHI người dùng chọn ảnh mới
       if (_bytesMatTruoc != null) {
+        String uploadedUrlMatTruoc;
         try {
           final path = 'cccd/${_maKhach.isNotEmpty ? _maKhach : "KH"}_truoc_${DateTime.now().millisecondsSinceEpoch}.jpg';
           await db.storage.from('contracts').uploadBinary(
                 path,
                 _bytesMatTruoc!,
                 fileOptions: const FileOptions(contentType: 'image/jpeg', upsert: true),
-              );
+              ).timeout(const Duration(seconds: 8));
           uploadedUrlMatTruoc = db.storage.from('contracts').getPublicUrl(path);
         } catch (eStorage) {
           debugPrint('Storage upload mặt trước fallback base64: $eStorage');
           uploadedUrlMatTruoc = 'data:image/jpeg;base64,${base64Encode(_bytesMatTruoc!)}';
         }
+        updateData['anh_cccd_mat_truoc'] = uploadedUrlMatTruoc;
       }
 
       if (_bytesMatSau != null) {
+        String uploadedUrlMatSau;
         try {
           final path = 'cccd/${_maKhach.isNotEmpty ? _maKhach : "KH"}_sau_${DateTime.now().millisecondsSinceEpoch}.jpg';
           await db.storage.from('contracts').uploadBinary(
                 path,
                 _bytesMatSau!,
                 fileOptions: const FileOptions(contentType: 'image/jpeg', upsert: true),
-              );
+              ).timeout(const Duration(seconds: 8));
           uploadedUrlMatSau = db.storage.from('contracts').getPublicUrl(path);
         } catch (eStorage) {
           debugPrint('Storage upload mặt sau fallback base64: $eStorage');
           uploadedUrlMatSau = 'data:image/jpeg;base64,${base64Encode(_bytesMatSau!)}';
         }
+        updateData['anh_cccd_mat_sau'] = uploadedUrlMatSau;
       }
-
-      if (uploadedUrlMatTruoc != null) updateData['anh_cccd_mat_truoc'] = uploadedUrlMatTruoc;
-      if (uploadedUrlMatSau != null) updateData['anh_cccd_mat_sau'] = uploadedUrlMatSau;
 
       // 1. Cập nhật bảng khach_thue
       if (_maKhach.isNotEmpty) {
@@ -843,7 +840,12 @@ class _ManHinhChinhSuaHoSoState extends State<ManHinhChinhSuaHoSo> {
 
   Future<void> _chonAnhCccd(ImageSource source, bool isMatTruoc) async {
     try {
-      final XFile? file = await _picker.pickImage(source: source, imageQuality: 90);
+      final XFile? file = await _picker.pickImage(
+        source: source,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 70,
+      );
       if (file == null) return;
       final bytes = await file.readAsBytes();
       setState(() {
@@ -932,7 +934,7 @@ class _ManHinhChinhSuaHoSoState extends State<ManHinhChinhSuaHoSo> {
                       fit: BoxFit.cover,
                       width: double.infinity,
                       height: double.infinity,
-                      errorBuilder: (_, __, ___) => const Center(
+                      errorBuilder: (context, error, stackTrace) => const Center(
                         child: Icon(Icons.broken_image_rounded, color: Color(0xFF94A3B8)),
                       ),
                     )
@@ -941,7 +943,7 @@ class _ManHinhChinhSuaHoSoState extends State<ManHinhChinhSuaHoSo> {
                       fit: BoxFit.cover,
                       width: double.infinity,
                       height: double.infinity,
-                      errorBuilder: (_, __, ___) => const Center(
+                      errorBuilder: (context, error, stackTrace) => const Center(
                         child: Icon(Icons.broken_image_rounded, color: Color(0xFF94A3B8)),
                       ),
                     )

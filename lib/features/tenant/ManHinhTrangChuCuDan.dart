@@ -476,7 +476,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                   note: '',
                 ),
               ),
-            );
+            ).then((_) => _fetchTenantData());
           }
 
           if (status == 'Chờ khách xác nhận' || status == 'Đã kiểm tra') {
@@ -1578,7 +1578,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
             note: '',
           ),
         ),
-      );
+      ).then((_) => _fetchTenantData());
     }
 
     if (status == 'Chờ khách xác nhận' || status == 'Đã kiểm tra') {
@@ -10699,7 +10699,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                               note: '',
                             ),
                           ),
-                        );
+                        ).then((_) => _fetchTenantData());
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF09638E),

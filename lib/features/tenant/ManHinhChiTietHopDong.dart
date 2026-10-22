@@ -1,4 +1,3 @@
-import 'package:nhatro_kieugiang/features/tenant/ManHinhLichSuGiaHanHopDong.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -385,7 +384,7 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
         context,
         tieuDe: 'Chữ ký Bên A bảo mật',
         noiDung:
-            'Chữ ký số Bên A đã được Ban Quản Lý xác thực sẵn và khóa bảo mật!',
+            'Chữ ký Bên A đã được Ban Quản Lý xác thực sẵn và khóa bảo mật!',
         type: ThongBaoType.thongTin,
       );
       return;
@@ -608,7 +607,7 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                             SizedBox(width: 6),
                             Expanded(
                               child: Text(
-                                'Chữ ký số đã được mã hóa bảo mật và lưu trữ trực tiếp vào hệ thống cơ sở dữ liệu.',
+                                'Chữ ký đã được lưu trữ bảo mật trực tiếp vào hệ thống cơ sở dữ liệu.',
                                 style: TextStyle(fontSize: 11, color: Color(0xFF64748B), height: 1.3),
                               ),
                             ),
@@ -2437,6 +2436,426 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
     );
   }
 
+  /// Trợ lý dựng hình chữ ký hợp lệ (hỗ trợ cả Base64 Data URI, HTTP URL hoặc Widget mặc định)
+  Widget _buildChuKyImageOrPlaceholder(String? urlChuKy, {double height = 38, bool isBenA = false}) {
+    if (urlChuKy == null || urlChuKy.trim().isEmpty) {
+      if (isBenA) {
+        return ChuKyBenAMacDinhWidget(height: height);
+      }
+      return SizedBox(height: height);
+    }
+    final clean = urlChuKy.trim();
+    if (clean.startsWith('data:image')) {
+      try {
+        final b64 = clean.contains(',') ? clean.split(',').last : clean;
+        final bytes = base64Decode(b64.replaceAll(RegExp(r'\s+'), ''));
+        return SizedBox(
+          height: height,
+          child: Image.memory(bytes, fit: BoxFit.contain),
+        );
+      } catch (e) {
+        debugPrint('Lỗi decode base64 chữ ký: $e');
+        return isBenA ? ChuKyBenAMacDinhWidget(height: height) : SizedBox(height: height);
+      }
+    }
+    if (clean.startsWith('http://') || clean.startsWith('https://')) {
+      return SizedBox(
+        height: height,
+        child: Image.network(
+          clean,
+          fit: BoxFit.contain,
+          errorBuilder: (context, error, stackTrace) =>
+              isBenA ? ChuKyBenAMacDinhWidget(height: height) : SizedBox(height: height),
+        ),
+      );
+    }
+    try {
+      final bytes = base64Decode(clean.replaceAll(RegExp(r'\s+'), ''));
+      return SizedBox(
+        height: height,
+        child: Image.memory(bytes, fit: BoxFit.contain),
+      );
+    } catch (_) {
+      return isBenA ? ChuKyBenAMacDinhWidget(height: height) : SizedBox(height: height);
+    }
+  }
+
+  // ─── MODAL TOÀN VĂN CHI TIẾT PHỤ LỤC HỢP ĐỒNG ĐIỆN TỬ ───
+  void _showChiTietPhuLucModal(PhuLucHopDongModel pl) {
+    final isChuyenPhong = pl.maPhuLuc.startsWith('PLCP') ||
+        (pl.maPhongMoi != null && pl.maPhongMoi!.isNotEmpty);
+    final effectiveHd = _hopDong?.maHopDong ?? pl.maHopDong;
+    final tenNguoiThue = _khachDaiDien?.hoTenKhach ?? 'Khách thuê';
+    const tenChuTro = 'TRỊNH MỸ DUYÊN';
+    const sdtChuTro = '0328 004 663';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.88,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            children: [
+              // Thanh kéo handle
+              Container(
+                margin: const EdgeInsets.only(top: 10, bottom: 8),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFCBD5E1),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+
+              // Header
+              Padding(
+                padding: const EdgeInsets.fromLTRB(18, 4, 18, 12),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: isChuyenPhong ? const Color(0xFFE0F2FE) : const Color(0xFFF0FDF4),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(
+                        isChuyenPhong ? Icons.swap_horiz_rounded : Icons.history_edu_rounded,
+                        color: isChuyenPhong ? const Color(0xFF0284C7) : const Color(0xFF16A34A),
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            isChuyenPhong ? 'Phụ Lục Chuyển Phòng' : 'Phụ Lục Gia Hạn Hợp Đồng',
+                            style: const TextStyle(
+                              fontSize: 15.5,
+                              fontWeight: FontWeight.bold,
+                              color: _textDark,
+                            ),
+                          ),
+                          Text(
+                            'Mã số: ${pl.maPhuLuc} • HĐ: $effectiveHd',
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              color: Color(0xFF64748B),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFDCFCE7),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFF86EFAC)),
+                      ),
+                      child: const Text(
+                        'ĐÃ DUYỆT',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF16A34A),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, color: Color(0xFF64748B), size: 22),
+                      onPressed: () => Navigator.pop(ctx),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1, color: Color(0xFFF1F5F9)),
+
+              // Nội dung chi tiết cuộn
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // CĂN CỨ PHÁP LÝ
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Row(
+                              children: [
+                                Icon(Icons.gavel_rounded, size: 15, color: _primary),
+                                SizedBox(width: 6),
+                                Text(
+                                  'CĂN CỨ PHÁP LÝ HỢP ĐỒNG',
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: _primary,
+                                    letterSpacing: 0.3,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            _buildPhuLucRow('Căn cứ Hợp đồng số:', effectiveHd),
+                            const SizedBox(height: 5),
+                            _buildPhuLucRow('Cơ sở lưu trú:', 'Kiều Giang House, P. Hiệp Bình Chánh, Thủ Đức'),
+                            const SizedBox(height: 5),
+                            _buildPhuLucRow('Bên A (Chủ trọ):', '$tenChuTro (ĐT: $sdtChuTro)'),
+                            const SizedBox(height: 5),
+                            _buildPhuLucRow('Bên B (Người thuê):', tenNguoiThue),
+                            const SizedBox(height: 5),
+                            _buildPhuLucRow('Ngày lập phụ lục:', pl.ngayLapFormatted),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+
+                      // NỘI DUNG ĐIỀU CHỈNH
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.02),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  isChuyenPhong ? Icons.meeting_room_outlined : Icons.calendar_month_outlined,
+                                  size: 16,
+                                  color: isChuyenPhong ? const Color(0xFF0284C7) : const Color(0xFF16A34A),
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  isChuyenPhong ? 'THÔNG TIN CHUYỂN ĐỔI PHÒNG' : 'THÔNG TIN GIA HẠN HỢP ĐỒNG',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: isChuyenPhong ? const Color(0xFF0284C7) : const Color(0xFF16A34A),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            if (isChuyenPhong) ...[
+                              if (pl.maPhongMoi != null && pl.maPhongMoi!.isNotEmpty) ...[
+                                _buildPhuLucRow('Phòng chuyển đến:', pl.maPhongMoi!, highlight: true),
+                                const SizedBox(height: 6),
+                              ],
+                              if (pl.giaTheMoi > 0) ...[
+                                _buildPhuLucRow('Giá thuê phòng mới:', '${FormatUtils.currency(pl.giaTheMoi.toDouble())}/tháng', highlight: true),
+                                const SizedBox(height: 6),
+                              ],
+                              _buildPhuLucRow(
+                                'Tiền cọc bảo lưu:',
+                                pl.chenhLechTienCoc == 0
+                                    ? 'Bảo lưu nguyên vẹn 100% tiền cọc'
+                                    : 'Chênh lệch: ${FormatUtils.currency(pl.chenhLechTienCoc.toDouble())}',
+                              ),
+                            ] else ...[
+                              if (pl.ngayGiaHanDen.isNotEmpty) ...[
+                                _buildPhuLucRow('Gia hạn hiệu lực đến:', pl.ngayGiaHanDenFormatted, highlight: true),
+                                const SizedBox(height: 6),
+                              ],
+                              if (pl.giaTheMoi > 0) ...[
+                                _buildPhuLucRow('Giá thuê áp dụng mới:', '${FormatUtils.currency(pl.giaTheMoi.toDouble())}/tháng', highlight: true),
+                                const SizedBox(height: 6),
+                              ],
+                            ],
+                            const SizedBox(height: 12),
+                            const Text(
+                              'Nội dung điều chỉnh cụ thể:',
+                              style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: _textDark),
+                            ),
+                            const SizedBox(height: 6),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF8FAFC),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: const Color(0xFFE2E8F0)),
+                              ),
+                              child: Text(
+                                pl.noiDungDieuChinh,
+                                style: const TextStyle(fontSize: 12.5, color: Color(0xFF334155), height: 1.55),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+
+                      // ĐIỀU KHOẢN THI HÀNH
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFEF3C7).withValues(alpha: 0.4),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFFDE68A)),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(Icons.info_outline_rounded, size: 15, color: Color(0xFFD97706)),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Phụ lục này có giá trị pháp lý gắn liền và không tách rời Hợp đồng số $effectiveHd. Mọi quyền lợi và nghĩa vụ khác của hai Bên tiếp tục thực hiện theo Hợp đồng thuê đã ký.',
+                                style: const TextStyle(fontSize: 11, color: Color(0xFF92400E), height: 1.45),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // CHỮ KÝ XÁC NHẬN HAI BÊN
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF8FAFC),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: const Color(0xFFE2E8F0)),
+                              ),
+                              child: Column(
+                                children: [
+                                  const Text('ĐẠI DIỆN BÊN A',
+                                    style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  const Text('(Ký và ghi rõ họ tên)',
+                                    style: TextStyle(fontSize: 9.5, fontStyle: FontStyle.italic, color: Color(0xFF94A3B8)),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  _buildChuKyImageOrPlaceholder(_urlChuKyBenA, height: 38, isBenA: true),
+                                  const SizedBox(height: 6),
+                                  const Text(tenChuTro,
+                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _textDark),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF8FAFC),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: const Color(0xFFE2E8F0)),
+                              ),
+                              child: Column(
+                                children: [
+                                  const Text('ĐẠI DIỆN BÊN B',
+                                    style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  const Text('(Ký và ghi rõ họ tên)',
+                                    style: TextStyle(fontSize: 9.5, fontStyle: FontStyle.italic, color: Color(0xFF94A3B8)),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  _buildChuKyImageOrPlaceholder(_urlChuKyBenB, height: 38, isBenA: false),
+                                  const SizedBox(height: 6),
+                                  Text(tenNguoiThue,
+                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _textDark),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Nút Đóng
+                      SizedBox(
+                        width: double.infinity,
+                        height: 46,
+                        child: ElevatedButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _primary,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            elevation: 0,
+                          ),
+                          child: const Text(
+                            'Đóng văn bản',
+                            style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: Colors.white),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPhuLucRow(String label, String value, {bool highlight = false}) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 135,
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: highlight ? FontWeight.bold : FontWeight.w600,
+              color: highlight ? const Color(0xFF09638E) : const Color(0xFF1E293B),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   // ─── 8.2 DANH SÁCH PHỤ LỤC HỢP ĐỒNG ĐÃ KÝ (GIA HẠN / CHUYỂN PHÒNG) ───
   Widget _buildCardDanhSachPhuLucHopDong() {
     if (_danhSachPhuLuc.isEmpty) return const SizedBox.shrink();
@@ -2482,13 +2901,197 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
               ),
               InkWell(
                 onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => ManHinhLichSuGiaHanHopDong(
-                        hopDong: _hopDong,
-                        tenPhong: _phong?.tenHienThi ?? 'Phòng ${_phong?.maPhong ?? "203"}',
-                        maHopDong: _hopDong?.maHopDong ?? widget.maHopDong,
+                  showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    backgroundColor: Colors.transparent,
+                    builder: (sheetCtx) => DraggableScrollableSheet(
+                      initialChildSize: 0.6,
+                      minChildSize: 0.4,
+                      maxChildSize: 0.92,
+                      builder: (_, scrollCtrl) => Container(
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                        ),
+                        child: Column(
+                          children: [
+                            // Handle bar
+                            Container(
+                              margin: const EdgeInsets.only(top: 12, bottom: 8),
+                              width: 40, height: 4,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFE2E8F0),
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                            // Header
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFE0F2FE),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: const Icon(Icons.history_edu_rounded, color: Color(0xFF0284C7), size: 20),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const Text('Danh Sách Phụ Lục Hợp Đồng',
+                                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                                        ),
+                                        Text('${_danhSachPhuLuc.length} phụ lục đã ký',
+                                          style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                            // Danh sách phụ lục
+                            Expanded(
+                              child: ListView.separated(
+                                controller: scrollCtrl,
+                                padding: const EdgeInsets.all(16),
+                                itemCount: _danhSachPhuLuc.length,
+                                separatorBuilder: (context, index) => const SizedBox(height: 12),
+                                itemBuilder: (_, i) {
+                                  final pl = _danhSachPhuLuc[i];
+                                  final isChuyenPhong = pl.maPhuLuc.startsWith('PLCP') ||
+                                      (pl.maPhongMoi != null && pl.maPhongMoi!.isNotEmpty);
+                                  return InkWell(
+                                    onTap: () {
+                                      Navigator.pop(sheetCtx);
+                                      _showChiTietPhuLucModal(pl);
+                                    },
+                                    borderRadius: BorderRadius.circular(14),
+                                    child: Container(
+                                      padding: const EdgeInsets.all(16),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFF8FAFC),
+                                        borderRadius: BorderRadius.circular(14),
+                                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                                decoration: BoxDecoration(
+                                                  color: isChuyenPhong ? const Color(0xFF0EA5E9) : const Color(0xFF09638E),
+                                                  borderRadius: BorderRadius.circular(6),
+                                                ),
+                                                child: Text(pl.maPhuLuc,
+                                                  style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Colors.white),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Expanded(
+                                                child: Text(
+                                                  isChuyenPhong ? 'Phụ lục chuyển phòng' : 'Phụ lục gia hạn',
+                                                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                decoration: BoxDecoration(
+                                                  color: const Color(0xFFDCFCE7),
+                                                  borderRadius: BorderRadius.circular(6),
+                                                ),
+                                                child: const Text('ĐÃ DUYỆT',
+                                                  style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF16A34A)),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 10),
+                                          // Nội dung điều chỉnh
+                                          Container(
+                                            padding: const EdgeInsets.all(10),
+                                            decoration: BoxDecoration(
+                                              color: Colors.white,
+                                              borderRadius: BorderRadius.circular(10),
+                                              border: Border.all(color: const Color(0xFFE2E8F0)),
+                                            ),
+                                            child: Text(pl.noiDungDieuChinh,
+                                              style: const TextStyle(fontSize: 12.5, color: Color(0xFF334155), height: 1.5),
+                                            ),
+                                          ),
+                                          const SizedBox(height: 10),
+                                          Wrap(
+                                            spacing: 12,
+                                            runSpacing: 6,
+                                            crossAxisAlignment: WrapCrossAlignment.center,
+                                            children: [
+                                              Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  const Icon(Icons.calendar_today_rounded, size: 13, color: Color(0xFF94A3B8)),
+                                                  const SizedBox(width: 4),
+                                                  Text('Ngày lập: ',
+                                                    style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                                                  ),
+                                                ],
+                                              ),
+                                              if (pl.giaTheMoi > 0)
+                                                Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    const Icon(Icons.payments_outlined, size: 13, color: Color(0xFF09638E)),
+                                                    const SizedBox(width: 4),
+                                                    Text(
+                                                      '/tháng',
+                                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF09638E)),
+                                                    ),
+                                                  ],
+                                                ),
+                                              if (isChuyenPhong && pl.maPhongMoi != null)
+                                                Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    const Icon(Icons.meeting_room_outlined, size: 13, color: Color(0xFF0EA5E9)),
+                                                    const SizedBox(width: 4),
+                                                    Text('→ ',
+                                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0EA5E9)),
+                                                    ),
+                                                  ],
+                                                ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 8),
+                                          const Row(
+                                            mainAxisAlignment: MainAxisAlignment.end,
+                                            children: [
+                                              Text(
+                                                'Xem chi tiết văn bản →',
+                                                style: TextStyle(
+                                                  fontSize: 11.5,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Color(0xFF09638E),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   );
@@ -2528,101 +3131,128 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                 ? 'Phụ lục chuyển sang phòng ${pl.maPhongMoi ?? ""}'
                 : 'Phụ lục gia hạn thời hạn hợp đồng';
 
-            return Container(
-              margin: const EdgeInsets.only(bottom: 10),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF09638E),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          pl.maPhuLuc,
-                          style: const TextStyle(
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
+            return InkWell(
+              onTap: () => _showChiTietPhuLucModal(pl),
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF09638E),
+                            borderRadius: BorderRadius.circular(6),
                           ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          title,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            color: _textDark,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFDCFCE7),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: const Text(
-                          'ĐÃ DUYỆT',
-                          style: TextStyle(
-                            fontSize: 9.5,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF16A34A),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    pl.noiDungDieuChinh,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF475569),
-                      height: 1.35,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      const Icon(Icons.calendar_today_rounded, size: 12, color: Color(0xFF94A3B8)),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Ngày lập: ${pl.ngayLapFormatted}',
-                        style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
-                      ),
-                      const SizedBox(width: 8),
-                      const Spacer(),
-                      if (pl.giaTheMoi > 0)
-                        Flexible(
                           child: Text(
-                            'Giá: ${FormatUtils.currency(pl.giaTheMoi.toDouble())}/tháng',
+                            pl.maPhuLuc,
                             style: const TextStyle(
-                              fontSize: 11.5,
+                              fontSize: 10.5,
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF09638E),
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            title,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: _textDark,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                    ],
-                  ),
-                ],
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFDCFCE7),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Text(
+                            'ĐÃ DUYỆT',
+                            style: TextStyle(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF16A34A),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      pl.noiDungDieuChinh,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF475569),
+                        height: 1.35,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.calendar_today_rounded, size: 12, color: Color(0xFF94A3B8)),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Ngày lập: ',
+                              style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                            ),
+                          ],
+                        ),
+                        if (pl.giaTheMoi > 0)
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.payments_outlined, size: 12, color: Color(0xFF09638E)),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Giá: /tháng',
+                                style: const TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF09638E),
+                                ),
+                              ),
+                            ],
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    const Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        Text(
+                          'Xem chi tiết văn bản →',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF09638E),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             );
           }),
@@ -2833,7 +3463,7 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                       Icon(Icons.verified_rounded, size: 12, color: Color(0xFF15803D)),
                       SizedBox(width: 4),
                       Text(
-                        'Đã ký số xác thực',
+                        'Đã ký xác nhận',
                         style: TextStyle(
                           fontSize: 10,
                           color: Color(0xFF15803D),
@@ -2907,7 +3537,7 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                     const SizedBox(width: 4),
                     Flexible(
                       child: Text(
-                        'Ký số điện tử ngày $ngayKy • Ban Quản Lý Nhà Trọ Kiều Giang',
+                        'Ký xác nhận ngày $ngayKy • Ban Quản Lý Nhà Trọ Kiều Giang',
                         style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B)),
                         textAlign: TextAlign.center,
                         maxLines: 2,
@@ -3123,7 +3753,7 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                         SizedBox(width: 5),
                         Flexible(
                           child: Text(
-                            'Khóa bảo mật: Chữ ký số đã được xác nhận và có hiệu lực pháp lý (không thể ký lại)',
+                            'Khóa bảo mật: Chữ ký đã được xác nhận và có hiệu lực pháp lý (không thể ký lại)',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 10,
