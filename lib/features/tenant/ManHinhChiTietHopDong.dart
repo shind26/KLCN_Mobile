@@ -1,22 +1,23 @@
 import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:nhatro_kieugiang/core/services/DichVuXacThuc.dart';
+import 'package:nhatro_kieugiang/core/utils/ThongBaoHelper.dart';
+import 'package:nhatro_kieugiang/core/utils/TienIchDinhDang.dart';
 import 'package:nhatro_kieugiang/core/widgets/BangKyTay.dart';
 import 'package:nhatro_kieugiang/core/widgets/ChuKyBenAMacDinh.dart';
 import 'package:nhatro_kieugiang/core/widgets/LoadingMeoMeo.dart';
-import 'package:nhatro_kieugiang/core/utils/ThongBaoHelper.dart';
-import 'package:nhatro_kieugiang/core/utils/TienIchDinhDang.dart';
 import 'package:nhatro_kieugiang/data/models/MoHinhDichVu.dart';
 import 'package:nhatro_kieugiang/data/models/MoHinhHopDong.dart';
 import 'package:nhatro_kieugiang/data/models/MoHinhPhong.dart';
+import 'package:nhatro_kieugiang/features/tenant/ManHinhChamDutHopDong.dart';
+import 'package:nhatro_kieugiang/features/tenant/ManHinhGiaHanHopDong.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:nhatro_kieugiang/features/tenant/ManHinhGiaHanHopDong.dart';
-import 'package:nhatro_kieugiang/features/tenant/ManHinhChamDutHopDong.dart';
-import 'package:nhatro_kieugiang/core/services/DichVuXacThuc.dart';
 
 class ContractDetailScreen extends StatefulWidget {
   final String maHopDong;
@@ -33,7 +34,8 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
   static const _textDark = Color(0xFF0F172A);
 
   // Đường dẫn chữ ký số mặc định của Bên A (Chủ trọ / Ban Quản Lý)
-  static const String _defaultChuKyBenAAsset = 'assets/images/chuky_ben_a_mac_dinh.png';
+  static const String _defaultChuKyBenAAsset =
+      'assets/images/chuky_ben_a_mac_dinh.png';
 
   bool _isLoading = true;
   String? _errorMessage;
@@ -61,7 +63,9 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
 
     // 0. Quản trị viên hoặc Chủ trọ luôn có toàn quyền
     final authRole = user.vaiTro.toLowerCase();
-    if (authRole.contains('admin') || authRole.contains('chutro') || authRole.contains('quanly')) {
+    if (authRole.contains('admin') ||
+        authRole.contains('chutro') ||
+        authRole.contains('quanly')) {
       return true;
     }
 
@@ -78,7 +82,8 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
         if (dtKhach.isNotEmpty && dtKhach == dtUser) return true;
       }
       if (_khachDaiDien!.hoTenKhach.isNotEmpty && user.tenHienThi.isNotEmpty) {
-        if (_khachDaiDien!.hoTenKhach.trim().toLowerCase() == user.tenHienThi.trim().toLowerCase()) {
+        if (_khachDaiDien!.hoTenKhach.trim().toLowerCase() ==
+            user.tenHienThi.trim().toLowerCase()) {
           return true;
         }
       }
@@ -87,21 +92,30 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
     // 2. Nếu người dùng trùng khớp với bất kỳ ai trong danh sách ở cùng -> chắc chắn không phải đại diện
     if (_danhSachOCung.isNotEmpty) {
       final isOCung = _danhSachOCung.any((oc) {
-        if (oc.maTaiKhoan != null && oc.maTaiKhoan!.isNotEmpty && oc.maTaiKhoan == user.maTaiKhoan) return true;
+        if (oc.maTaiKhoan != null &&
+            oc.maTaiKhoan!.isNotEmpty &&
+            oc.maTaiKhoan == user.maTaiKhoan)
+          return true;
         if (oc.soDt.isNotEmpty && user.tenDangNhap.isNotEmpty) {
           final dt1 = oc.soDt.replaceAll(RegExp(r'\D'), '');
           final dt2 = user.tenDangNhap.replaceAll(RegExp(r'\D'), '');
           if (dt1.isNotEmpty && dt1 == dt2) return true;
         }
-        if (oc.hoTenKhach.trim().toLowerCase() == user.tenHienThi.trim().toLowerCase()) return true;
+        if (oc.hoTenKhach.trim().toLowerCase() ==
+            user.tenHienThi.trim().toLowerCase())
+          return true;
         return false;
       });
       if (isOCung) return false;
     }
 
     // 3. Vai trò từ bảng tài khoản
-    if (authRole.contains('truongphong') || authRole.contains('daidien')) return true;
-    if (authRole.contains('thanhvien') || authRole.contains('banocung') || authRole.contains('ocung')) return false;
+    if (authRole.contains('truongphong') || authRole.contains('daidien'))
+      return true;
+    if (authRole.contains('thanhvien') ||
+        authRole.contains('banocung') ||
+        authRole.contains('ocung'))
+      return false;
 
     // 4. Nếu phòng chỉ có 1 người ở
     if (_danhSachOCung.isEmpty && _khachDaiDien != null) return true;
@@ -151,7 +165,11 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
           children: [
             Text(
               'Bạn đang đăng nhập với tư cách Thành viên phòng (Bạn cùng phòng).',
-              style: TextStyle(fontSize: 13.5, color: Colors.grey.shade700, height: 1.4),
+              style: TextStyle(
+                fontSize: 13.5,
+                color: Colors.grey.shade700,
+                height: 1.4,
+              ),
             ),
             const SizedBox(height: 12),
             Container(
@@ -164,7 +182,11 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.info_outline, size: 18, color: Color(0xFF09638E)),
+                  const Icon(
+                    Icons.info_outline,
+                    size: 18,
+                    color: Color(0xFF09638E),
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -183,7 +205,11 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
             const SizedBox(height: 12),
             Text(
               'Vui lòng báo cho Người đại diện của phòng bạn để tiến hành thủ tục này nhé!',
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade600, height: 1.3),
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey.shade600,
+                height: 1.3,
+              ),
             ),
           ],
         ),
@@ -195,10 +221,15 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF09638E),
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 padding: const EdgeInsets.symmetric(vertical: 12),
               ),
-              child: const Text('Đã hiểu', style: TextStyle(fontWeight: FontWeight.bold)),
+              child: const Text(
+                'Đã hiểu',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
             ),
           ),
         ],
@@ -277,16 +308,23 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
             if (ktData != null) {
               final kt = KhachThueModel.fromJson(ktData);
               kt.vaiTro = item['vai_tro']?.toString() ?? 'Thành viên ở cùng';
-              kt.trangThaiLuuTru = item['trang_thai_luu_tru']?.toString() ?? 'Đang ở';
+              kt.trangThaiLuuTru =
+                  item['trang_thai_luu_tru']?.toString() ?? 'Đang ở';
               allKhach.add(kt);
             }
           }
         }
 
         // Phân loại khách đại diện và người ở cùng
-        if (allKhach.any((k) => k.vaiTro == 'Đại diện hợp đồng' || k.maKhach == _hopDong!.maKhachDaiDien)) {
+        if (allKhach.any(
+          (k) =>
+              k.vaiTro == 'Đại diện hợp đồng' ||
+              k.maKhach == _hopDong!.maKhachDaiDien,
+        )) {
           _khachDaiDien = allKhach.firstWhere(
-            (k) => k.vaiTro == 'Đại diện hợp đồng' || k.maKhach == _hopDong!.maKhachDaiDien,
+            (k) =>
+                k.vaiTro == 'Đại diện hợp đồng' ||
+                k.maKhach == _hopDong!.maKhachDaiDien,
           );
         } else if (allKhach.isNotEmpty) {
           _khachDaiDien = allKhach.first;
@@ -326,8 +364,9 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
               .select()
               .eq('ma_hop_dong', _hopDong!.maHopDong)
               .order('ngay_lap', ascending: false);
-          _danhSachPhuLuc =
-              (plData as List).map((e) => PhuLucHopDongModel.fromJson(e)).toList();
+          _danhSachPhuLuc = (plData as List)
+              .map((e) => PhuLucHopDongModel.fromJson(e))
+              .toList();
         } catch (errPl) {
           debugPrint('Lỗi tải phụ lục hợp đồng: $errPl');
         }
@@ -341,30 +380,43 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
   }
 
   /// Tự động tải chữ ký Bên A lên Supabase và lưu vào bảng hop_dong
-  Future<void> _khoiTaoChuKyBenATrenSupabase(SupabaseClient db, String maHd) async {
+  Future<void> _khoiTaoChuKyBenATrenSupabase(
+    SupabaseClient db,
+    String maHd,
+  ) async {
     try {
-      final pngBytes = await ChuKyBenAMacDinhWidget.toPngBytes(width: 800, height: 320);
+      final pngBytes = await ChuKyBenAMacDinhWidget.toPngBytes(
+        width: 800,
+        height: 320,
+      );
       final fileName = 'chuky_${maHd}_ben_a.png';
       final storagePath = 'hop_dong/$fileName';
 
       String signatureData = '';
       try {
-        await db.storage.from('contracts').uploadBinary(
-          storagePath,
-          pngBytes,
-          fileOptions: const FileOptions(
-            contentType: 'image/png',
-            upsert: true,
-          ),
-        );
+        await db.storage
+            .from('contracts')
+            .uploadBinary(
+              storagePath,
+              pngBytes,
+              fileOptions: const FileOptions(
+                contentType: 'image/png',
+                upsert: true,
+              ),
+            );
         signatureData = db.storage.from('contracts').getPublicUrl(storagePath);
       } catch (storageError) {
-        debugPrint('Storage bucket contracts chặn RLS, fallback lưu Base64 an toàn vào DB: $storageError');
+        debugPrint(
+          'Storage bucket contracts chặn RLS, fallback lưu Base64 an toàn vào DB: $storageError',
+        );
         final base64String = base64Encode(pngBytes);
         signatureData = 'data:image/png;base64,$base64String';
       }
 
-      await db.from('hop_dong').update({'chu_ky_ben_a': signatureData}).eq('ma_hop_dong', maHd);
+      await db
+          .from('hop_dong')
+          .update({'chu_ky_ben_a': signatureData})
+          .eq('ma_hop_dong', maHd);
 
       if (mounted) {
         setState(() {
@@ -419,7 +471,10 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
 
     try {
       // Export chữ ký thành PNG bytes trực tiếp từ Native Canvas
-      final Uint8List? pngBytes = await ctrl.toPngBytes(width: 800, height: 320);
+      final Uint8List? pngBytes = await ctrl.toPngBytes(
+        width: 800,
+        height: 320,
+      );
       if (pngBytes == null) throw Exception('Không xuất được ảnh chữ ký');
 
       final db = Supabase.instance.client;
@@ -430,24 +485,31 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
       String signatureData = '';
       try {
         // 1. Thử upload lên Supabase Storage bucket "contracts"
-        await db.storage.from('contracts').uploadBinary(
-          storagePath,
-          pngBytes,
-          fileOptions: const FileOptions(
-            contentType: 'image/png',
-            upsert: true,
-          ),
-        );
+        await db.storage
+            .from('contracts')
+            .uploadBinary(
+              storagePath,
+              pngBytes,
+              fileOptions: const FileOptions(
+                contentType: 'image/png',
+                upsert: true,
+              ),
+            );
         signatureData = db.storage.from('contracts').getPublicUrl(storagePath);
       } catch (storageError) {
-        debugPrint('Storage bucket contracts chặn RLS, fallback lưu Base64 an toàn vào DB: $storageError');
+        debugPrint(
+          'Storage bucket contracts chặn RLS, fallback lưu Base64 an toàn vào DB: $storageError',
+        );
         // 2. Fallback an toàn: Lưu Base64 Data URI trực tiếp vào cột chu_ky_ben_b
         final base64String = base64Encode(pngBytes);
         signatureData = 'data:image/png;base64,$base64String';
       }
 
       // Cập nhật chữ ký vào bảng hop_dong
-      await db.from('hop_dong').update({'chu_ky_ben_b': signatureData}).eq('ma_hop_dong', maHd);
+      await db
+          .from('hop_dong')
+          .update({'chu_ky_ben_b': signatureData})
+          .eq('ma_hop_dong', maHd);
 
       if (mounted) {
         setState(() {
@@ -484,12 +546,16 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
         final soPhong = _phong?.tenHienThi ?? 'Phòng';
         final tenKhach = _khachDaiDien?.hoTenKhach ?? 'Khách thuê';
         final now = DateTime.now();
-        final nowStr = '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year} • ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+        final nowStr =
+            '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year} • ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
 
         return Dialog(
           backgroundColor: Colors.transparent,
           elevation: 0,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 20,
+            vertical: 24,
+          ),
           child: Center(
             child: Container(
               constraints: const BoxConstraints(maxWidth: 440),
@@ -509,170 +575,231 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                  // Top Banner với Icon thành công nổi bật
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 24),
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
+                    // Top Banner với Icon thành công nổi bật
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 24),
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.vertical(
+                          top: Radius.circular(24),
+                        ),
                       ),
-                      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-                    ),
-                    child: Column(
-                      children: [
-                        Container(
-                          width: 68,
-                          height: 68,
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF22C55E), Color(0xFF16A34A)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFF22C55E).withValues(alpha: 0.4),
-                                blurRadius: 18,
-                                offset: const Offset(0, 6),
+                      child: Column(
+                        children: [
+                          Container(
+                            width: 68,
+                            height: 68,
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFF22C55E), Color(0xFF16A34A)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
                               ),
-                            ],
-                          ),
-                          child: const Center(
-                            child: Icon(Icons.check_rounded, color: Colors.white, size: 38),
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                        const Text(
-                          'KÝ HỢP ĐỒNG THÀNH CÔNG',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w900,
-                            color: Colors.white,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Hợp đồng điện tử số $maHd đã được xác thực',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFF94A3B8),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Nội dung thông tin chi tiết
-                  Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF8FAFC),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: const Color(0xFFE2E8F0)),
-                          ),
-                          child: Column(
-                            children: [
-                              _buildSuccessInfoRow('Mã hợp đồng', maHd, isBold: true),
-                              const Divider(height: 14, color: Color(0xFFE2E8F0)),
-                              _buildSuccessInfoRow('Phòng thuê', 'Phòng $soPhong'),
-                              const Divider(height: 14, color: Color(0xFFE2E8F0)),
-                              _buildSuccessInfoRow('Bên B (Người ký)', tenKhach),
-                              const Divider(height: 14, color: Color(0xFFE2E8F0)),
-                              _buildSuccessInfoRow('Thời gian ký', nowStr),
-                              const Divider(height: 14, color: Color(0xFFE2E8F0)),
-                              _buildSuccessInfoRow(
-                                'Tình trạng',
-                                'Đã có đủ chữ ký A & B',
-                                valueColor: const Color(0xFF16A34A),
-                                isBold: true,
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        const Row(
-                          children: [
-                            Icon(Icons.verified_rounded, size: 16, color: Color(0xFF16A34A)),
-                            SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                'Chữ ký đã được lưu trữ bảo mật trực tiếp vào hệ thống cơ sở dữ liệu.',
-                                style: TextStyle(fontSize: 11, color: Color(0xFF64748B), height: 1.3),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 20),
-
-                        // Các nút tương tác
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed: () => Navigator.pop(ctx),
-                                style: OutlinedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(vertical: 12),
-                                  side: const BorderSide(color: Color(0xFFCBD5E1)),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(
+                                    0xFF22C55E,
+                                  ).withValues(alpha: 0.4),
+                                  blurRadius: 18,
+                                  offset: const Offset(0, 6),
                                 ),
-                                child: const Text(
-                                  'Xem lại hợp đồng',
+                              ],
+                            ),
+                            child: const Center(
+                              child: Icon(
+                                Icons.check_rounded,
+                                color: Colors.white,
+                                size: 38,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          const Text(
+                            'KÝ HỢP ĐỒNG THÀNH CÔNG',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.white,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Hợp đồng điện tử số $maHd đã được xác thực',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF94A3B8),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Nội dung thông tin chi tiết
+                    Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: const Color(0xFFE2E8F0),
+                              ),
+                            ),
+                            child: Column(
+                              children: [
+                                _buildSuccessInfoRow(
+                                  'Mã hợp đồng',
+                                  maHd,
+                                  isBold: true,
+                                ),
+                                const Divider(
+                                  height: 14,
+                                  color: Color(0xFFE2E8F0),
+                                ),
+                                _buildSuccessInfoRow(
+                                  'Phòng thuê',
+                                  'Phòng $soPhong',
+                                ),
+                                const Divider(
+                                  height: 14,
+                                  color: Color(0xFFE2E8F0),
+                                ),
+                                _buildSuccessInfoRow(
+                                  'Bên B (Người ký)',
+                                  tenKhach,
+                                ),
+                                const Divider(
+                                  height: 14,
+                                  color: Color(0xFFE2E8F0),
+                                ),
+                                _buildSuccessInfoRow('Thời gian ký', nowStr),
+                                const Divider(
+                                  height: 14,
+                                  color: Color(0xFFE2E8F0),
+                                ),
+                                _buildSuccessInfoRow(
+                                  'Tình trạng',
+                                  'Đã có đủ chữ ký A & B',
+                                  valueColor: const Color(0xFF16A34A),
+                                  isBold: true,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          const Row(
+                            children: [
+                              Icon(
+                                Icons.verified_rounded,
+                                size: 16,
+                                color: Color(0xFF16A34A),
+                              ),
+                              SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  'Chữ ký đã được lưu trữ bảo mật trực tiếp vào hệ thống cơ sở dữ liệu.',
                                   style: TextStyle(
-                                    fontSize: 12.5,
-                                    fontWeight: FontWeight.w700,
-                                    color: Color(0xFF475569),
+                                    fontSize: 11,
+                                    color: Color(0xFF64748B),
+                                    height: 1.3,
                                   ),
                                 ),
                               ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: ElevatedButton.icon(
-                                onPressed: () {
-                                  Navigator.pop(ctx);
-                                  _xuatPdfHopDong();
-                                },
-                                icon: const Icon(Icons.download_rounded, size: 16),
-                                label: const Text(
-                                  'Tải file PDF',
-                                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
-                                ),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: _primary,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(vertical: 12),
-                                  elevation: 0,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ],
+                          ),
+                          const SizedBox(height: 20),
+
+                          // Các nút tương tác
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: () => Navigator.pop(ctx),
+                                  style: OutlinedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 12,
+                                    ),
+                                    side: const BorderSide(
+                                      color: Color(0xFFCBD5E1),
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  child: const Text(
+                                    'Xem lại hợp đồng',
+                                    style: TextStyle(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF475569),
+                                    ),
+                                  ),
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                      ],
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: () {
+                                    Navigator.pop(ctx);
+                                    _xuatPdfHopDong();
+                                  },
+                                  icon: const Icon(
+                                    Icons.download_rounded,
+                                    size: 16,
+                                  ),
+                                  label: const Text(
+                                    'Tải file PDF',
+                                    style: TextStyle(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: _primary,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 12,
+                                    ),
+                                    elevation: 0,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-      );
-    },
-  );
+        );
+      },
+    );
   }
 
-  Widget _buildSuccessInfoRow(String label, String value, {Color? valueColor, bool isBold = false}) {
+  Widget _buildSuccessInfoRow(
+    String label,
+    String value, {
+    Color? valueColor,
+    bool isBold = false,
+  }) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -698,60 +825,45 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
     );
   }
 
-  // ─── Xuất file PDF hợp đồng chuẩn hóa pháp lý ───
-  Future<void> _xuatPdfHopDong() async {
-    if (mounted) {
-      ThongBaoHelper.hienToast(
-        context,
-        tieuDe: 'Đang tạo PDF',
-        noiDung: 'Đang xuất file PDF hợp đồng, vui lòng chờ...',
-        type: ThongBaoType.thongTin,
-        duration: const Duration(seconds: 2),
-      );
+  // ─── Nạp font chữ tiếng Việt cho PDF ───
+  Future<pw.ThemeData> _napPdfTheme() async {
+    pw.Font fontRegular;
+    pw.Font fontBold;
+    pw.Font fontItalic;
+    pw.Font fontBoldItalic;
+    try {
+      final fontRegularData = await rootBundle.load('assets/fonts/arial.ttf');
+      final fontBoldData = await rootBundle.load('assets/fonts/arialbd.ttf');
+      fontRegular = pw.Font.ttf(fontRegularData);
+      fontBold = pw.Font.ttf(fontBoldData);
+      fontItalic = fontRegular;
+      fontBoldItalic = fontBold;
+    } catch (e) {
+      debugPrint('Không đọc được font từ assets, nạp từ Google Fonts: $e');
+      try {
+        fontRegular = await PdfGoogleFonts.robotoRegular();
+        fontBold = await PdfGoogleFonts.robotoBold();
+        fontItalic = await PdfGoogleFonts.robotoItalic();
+        fontBoldItalic = await PdfGoogleFonts.robotoBoldItalic();
+      } catch (e2) {
+        debugPrint('Lỗi tải font từ Google Fonts: $e2');
+        fontRegular = pw.Font.helvetica();
+        fontBold = pw.Font.helveticaBold();
+        fontItalic = pw.Font.helveticaOblique();
+        fontBoldItalic = pw.Font.helveticaBoldOblique();
+      }
     }
 
-    try {
-      // Nạp phông chữ Unicode tiếng Việt: ưu tiên nạp font từ assets cục bộ (nhanh, offline, không phụ thuộc mạng)
-      pw.Font fontRegular;
-      pw.Font fontBold;
-      pw.Font fontItalic;
-      pw.Font fontBoldItalic;
-      try {
-        final fontRegularData = await rootBundle.load('assets/fonts/arial.ttf');
-        final fontBoldData = await rootBundle.load('assets/fonts/arialbd.ttf');
-        fontRegular = pw.Font.ttf(fontRegularData);
-        fontBold = pw.Font.ttf(fontBoldData);
-        fontItalic = fontRegular;
-        fontBoldItalic = fontBold;
-      } catch (e) {
-        debugPrint('Không đọc được font từ assets, nạp từ Google Fonts: $e');
-        try {
-          fontRegular = await PdfGoogleFonts.robotoRegular();
-          fontBold = await PdfGoogleFonts.robotoBold();
-          fontItalic = await PdfGoogleFonts.robotoItalic();
-          fontBoldItalic = await PdfGoogleFonts.robotoBoldItalic();
-        } catch (e2) {
-          debugPrint('Lỗi tải font từ Google Fonts: $e2');
-          fontRegular = pw.Font.helvetica();
-          fontBold = pw.Font.helveticaBold();
-          fontItalic = pw.Font.helveticaOblique();
-          fontBoldItalic = pw.Font.helveticaBoldOblique();
-        }
-      }
-
-    final theme = pw.ThemeData.withFont(
+    return pw.ThemeData.withFont(
       base: fontRegular,
       bold: fontBold,
       italic: fontItalic,
       boldItalic: fontBoldItalic,
     );
+  }
 
-    final pdf = pw.Document(theme: theme);
-    final hd = _hopDong;
-    final phong = _phong;
-    final rep = _khachDaiDien;
-
-    // Tải ảnh chữ ký tay của Bên A và Bên B (nếu có)
+  // ─── Tải ảnh chữ ký tay Bên A và Bên B ───
+  Future<Map<String, pw.MemoryImage?>> _taiAnhChuKyHaiBen() async {
     pw.MemoryImage? imgChuKyA;
     pw.MemoryImage? imgChuKyB;
 
@@ -771,7 +883,6 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
       }
     }
 
-    // Nếu Bên A chưa có URL chữ ký riêng trên Cloud, mặc định dùng chữ ký số chính thức của Bên A
     if (imgChuKyA == null) {
       try {
         final byteData = await rootBundle.load(_defaultChuKyBenAAsset);
@@ -779,7 +890,10 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
       } catch (e) {
         debugPrint('Lỗi tải ảnh chữ ký mặc định Bên A từ asset: $e');
         try {
-          final bytes = await ChuKyBenAMacDinhWidget.toPngBytes(width: 800, height: 320);
+          final bytes = await ChuKyBenAMacDinhWidget.toPngBytes(
+            width: 800,
+            height: 320,
+          );
           imgChuKyA = pw.MemoryImage(bytes);
         } catch (_) {}
       }
@@ -801,209 +915,1005 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
       }
     }
 
-    pdf.addPage(
-      pw.MultiPage(
-        theme: theme,
-        pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.all(32),
-        build: (pw.Context context) {
-          return [
-            pw.Center(
-              child: pw.Column(
-                children: [
-                  pw.Text(
-                    'CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM',
-                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 13),
-                  ),
-                  pw.Text(
-                    'Độc lập - Tự do - Hạnh phúc',
-                    style: pw.TextStyle(
-                      fontWeight: pw.FontWeight.bold,
-                      fontSize: 12,
-                      decoration: pw.TextDecoration.underline,
-                    ),
-                  ),
-                  pw.SizedBox(height: 14),
-                  pw.Text(
-                    'HỢP ĐỒNG THUÊ PHÒNG TRỌ ĐIỆN TỬ',
-                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 16),
-                  ),
-                  pw.Text(
-                    'Số: ${hd?.maHopDong ?? 'HD001'} / HĐTP-KG',
-                    style: const pw.TextStyle(fontSize: 11, color: PdfColors.grey700),
-                  ),
-                ],
-              ),
-            ),
-            pw.SizedBox(height: 16),
-            pw.Text(
-              'Hôm nay, ngày ${hd?.ngayBdFormatted ?? '01/01/2026'}, tại Hệ thống Nhà trọ Kiêu Giang, chúng tôi gồm các bên:',
-              style: const pw.TextStyle(fontSize: 10),
-            ),
-            pw.SizedBox(height: 10),
+    return {'benA': imgChuKyA, 'benB': imgChuKyB};
+  }
 
-            // Bên A
-            pw.Container(
-              padding: const pw.EdgeInsets.all(8),
-              decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.grey400)),
-              child: pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  pw.Text(
-                    'BÊN A (BÊN CHO THUÊ): HỆ THỐNG NHÀ TRỌ KIÊU GIANG',
-                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
-                  ),
-                  pw.SizedBox(height: 3),
-                  pw.Text('Đại diện quản lý: TRỊNH MỸ DUYÊN', style: const pw.TextStyle(fontSize: 9.5)),
-                  pw.Text('Số điện thoại / Hotline BQL: 0328 004 663', style: const pw.TextStyle(fontSize: 9.5)),
-                  pw.Text('Địa chỉ: Kiêu Giang House, Phường Hiệp Bình Chánh, TP. Thủ Đức, TP.HCM', style: const pw.TextStyle(fontSize: 9.5)),
-                ],
-              ),
-            ),
-            pw.SizedBox(height: 8),
-
-            // Bên B
-            pw.Container(
-              padding: const pw.EdgeInsets.all(8),
-              decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.grey400)),
-              child: pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  pw.Text(
-                    'BÊN B (BÊN THUÊ PHÒNG - ĐẠI DIỆN HỢP ĐỒNG):',
-                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
-                  ),
-                  pw.SizedBox(height: 3),
-                  pw.Text('Họ và tên: ${rep?.hoTenKhach ?? ''}', style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold)),
-                  pw.Text('Số CCCD: ${rep?.cccd ?? ''}', style: const pw.TextStyle(fontSize: 9.5)),
-                  pw.Text('Số điện thoại liên hệ: ${rep?.soDt ?? ''}', style: const pw.TextStyle(fontSize: 9.5)),
-                  pw.Text('Địa chỉ thường trú: ${rep?.diaChiThuongTru ?? ''}', style: const pw.TextStyle(fontSize: 9.5)),
-                  if (_danhSachOCung.isNotEmpty)
-                    pw.Text('Thành viên ở cùng: ${_danhSachOCung.map((e) => '${e.hoTenKhach} (CCCD: ${e.cccd})').join(', ')}', style: const pw.TextStyle(fontSize: 9.5)),
-                ],
-              ),
-            ),
-            pw.SizedBox(height: 12),
-
-            pw.Text(
-              'Hai bên cùng thống nhất ký kết Hợp đồng thuê phòng trọ với các điều khoản cụ thể sau đây:',
-              style: pw.TextStyle(fontSize: 10, fontStyle: pw.FontStyle.italic),
-            ),
-            pw.SizedBox(height: 8),
-
-            // Các điều khoản
-            pw.Text('ĐIỀU 1: ĐỐI TƯỢNG VÀ THỜI HẠN THUÊ', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10)),
-            pw.Text(
-              '1.1. Bên A đồng ý cho Bên B thuê phòng số: ${phong?.tenHienThi ?? 'Phòng 203'} (Tầng ${phong?.tang ?? 2}, ${phong?.toaNha ?? 'Tòa A'}). Diện tích: ${phong?.dienTich ?? 28}m².\n'
-              '1.2. Thời hạn thuê là ${hd?.thoiHanHopDongText ?? '12 tháng'}, bắt đầu từ ngày ${hd?.ngayBdFormatted ?? '01/01/2026'} đến hết ngày ${hd?.ngayKtFormatted ?? '31/12/2026'}.\n'
-              '1.3. Mục đích thuê: Chỉ dùng để ở sinh hoạt hợp pháp, không chứa quá 02 người cư trú thường xuyên.',
-              style: const pw.TextStyle(fontSize: 9, height: 1.3),
-            ),
-            pw.SizedBox(height: 6),
-
-            pw.Text('ĐIỀU 2: GIÁ THUÊ, TIỀN CỌC VÀ PHƯƠNG THỨC THANH TOÁN', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10)),
-            pw.Text(
-              '2.1. Giá thuê phòng cố định: ${FormatUtils.currency((hd?.giaThueThaoThuan ?? 3800000).toDouble())} đồng/tháng (Cam kết không tăng giá trong suốt thời hạn hợp đồng).\n'
-              '2.2. Tiền đặt cọc bảo đảm: ${FormatUtils.currency((hd?.tienDatCoc ?? 3800000).toDouble())} đồng (Tương đương 01 tháng tiền phòng, Bên B đã ký quỹ đủ cho Bên A).\n'
-              '2.3. Kỳ thanh toán: Chu kỳ ${hd?.chuKyThuTien ?? 1} tháng/lần, thanh toán từ ngày 01 đến ngày 05 hàng tháng qua App Kiêu Giang hoặc quét mã VietQR tự động.',
-              style: const pw.TextStyle(fontSize: 9, height: 1.3),
-            ),
-            pw.SizedBox(height: 6),
-
-            pw.Text('ĐIỀU 3: BẢNG GIÁ DỊCH VỤ VÀ ĐO ĐẾM TIÊU THỤ', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10)),
-            pw.Text(
-              '3.1. Tiền điện sinh hoạt: 3.500 đ/kWh (Đo theo công tơ điện tử riêng từng phòng).\n'
-              '3.2. Tiền nước máy thủy cục: 20.000 đ/m³ (Đo theo đồng hồ nước thủy cục riêng).\n'
-              '3.3. Dịch vụ Wifi cáp quang & Vệ sinh hành lang: 50.000 đ/dịch vụ/tháng.\n'
-              '3.4. Phí gửi xe máy: Miễn phí 02 xe máy (Gửi hầm có thẻ từ và bảo vệ 24/24).',
-              style: const pw.TextStyle(fontSize: 9, height: 1.3),
-            ),
-            pw.SizedBox(height: 6),
-
-            pw.Text('ĐIỀU 4: NỘI THẤT VÀ TÀI SẢN BÀN GIAO', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10)),
-            pw.Text(
-              'Danh mục bàn giao nguyên trạng: ${phong?.noiThatSanCo.isNotEmpty == true ? phong!.noiThatSanCo.join(', ') : 'Máy lạnh Inverter, Tủ lạnh riêng 130L, Nước nóng Ariston, Tủ áo, Bàn làm việc, Kệ bếp, Cổng vân tay AI'}. Bên B có nghĩa vụ sử dụng giữ gìn, không tự ý khoan đục kết cấu.',
-              style: const pw.TextStyle(fontSize: 9, height: 1.3),
-            ),
-            pw.SizedBox(height: 6),
-
-            pw.Text('ĐIỀU 5: QUY ĐỊNH AN NINH, PCCC VÀ HOÀN CỌC', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10)),
-            pw.Text(
-              '5.1. Giờ giấc tự do 24/7. Ra vào cổng bằng khóa vân tay AI, không đưa người lạ vào lưu trú qua đêm khi chưa đăng ký trên app.\n'
-              '5.2. Tuân thủ tuyệt đối an toàn PCCC, cấm sử dụng bếp gas mini không an toàn, ngắt thiết bị điện trước khi ra khỏi phòng.\n'
-              '5.3. Hoàn trả tiền cọc: Khi hết hạn hợp đồng, Bên B thông báo trước 30 ngày. Bên A nghiệm thu bàn giao và hoàn trả 100% tiền đặt cọc (${FormatUtils.currency((hd?.tienDatCoc ?? 3800000).toDouble())}đ) trong vòng 03 ngày.',
-              style: const pw.TextStyle(fontSize: 9, height: 1.3),
-            ),
-            pw.SizedBox(height: 20),
-
-            // Chữ ký tay thật 2 bên
-            pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.center,
-                  children: [
-                    pw.Text('ĐẠI DIỆN BÊN A (BÊN CHO THUÊ)', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10)),
-                    pw.SizedBox(height: 2),
-                    pw.Text('(Ký và ghi rõ họ tên)', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
-                    pw.SizedBox(height: 6),
-                    if (imgChuKyA != null)
-                      pw.Container(
-                        height: 50,
-                        width: 120,
-                        child: pw.Image(imgChuKyA, fit: pw.BoxFit.contain),
-                      )
-                    else
-                      pw.SizedBox(height: 50),
-                    pw.SizedBox(height: 4),
-                    pw.Text('TRỊNH MỸ DUYÊN', style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold)),
-                    pw.Text('Ban Quản Lý Nhà Trọ Kiêu Giang', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey700)),
-                  ],
-                ),
-                pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.center,
-                  children: [
-                    pw.Text('ĐẠI DIỆN BÊN B (BÊN THUÊ)', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10)),
-                    pw.SizedBox(height: 2),
-                    pw.Text('(Ký và ghi rõ họ tên)', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
-                    pw.SizedBox(height: 6),
-                    if (imgChuKyB != null)
-                      pw.Container(
-                        height: 50,
-                        width: 120,
-                        child: pw.Image(imgChuKyB, fit: pw.BoxFit.contain),
-                      )
-                    else
-                      pw.SizedBox(height: 50),
-                    pw.SizedBox(height: 4),
-                    pw.Text(rep?.hoTenKhach ?? '', style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold)),
-                    pw.Text('CCCD: ${rep?.cccd ?? ''}', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey700)),
-                  ],
-                ),
-              ],
-            ),
-          ];
-        },
-      ),
-    );
-
-    await Printing.layoutPdf(
-      onLayout: (PdfPageFormat format) async => pdf.save(),
-      name: 'HopDong_${hd?.maHopDong ?? 'HD001'}_${phong?.maPhong ?? 'P203'}.pdf',
-    );
-  } catch (e, stack) {
-    debugPrint('Lỗi xuất PDF hợp đồng: $e\n$stack');
+  // ─── 1. XUẤT PDF HỢP ĐỒNG THUÊ NHÀ Ở (12 ĐIỀU CHUẨN LUẬT KDBĐS 2023) ───
+  Future<void> _xuatPdfHopDong() async {
     if (mounted) {
       ThongBaoHelper.hienToast(
         context,
-        tieuDe: 'Lỗi xuất file',
-        noiDung: 'Lỗi xuất file PDF: $e',
-        type: ThongBaoType.thatBai,
+        tieuDe: 'Đang tạo PDF Hợp Đồng',
+        noiDung: 'Đang xuất Hợp đồng thuê nhà ở 12 điều chuẩn pháp lý...',
+        type: ThongBaoType.thongTin,
+        duration: const Duration(seconds: 2),
       );
     }
+
+    try {
+      final theme = await _napPdfTheme();
+      final pdf = pw.Document(theme: theme);
+      final hd = _hopDong;
+      final phong = _phong;
+      final rep = _khachDaiDien;
+
+      final chuKyMap = await _taiAnhChuKyHaiBen();
+      final imgChuKyA = chuKyMap['benA'];
+      final imgChuKyB = chuKyMap['benB'];
+
+      final String tenPhong =
+          phong?.tenHienThi ?? 'Phòng ${phong?.maPhong ?? 'P203'}';
+      final String diaChiToaNha =
+          phong?.toaNha ??
+          'Kiêu Giang House, P. Hiệp Bình Chánh, TP. Thủ Đức, TP.HCM';
+      final String dienTich = '${phong?.dienTich ?? 28} m²';
+      final String giaThueText =
+          '${FormatUtils.currency((hd?.giaThueThaoThuan ?? 3800000).toDouble())} đồng/tháng';
+      final String tienCocText =
+          '${FormatUtils.currency((hd?.tienDatCoc ?? 3800000).toDouble())} đồng';
+      final String thoiHanThue = hd?.thoiHanHopDongText ?? '12 tháng';
+      final String ngayBd = hd?.ngayBdFormatted ?? '01/01/2026';
+      final String ngayKt = hd?.ngayKtFormatted ?? '31/12/2026';
+      final noiThatStr = phong?.noiThatSanCo.isNotEmpty == true
+          ? phong!.noiThatSanCo.join(', ')
+          : 'Máy lạnh Inverter, Tủ lạnh riêng 130L, Nước nóng Ariston, Tủ áo, Bàn làm việc, Kệ bếp sinh hoạt, Khóa cổng vân tay AI';
+
+      pdf.addPage(
+        pw.MultiPage(
+          theme: theme,
+          pageFormat: PdfPageFormat.a4,
+          margin: const pw.EdgeInsets.symmetric(horizontal: 32, vertical: 28),
+          build: (pw.Context context) {
+            return [
+              // Quốc hiệu, tiêu ngữ
+              pw.Center(
+                child: pw.Column(
+                  children: [
+                    pw.Text(
+                      'CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM',
+                      style: pw.TextStyle(
+                        fontWeight: pw.FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                    pw.Text(
+                      'Độc lập - Tự do - Hạnh phúc',
+                      style: pw.TextStyle(
+                        fontWeight: pw.FontWeight.bold,
+                        fontSize: 11,
+                        decoration: pw.TextDecoration.underline,
+                      ),
+                    ),
+                    pw.SizedBox(height: 12),
+                    pw.Text(
+                      'HỢP ĐỒNG THUÊ NHÀ Ở',
+                      style: pw.TextStyle(
+                        fontWeight: pw.FontWeight.bold,
+                        fontSize: 15,
+                      ),
+                    ),
+                    pw.SizedBox(height: 2),
+                    pw.Text(
+                      'Số: ${hd?.maHopDong ?? 'HD001'} / HĐTN-KG',
+                      style: const pw.TextStyle(
+                        fontSize: 10,
+                        color: PdfColors.grey700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              pw.SizedBox(height: 10),
+
+              // Căn cứ pháp lý
+              pw.Text(
+                '• Căn cứ Bộ luật Dân sự ngày 24 tháng 11 năm 2015;\n'
+                '• Căn cứ Luật Nhà ở ngày 27 tháng 11 năm 2023;\n'
+                '• Căn cứ Luật Kinh doanh bất động sản ngày 28 tháng 11 năm 2023;\n'
+                '• Căn cứ Nghị định số 96/2024/NĐ-CP của Chính phủ quy định chi tiết một số điều của Luật Kinh doanh bất động sản;\n'
+                '• Căn cứ nhu cầu và sự thỏa thuận tự nguyện giữa hai bên.',
+                style: pw.TextStyle(
+                  fontSize: 8.5,
+                  fontStyle: pw.FontStyle.italic,
+                  height: 1.3,
+                ),
+              ),
+              pw.SizedBox(height: 10),
+
+              pw.Text(
+                'Hôm nay, ngày $ngayBd, tại Hệ thống Nhà trọ Kiêu Giang, hai bên chúng tôi gồm có:',
+                style: const pw.TextStyle(fontSize: 9.5),
+              ),
+              pw.SizedBox(height: 8),
+
+              // BÊN A
+              pw.Container(
+                padding: const pw.EdgeInsets.all(8),
+                decoration: pw.BoxDecoration(
+                  border: pw.Border.all(color: PdfColors.grey400),
+                  borderRadius: const pw.BorderRadius.all(
+                    pw.Radius.circular(4),
+                  ),
+                ),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text(
+                      'I. BÊN CHO THUÊ NHÀ Ở (BÊN CHO THUÊ - BÊN A):',
+                      style: pw.TextStyle(
+                        fontWeight: pw.FontWeight.bold,
+                        fontSize: 9.5,
+                      ),
+                    ),
+                    pw.SizedBox(height: 3),
+                    pw.Text(
+                      'Tên cơ sở: HỆ THỐNG NHÀ TRỌ KIÊU GIANG',
+                      style: const pw.TextStyle(fontSize: 9),
+                    ),
+                    pw.Text(
+                      'Người đại diện pháp lý / Quản lý: TRỊNH MỸ DUYÊN',
+                      style: const pw.TextStyle(fontSize: 9),
+                    ),
+                    pw.Text(
+                      'CCCD/ĐKKD số: 079198004663  -  Cấp tại: Cục CS QLHC về TTXH',
+                      style: const pw.TextStyle(fontSize: 9),
+                    ),
+                    pw.Text(
+                      'Địa chỉ cơ sở: $diaChiToaNha',
+                      style: const pw.TextStyle(fontSize: 9),
+                    ),
+                    pw.Text(
+                      'Điện thoại hotline / BQL: 0328 004 663',
+                      style: const pw.TextStyle(fontSize: 9),
+                    ),
+                  ],
+                ),
+              ),
+              pw.SizedBox(height: 6),
+
+              // BÊN B
+              pw.Container(
+                padding: const pw.EdgeInsets.all(8),
+                decoration: pw.BoxDecoration(
+                  border: pw.Border.all(color: PdfColors.grey400),
+                  borderRadius: const pw.BorderRadius.all(
+                    pw.Radius.circular(4),
+                  ),
+                ),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text(
+                      'II. BÊN THUÊ NHÀ Ở (BÊN THUÊ - BÊN B):',
+                      style: pw.TextStyle(
+                        fontWeight: pw.FontWeight.bold,
+                        fontSize: 9.5,
+                      ),
+                    ),
+                    pw.SizedBox(height: 3),
+                    pw.Text(
+                      'Họ và tên: ${rep?.hoTenKhach ?? 'Khách thuê'}',
+                      style: pw.TextStyle(
+                        fontSize: 9,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
+                    pw.Text(
+                      'Số CCCD/CMND: ${rep?.cccd ?? ''}',
+                      style: const pw.TextStyle(fontSize: 9),
+                    ),
+                    pw.Text(
+                      'Địa chỉ thường trú: ${rep?.diaChiThuongTru ?? ''}',
+                      style: const pw.TextStyle(fontSize: 9),
+                    ),
+                    pw.Text(
+                      'Điện thoại liên hệ: ${rep?.soDt ?? ''}',
+                      style: const pw.TextStyle(fontSize: 9),
+                    ),
+                    if (_danhSachOCung.isNotEmpty)
+                      pw.Text(
+                        'Thành viên cùng ở (${_danhSachOCung.length} người): ${_danhSachOCung.map((e) => '${e.hoTenKhach} (${e.cccd})').join(', ')}',
+                        style: const pw.TextStyle(fontSize: 8.5),
+                      ),
+                  ],
+                ),
+              ),
+              pw.SizedBox(height: 10),
+
+              pw.Text(
+                'Hai bên cùng thống nhất ký kết Hợp đồng thuê nhà ở theo các điều khoản cụ thể sau đây:',
+                style: pw.TextStyle(
+                  fontSize: 9.5,
+                  fontStyle: pw.FontStyle.italic,
+                ),
+              ),
+              pw.SizedBox(height: 8),
+
+              // 12 Điều khoản hợp đồng
+              _buildPdfArticle(
+                'Điều 1. Các thông tin về nhà ở cho thuê',
+                '1.1. Bên A đồng ý cho Bên B thuê căn phòng: $tenPhong, tại địa chỉ: $diaChiToaNha.\n'
+                    '1.2. Diện tích sử dụng thực tế: $dienTich.\n'
+                    '1.3. Trang thiết bị gắn liền với nhà ở bàn giao: $noiThatStr.\n'
+                    '1.4. Mục đích sử dụng: Chỉ sử dụng làm nơi ở sinh hoạt hợp pháp; số lượng người cư trú tối đa theo đăng ký (02 người).',
+              ),
+              _buildPdfArticle(
+                'Điều 2. Giá thuê nhà ở và chi phí sử dụng dịch vụ',
+                '2.1. Giá thuê nhà ở cố định: $giaThueText (Cam kết không tăng giá trong suốt thời hạn hợp đồng).\n'
+                    '2.2. Chi phí sử dụng dịch vụ tiêu thụ hàng tháng:\n'
+                    '   - Tiền điện: 3.500 đ/kWh (tính theo chỉ số công tơ điện tử riêng từng phòng).\n'
+                    '   - Tiền nước máy thủy cục: 20.000 đ/m³ (tính theo đồng hồ đo nước riêng).\n'
+                    '   - Dịch vụ chung (Wifi cáp quang tốc độ cao, vệ sinh hành lang, bảo trì): theo đơn giá niêm yết tòa nhà.\n'
+                    '2.3. Tiền đặt cọc bảo đảm thực hiện hợp đồng: $tienCocText (tương đương 01 tháng tiền phòng). Bên A có trách nhiệm hoàn trả 100% tiền đặt cọc cho Bên B khi kết thúc hợp đồng theo đúng thỏa thuận.',
+              ),
+              _buildPdfArticle(
+                'Điều 3. Phương thức và thời hạn thanh toán',
+                '3.1. Phương thức thanh toán: Chuyển khoản ngân hàng (quét mã VietQR trên App Kiêu Giang) hoặc tiền mặt.\n'
+                    '3.2. Thời hạn thanh toán: Định kỳ chu kỳ ${hd?.chuKyThuTien ?? 1} tháng/lần, từ ngày 01 đến ngày 05 của mỗi tháng thanh toán.',
+              ),
+              _buildPdfArticle(
+                'Điều 4. Thời hạn thuê nhà ở và thời điểm bàn giao',
+                '4.1. Thời hạn thuê nhà ở là: $thoiHanThue, bắt đầu từ ngày $ngayBd đến hết ngày $ngayKt.\n'
+                    '4.2. Thời điểm bàn giao nhà ở: Bắt đầu từ ngày $ngayBd cùng toàn bộ trang thiết bị nội thất hoạt động bình thường.',
+              ),
+              _buildPdfArticle(
+                'Điều 5. Quyền và nghĩa vụ của Bên cho thuê (Bên A)',
+                '5.1. Quyền của Bên cho thuê:\n'
+                    '   - Yêu cầu Bên thuê nhận nhà theo đúng thỏa thuận và sử dụng đúng mục đích cư trú.\n'
+                    '   - Yêu cầu Bên thuê thanh toán đủ và đúng hạn tiền thuê nhà và các chi phí dịch vụ.\n'
+                    '   - Yêu cầu Bên thuê giữ gìn vệ sinh, trật tự chung và bảo vệ tài sản, thiết bị bàn giao.\n'
+                    '   - Đơn phương chấm dứt hợp đồng nếu Bên B có hành vi vi phạm nghiêm trọng (chậm nộp tiền phòng quá hạn, chứa hàng cấm, gây rối).\n'
+                    '5.2. Nghĩa vụ của Bên cho thuê:\n'
+                    '   - Bàn giao nhà ở và trang thiết bị cho Bên thuê đúng thời hạn cam kết.\n'
+                    '   - Bảo đảm cung cấp ổn định nguồn điện, nước, internet, cổng khóa thông minh cho Bên B sử dụng 24/7.\n'
+                    '   - Bảo đảm quyền sử dụng trọn vẹn, hợp pháp của Bên B đối với nhà ở trong suốt thời hạn thuê.\n'
+                    '   - Hoàn trả lại 100% tiền đặt cọc cho Bên thuê khi thanh lý hợp đồng đúng quy định.',
+              ),
+              _buildPdfArticle(
+                'Điều 6. Quyền và nghĩa vụ của Bên thuê (Bên B)',
+                '6.1. Quyền của Bên thuê:\n'
+                    '   - Nhận bàn giao nhà ở và trang thiết bị kèm theo đúng tình trạng cam kết.\n'
+                    '   - Được toàn quyền sử dụng nhà ở theo mục đích cư trú hợp pháp; giờ giấc tự do ra vào 24/7.\n'
+                    '   - Yêu cầu Bên cho thuê sửa chữa kịp thời các hư hỏng kết cấu chung không do lỗi của Bên thuê.\n'
+                    '   - Được nhận lại đầy đủ 100% tiền đặt cọc khi chấm dứt hợp đồng đúng thỏa thuận.\n'
+                    '6.2. Nghĩa vụ của Bên thuê:\n'
+                    '   - Sử dụng nhà ở đúng mục đích; không được tự ý cải tạo, cơi nới, đục phá tường, kết cấu phòng.\n'
+                    '   - Thanh toán đầy đủ, đúng hạn tiền thuê phòng và các khoản tiền điện, nước, dịch vụ phát sinh.\n'
+                    '   - Bảo quản tài sản, thiết bị nội thất được bàn giao ban đầu (nếu làm hỏng phải sửa, làm mất phải bồi thường).\n'
+                    '   - Tuân thủ tuyệt đối quy định an ninh, an toàn PCCC, không đun nấu bằng bếp gas mini không an toàn, tắt thiết bị điện khi ra ngoài.\n'
+                    '   - Khách ở qua đêm phải khai báo tạm trú trên App Kiêu Giang trước 22h00; Bên B chịu trách nhiệm về khách của mình.',
+              ),
+              _buildPdfArticle(
+                'Điều 7. Đơn phương chấm dứt thực hiện hợp đồng thuê nhà ở',
+                '7.1. Một trong hai bên có quyền đơn phương chấm dứt hợp đồng và phải thông báo bằng văn bản (hoặc gửi đơn trên App Kiêu Giang) cho bên kia biết trước ít nhất 30 ngày.\n'
+                    '7.2. Nếu Bên thuê tự ý đơn phương chấm dứt hợp đồng trước hạn mà không thuộc các trường hợp pháp luật cho phép hoặc không báo trước đủ 30 ngày thì sẽ không được hoàn trả tiền đặt cọc theo thỏa thuận.',
+              ),
+              _buildPdfArticle(
+                'Điều 8. Các trường hợp chấm dứt hợp đồng và xử lý hậu quả',
+                '8.1. Hợp đồng chấm dứt khi: Hết hạn hợp đồng mà hai bên không gia hạn; Hai bên thỏa thuận chấm dứt bằng văn bản; hoặc Nhà ở không còn bảo đảm an toàn kết cấu.\n'
+                    '8.2. Xử lý hậu quả chấm dứt hợp đồng:\n'
+                    '   - Hai bên cùng tiến hành chốt chỉ số công tơ điện nước và kiểm tra hiện trạng bàn giao tài sản, chìa khóa phòng.\n'
+                    '   - Sau khi cấn trừ tiền điện nước tiêu thụ kỳ cuối và chi phí bồi hoàn hư hỏng (nếu có), Bên A có trách nhiệm hoàn trả lại toàn bộ số tiền đặt cọc còn lại cho Bên B trong vòng 03 ngày làm việc.',
+              ),
+              _buildPdfArticle(
+                'Điều 9. Phạt vi phạm hợp đồng và bồi thường thiệt hại',
+                '9.1. Bên nào vi phạm hợp đồng gây thiệt hại cho bên kia thì phải bồi thường toàn bộ thiệt hại thực tế phát sinh.\n'
+                    '9.2. Nếu Bên B chậm thanh toán tiền thuê phòng quá 15 ngày kể từ ngày đến hạn mà không có lý do chính đáng được Bên A chấp thuận, Bên A có quyền tạm ngắt dịch vụ và đơn phương thu hồi phòng.',
+              ),
+              _buildPdfArticle(
+                'Điều 10. Sự kiện bất khả kháng',
+                'Các bên không bị coi là vi phạm hợp đồng và không phải chịu trách nhiệm bồi thường nếu việc không thực hiện nghĩa vụ là do các sự kiện bất khả kháng theo quy định pháp luật (thiên tai, dịch bệnh, hỏa hoạn khách quan hoặc quyết định của cơ quan Nhà nước có thẩm quyền).',
+              ),
+              _buildPdfArticle(
+                'Điều 11. Giải quyết tranh chấp',
+                'Mọi tranh chấp phát sinh từ hợp đồng này sẽ được các bên ưu tiên thương lượng giải quyết trên tinh thần dân chủ và hợp tác. Trường hợp không tự thỏa thuận được, tranh chấp sẽ được đưa ra Tòa án nhân dân có thẩm quyền để giải quyết theo quy định pháp luật.',
+              ),
+              _buildPdfArticle(
+                'Điều 12. Hiệu lực của hợp đồng',
+                '12.1. Hợp đồng này có hiệu lực kể từ ngày ký.\n'
+                    '12.2. Hợp đồng gồm 12 điều, được lập thành 02 bản có giá trị pháp lý như nhau, mỗi bên giữ 01 bản để thực hiện. Các phụ lục hợp đồng kèm theo (nếu có) là bộ phận cấu thành không thể tách rời của Hợp đồng này.\n'
+                    '12.3. Mọi sửa đổi, bổ sung nội dung hợp đồng phải được hai bên lập thành Phụ lục hợp đồng bằng văn bản hoặc xác nhận điện tử.',
+              ),
+              pw.SizedBox(height: 16),
+
+              // Bảng ký tên hai bên
+              pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  // Đại diện Bên B
+                  pw.Expanded(
+                    child: pw.Column(
+                      children: [
+                        pw.Text(
+                          'ĐẠI DIỆN BÊN B (BÊN THUÊ)',
+                          style: pw.TextStyle(
+                            fontWeight: pw.FontWeight.bold,
+                            fontSize: 9.5,
+                          ),
+                        ),
+                        pw.Text(
+                          '(Ký, ghi rõ họ tên)',
+                          style: pw.TextStyle(
+                            fontSize: 8.5,
+                            fontStyle: pw.FontStyle.italic,
+                            color: PdfColors.grey700,
+                          ),
+                        ),
+                        pw.SizedBox(height: 6),
+                        if (imgChuKyB != null)
+                          pw.Container(
+                            height: 60,
+                            alignment: pw.Alignment.center,
+                            child: pw.Image(
+                              imgChuKyB,
+                              height: 55,
+                              fit: pw.BoxFit.contain,
+                            ),
+                          )
+                        else
+                          pw.SizedBox(height: 60),
+                        pw.SizedBox(height: 4),
+                        pw.Text(
+                          rep?.hoTenKhach ?? 'Bên B đã ký',
+                          style: pw.TextStyle(
+                            fontWeight: pw.FontWeight.bold,
+                            fontSize: 9,
+                          ),
+                        ),
+                        if (_urlChuKyBenB != null && _urlChuKyBenB!.isNotEmpty)
+                          pw.Text(
+                            '(Đã ký số điện tử)',
+                            style: const pw.TextStyle(
+                              fontSize: 7.5,
+                              color: PdfColors.green700,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+
+                  // Đại diện Bên A
+                  pw.Expanded(
+                    child: pw.Column(
+                      children: [
+                        pw.Text(
+                          'ĐẠI DIỆN BÊN A (BÊN CHO THUÊ)',
+                          style: pw.TextStyle(
+                            fontWeight: pw.FontWeight.bold,
+                            fontSize: 9.5,
+                          ),
+                        ),
+                        pw.Text(
+                          '(Ký, ghi rõ họ tên & đóng dấu)',
+                          style: pw.TextStyle(
+                            fontSize: 8.5,
+                            fontStyle: pw.FontStyle.italic,
+                            color: PdfColors.grey700,
+                          ),
+                        ),
+                        pw.SizedBox(height: 6),
+                        if (imgChuKyA != null)
+                          pw.Container(
+                            height: 60,
+                            alignment: pw.Alignment.center,
+                            child: pw.Image(
+                              imgChuKyA,
+                              height: 55,
+                              fit: pw.BoxFit.contain,
+                            ),
+                          )
+                        else
+                          pw.SizedBox(height: 60),
+                        pw.SizedBox(height: 4),
+                        pw.Text(
+                          'TRỊNH MỸ DUYÊN',
+                          style: pw.TextStyle(
+                            fontWeight: pw.FontWeight.bold,
+                            fontSize: 9,
+                          ),
+                        ),
+                        pw.Text(
+                          '(BQL Hệ Thống Kiêu Giang)',
+                          style: const pw.TextStyle(
+                            fontSize: 7.5,
+                            color: PdfColors.blue700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ];
+          },
+        ),
+      );
+
+      await Printing.layoutPdf(
+        onLayout: (PdfPageFormat format) async => pdf.save(),
+        name:
+            'HopDongThueNha_${hd?.maHopDong ?? 'HD001'}_${phong?.maPhong ?? 'P203'}.pdf',
+      );
+    } catch (e, stack) {
+      debugPrint('Lỗi xuất PDF hợp đồng: $e\n$stack');
+      if (mounted) {
+        ThongBaoHelper.hienToast(
+          context,
+          tieuDe: 'Lỗi xuất file',
+          noiDung: 'Lỗi xuất file PDF hợp đồng: $e',
+          type: ThongBaoType.thatBai,
+        );
+      }
+    }
   }
-}
+
+  // ─── 2. XUẤT PDF PHỤ LỤC HỢP ĐỒNG THUÊ PHÒNG TRỌ (THEO MẪU DOCX) ───
+  Future<void> _xuatPdfPhuLuc(PhuLucHopDongModel pl) async {
+    if (mounted) {
+      ThongBaoHelper.hienToast(
+        context,
+        tieuDe: 'Đang tạo PDF Phụ Lục',
+        noiDung: 'Đang chuẩn bị in Phụ lục hợp đồng: ${pl.maPhuLuc}...',
+        type: ThongBaoType.thongTin,
+        duration: const Duration(seconds: 2),
+      );
+    }
+
+    try {
+      final theme = await _napPdfTheme();
+      final pdf = pw.Document(theme: theme);
+      final hd = _hopDong;
+      final phong = _phong;
+      final rep = _khachDaiDien;
+
+      final chuKyMap = await _taiAnhChuKyHaiBen();
+      final imgChuKyA = chuKyMap['benA'];
+      final imgChuKyB = chuKyMap['benB'];
+
+      final String tenPhong = pl.maPhongMoi != null && pl.maPhongMoi!.isNotEmpty
+          ? 'Phòng ${pl.maPhongMoi}'
+          : (phong?.tenHienThi ?? 'Phòng ${phong?.maPhong ?? 'P203'}');
+      final String diaChiToaNha =
+          phong?.toaNha ??
+          'Kiêu Giang House, Phường Hiệp Bình Chánh, TP. Thủ Đức, TP.HCM';
+      final String giaThueText = pl.giaTheMoi > 0
+          ? '${FormatUtils.currency(pl.giaTheMoi.toDouble())} đ/tháng'
+          : '${FormatUtils.currency((hd?.giaThueThaoThuan ?? 3800000).toDouble())} đ/tháng';
+      final String tienCocText =
+          '${FormatUtils.currency((hd?.tienDatCoc ?? 3800000).toDouble())} đ (Bảo lưu chuyển tiếp)';
+      final String ngayGiaHanDenText = pl.ngayGiaHanDen.isNotEmpty
+          ? pl.ngayGiaHanDenFormatted
+          : (hd?.ngayKtFormatted ?? '31/12/2026');
+
+      pdf.addPage(
+        pw.MultiPage(
+          theme: theme,
+          pageFormat: PdfPageFormat.a4,
+          margin: const pw.EdgeInsets.symmetric(horizontal: 32, vertical: 28),
+          build: (pw.Context context) {
+            return [
+              // Tiêu đề Quốc hiệu
+              pw.Center(
+                child: pw.Column(
+                  children: [
+                    pw.Text(
+                      'CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM',
+                      style: pw.TextStyle(
+                        fontWeight: pw.FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                    pw.Text(
+                      'Độc lập – Tự do – Hạnh phúc',
+                      style: pw.TextStyle(
+                        fontWeight: pw.FontWeight.bold,
+                        fontSize: 11,
+                        decoration: pw.TextDecoration.underline,
+                      ),
+                    ),
+                    pw.SizedBox(height: 12),
+                    pw.Text(
+                      'PHỤ LỤC HỢP ĐỒNG THUÊ PHÒNG TRỌ',
+                      style: pw.TextStyle(
+                        fontWeight: pw.FontWeight.bold,
+                        fontSize: 15,
+                      ),
+                    ),
+                    pw.SizedBox(height: 2),
+                    pw.Text(
+                      'Mã phụ lục: ${pl.maPhuLuc} (Kèm theo Hợp đồng số: ${hd?.maHopDong ?? 'HD001'})',
+                      style: const pw.TextStyle(
+                        fontSize: 10,
+                        color: PdfColors.grey700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              pw.SizedBox(height: 12),
+
+              pw.Text(
+                'Hôm nay ngày ${pl.ngayLapFormatted}; tại Hệ thống Nhà trọ Kiêu Giang ($diaChiToaNha)',
+                style: const pw.TextStyle(fontSize: 9.5),
+              ),
+              pw.Text(
+                'Chúng tôi gồm có:',
+                style: const pw.TextStyle(fontSize: 9.5),
+              ),
+              pw.SizedBox(height: 8),
+
+              // Đại diện Bên A
+              pw.Container(
+                padding: const pw.EdgeInsets.all(8),
+                decoration: pw.BoxDecoration(
+                  border: pw.Border.all(color: PdfColors.grey400),
+                  borderRadius: const pw.BorderRadius.all(
+                    pw.Radius.circular(4),
+                  ),
+                ),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text(
+                      '1. Đại diện bên cho thuê phòng trọ (Bên A):',
+                      style: pw.TextStyle(
+                        fontWeight: pw.FontWeight.bold,
+                        fontSize: 9.5,
+                      ),
+                    ),
+                    pw.SizedBox(height: 3),
+                    pw.Text(
+                      'Ông/Bà: TRỊNH MỸ DUYÊN',
+                      style: const pw.TextStyle(fontSize: 9),
+                    ),
+                    pw.Text(
+                      'Nơi đăng ký HK: P. Hiệp Bình Chánh, TP. Thủ Đức, TP.HCM',
+                      style: const pw.TextStyle(fontSize: 9),
+                    ),
+                    pw.Text(
+                      'CCCD số: 079198004663  -  Điện thoại: 0328 004 663',
+                      style: const pw.TextStyle(fontSize: 9),
+                    ),
+                  ],
+                ),
+              ),
+              pw.SizedBox(height: 6),
+
+              // Đại diện Bên B
+              pw.Container(
+                padding: const pw.EdgeInsets.all(8),
+                decoration: pw.BoxDecoration(
+                  border: pw.Border.all(color: PdfColors.grey400),
+                  borderRadius: const pw.BorderRadius.all(
+                    pw.Radius.circular(4),
+                  ),
+                ),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text(
+                      '2. Đại diện bên thuê phòng trọ (Bên B):',
+                      style: pw.TextStyle(
+                        fontWeight: pw.FontWeight.bold,
+                        fontSize: 9.5,
+                      ),
+                    ),
+                    pw.SizedBox(height: 3),
+                    pw.Text(
+                      'Ông/Bà: ${rep?.hoTenKhach ?? 'Khách thuê'}',
+                      style: pw.TextStyle(
+                        fontSize: 9,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
+                    pw.Text(
+                      'Nơi đăng ký HK thường trú: ${rep?.diaChiThuongTru ?? 'Theo CCCD'}',
+                      style: const pw.TextStyle(fontSize: 9),
+                    ),
+                    pw.Text(
+                      'Số CCCD: ${rep?.cccd ?? ''}  -  Số điện thoại: ${rep?.soDt ?? ''}',
+                      style: const pw.TextStyle(fontSize: 9),
+                    ),
+                  ],
+                ),
+              ),
+              pw.SizedBox(height: 10),
+
+              pw.Text(
+                'Sau khi bàn bạc trên tinh thần dân chủ, hai bên cùng có lợi, cùng thống nhất ký kết Phụ lục hợp đồng thuê phòng trọ với các nội dung sau:',
+                style: pw.TextStyle(
+                  fontSize: 9.5,
+                  fontStyle: pw.FontStyle.italic,
+                ),
+              ),
+              pw.SizedBox(height: 8),
+
+              // Nội dung phụ lục
+              _buildPdfArticle(
+                'NỘI DUNG THỎA THUẬN PHỤ LỤC',
+                '• Căn phòng thuê: $tenPhong tại địa chỉ: $diaChiToaNha.\n'
+                    '• Nội dung điều chỉnh: ${pl.noiDungDieuChinh.isNotEmpty ? pl.noiDungDieuChinh : 'Gia hạn thời hạn hợp đồng thuê phòng'}.\n'
+                    '• Giá thuê: $giaThueText.\n'
+                    '• Hình thức thanh toán: Chuyển khoản VietQR trên App Kiêu Giang định kỳ hàng tháng.\n'
+                    '• Tiền điện: 3.500 đ/kWh tính theo chỉ số công tơ, thanh toán vào cuối các tháng.\n'
+                    '• Tiền nước: 20.000 đ/m³ (hoặc theo thỏa thuận) thanh toán vào đầu các tháng.\n'
+                    '• Tiền đặt cọc: $tienCocText.\n'
+                    '• Phụ lục có giá trị hiệu lực: Kể từ ngày ${pl.ngayLapFormatted} đến hết ngày $ngayGiaHanDenText.',
+              ),
+              _buildPdfArticle(
+                'TRÁCH NHIỆM CỦA CÁC BÊN',
+                '* Trách nhiệm của Bên A:\n'
+                    '- Tạo mọi điều kiện thuận lợi để Bên B thực hiện theo hợp đồng và phụ lục.\n'
+                    '- Cung cấp nguồn điện, nước, wifi ổn định cho Bên B sử dụng.\n\n'
+                    '* Trách nhiệm của Bên B:\n'
+                    '- Thanh toán đầy đủ các khoản tiền theo đúng thỏa thuận.\n'
+                    '- Bảo quản các trang thiết bị và cơ sở vật chất của Bên A trang bị cho ban đầu (làm hỏng phải sửa, mất phải đền).\n'
+                    '- Không được tự ý sửa chữa, cải tạo cơ sở vật chất khi chưa được sự đồng ý của Bên A.\n'
+                    '- Giữ gìn vệ sinh trong và ngoài khuôn viên của phòng trọ.\n'
+                    '- Bên B phải chấp hành mọi quy định của pháp luật Nhà nước và quy định của địa phương.\n'
+                    '- Nếu Bên B cho khách ở qua đêm thì phải báo và được sự đồng ý của chủ nhà qua App Kiêu Giang, đồng thời phải chịu trách nhiệm về các hành vi vi phạm pháp luật của khách trong thời gian ở lại.',
+              ),
+              _buildPdfArticle(
+                'TRÁCH NHIỆM CHUNG',
+                '- Hai bên phải tạo điều kiện cho nhau thực hiện hợp đồng.\n'
+                    '- Trong thời gian hợp đồng và phụ lục còn hiệu lực nếu bên nào vi phạm các điều khoản đã thỏa thuận thì bên còn lại có quyền đơn phương chấm dứt hợp đồng; nếu sự vi phạm hợp đồng đó gây tổn thất cho bên bị vi phạm thì bên vi phạm hợp đồng phải bồi thường thiệt hại.\n'
+                    '- Một trong hai bên muốn chấm dứt hợp đồng trước thời hạn thì phải báo trước cho bên kia ít nhất 30 ngày và hai bên phải có sự thống nhất.\n'
+                    '- Bên A phải trả lại tiền đặt cọc cho Bên B khi kết thúc hợp đồng đúng quy định.\n'
+                    '- Bên nào vi phạm điều khoản chung thì phải chịu trách nhiệm trước pháp luật.\n'
+                    '- Phụ lục được lập thành 02 bản có giá trị pháp lý như nhau và là bộ phận không thể tách rời của Hợp đồng số ${hd?.maHopDong ?? 'HD001'}, mỗi bên giữ một bản.',
+              ),
+              pw.SizedBox(height: 16),
+
+              // Bảng ký tên hai bên
+              pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Expanded(
+                    child: pw.Column(
+                      children: [
+                        pw.Text(
+                          'ĐẠI DIỆN BÊN B',
+                          style: pw.TextStyle(
+                            fontWeight: pw.FontWeight.bold,
+                            fontSize: 9.5,
+                          ),
+                        ),
+                        pw.Text(
+                          '(Ký, ghi rõ họ tên)',
+                          style: pw.TextStyle(
+                            fontSize: 8.5,
+                            fontStyle: pw.FontStyle.italic,
+                            color: PdfColors.grey700,
+                          ),
+                        ),
+                        pw.SizedBox(height: 6),
+                        if (imgChuKyB != null)
+                          pw.Container(
+                            height: 60,
+                            alignment: pw.Alignment.center,
+                            child: pw.Image(
+                              imgChuKyB,
+                              height: 55,
+                              fit: pw.BoxFit.contain,
+                            ),
+                          )
+                        else
+                          pw.SizedBox(height: 60),
+                        pw.SizedBox(height: 4),
+                        pw.Text(
+                          rep?.hoTenKhach ?? 'Bên B đã ký',
+                          style: pw.TextStyle(
+                            fontWeight: pw.FontWeight.bold,
+                            fontSize: 9,
+                          ),
+                        ),
+                        if (_urlChuKyBenB != null && _urlChuKyBenB!.isNotEmpty)
+                          pw.Text(
+                            '(Đã ký số điện tử)',
+                            style: const pw.TextStyle(
+                              fontSize: 7.5,
+                              color: PdfColors.green700,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  pw.Expanded(
+                    child: pw.Column(
+                      children: [
+                        pw.Text(
+                          'ĐẠI DIỆN BÊN A',
+                          style: pw.TextStyle(
+                            fontWeight: pw.FontWeight.bold,
+                            fontSize: 9.5,
+                          ),
+                        ),
+                        pw.Text(
+                          '(Ký, ghi rõ họ tên & đóng dấu)',
+                          style: pw.TextStyle(
+                            fontSize: 8.5,
+                            fontStyle: pw.FontStyle.italic,
+                            color: PdfColors.grey700,
+                          ),
+                        ),
+                        pw.SizedBox(height: 6),
+                        if (imgChuKyA != null)
+                          pw.Container(
+                            height: 60,
+                            alignment: pw.Alignment.center,
+                            child: pw.Image(
+                              imgChuKyA,
+                              height: 55,
+                              fit: pw.BoxFit.contain,
+                            ),
+                          )
+                        else
+                          pw.SizedBox(height: 60),
+                        pw.SizedBox(height: 4),
+                        pw.Text(
+                          'TRỊNH MỸ DUYÊN',
+                          style: pw.TextStyle(
+                            fontWeight: pw.FontWeight.bold,
+                            fontSize: 9,
+                          ),
+                        ),
+                        pw.Text(
+                          '(BQL Hệ Thống Kiêu Giang)',
+                          style: const pw.TextStyle(
+                            fontSize: 7.5,
+                            color: PdfColors.blue700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ];
+          },
+        ),
+      );
+
+      await Printing.layoutPdf(
+        onLayout: (PdfPageFormat format) async => pdf.save(),
+        name: 'PhuLucHopDong_${pl.maPhuLuc}_${phong?.maPhong ?? 'P203'}.pdf',
+      );
+    } catch (e, stack) {
+      debugPrint('Lỗi xuất PDF phụ lục: $e\n$stack');
+      if (mounted) {
+        ThongBaoHelper.hienToast(
+          context,
+          tieuDe: 'Lỗi xuất file',
+          noiDung: 'Lỗi xuất file PDF phụ lục: $e',
+          type: ThongBaoType.thatBai,
+        );
+      }
+    }
+  }
+
+  // ─── Modal xem chi tiết Phụ lục hợp đồng & Tải PDF ───
+  void _xemChiTietPhuLucModal(PhuLucHopDongModel pl) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: EdgeInsets.fromLTRB(
+            20,
+            16,
+            20,
+            MediaQuery.of(ctx).padding.bottom + 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFCBD5E1),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE0F2FE),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.description_rounded,
+                      color: _primary,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Phụ Lục Hợp Đồng ${pl.maPhuLuc}',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: _textDark,
+                          ),
+                        ),
+                        Text(
+                          'Ngày lập: ${pl.ngayLapFormatted}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF64748B),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildModalPhuLucRow(
+                      'Nội dung điều chỉnh',
+                      pl.noiDungDieuChinh.isNotEmpty
+                          ? pl.noiDungDieuChinh
+                          : 'Gia hạn thời hạn hợp đồng',
+                    ),
+                    if (pl.giaTheMoi > 0) ...[
+                      const Divider(height: 16, color: Color(0xFFE2E8F0)),
+                      _buildModalPhuLucRow(
+                        'Giá thuê mới',
+                        '${FormatUtils.currency(pl.giaTheMoi.toDouble())} đ/tháng',
+                      ),
+                    ],
+                    if (pl.ngayGiaHanDen.isNotEmpty) ...[
+                      const Divider(height: 16, color: Color(0xFFE2E8F0)),
+                      _buildModalPhuLucRow(
+                        'Gia hạn đến ngày',
+                        pl.ngayGiaHanDenFormatted,
+                      ),
+                    ],
+                    if (pl.maPhongMoi != null && pl.maPhongMoi!.isNotEmpty) ...[
+                      const Divider(height: 16, color: Color(0xFFE2E8F0)),
+                      _buildModalPhuLucRow(
+                        'Phòng chuyển đến',
+                        'Phòng ${pl.maPhongMoi}',
+                      ),
+                    ],
+                    const Divider(height: 16, color: Color(0xFFE2E8F0)),
+                    _buildModalPhuLucRow(
+                      'Tiền điện niêm yết',
+                      '3.500 đ/kWh (công tơ riêng)',
+                    ),
+                    const Divider(height: 16, color: Color(0xFFE2E8F0)),
+                    _buildModalPhuLucRow(
+                      'Tiền nước niêm yết',
+                      '20.000 đ/m³ (đồng hồ riêng)',
+                    ),
+                    const Divider(height: 16, color: Color(0xFFE2E8F0)),
+                    _buildModalPhuLucRow(
+                      'Quy định báo trước',
+                      'Tối thiểu 30 ngày (hoàn 100% cọc)',
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        side: const BorderSide(color: Color(0xFFCBD5E1)),
+                      ),
+                      child: const Text(
+                        'Đóng',
+                        style: TextStyle(
+                          color: Color(0xFF64748B),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        _xuatPdfPhuLuc(pl);
+                      },
+                      icon: const Icon(Icons.print_rounded, size: 18),
+                      label: const Text('In / Tải PDF'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildModalPhuLucRow(String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
+        ),
+        const SizedBox(width: 12),
+        Flexible(
+          child: Text(
+            value,
+            textAlign: TextAlign.end,
+            style: const TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.bold,
+              color: _textDark,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  static pw.Widget _buildPdfArticle(String title, String content) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.only(bottom: 6),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Text(
+            title,
+            style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9.5),
+          ),
+          pw.SizedBox(height: 2),
+          pw.Text(
+            content,
+            style: const pw.TextStyle(fontSize: 8.5, height: 1.3),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1028,7 +1938,11 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.error_outline_rounded, color: Colors.red, size: 48),
+                const Icon(
+                  Icons.error_outline_rounded,
+                  color: Colors.red,
+                  size: 48,
+                ),
                 const SizedBox(height: 12),
                 Text(
                   _errorMessage!,
@@ -1200,7 +2114,10 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
       decoration: BoxDecoration(
         color: const Color(0xFFFFFBEB), // Amber-50
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFFCD34D), width: 1.2), // Amber-300
+        border: Border.all(
+          color: const Color(0xFFFCD34D),
+          width: 1.2,
+        ), // Amber-300
         boxShadow: [
           BoxShadow(
             color: const Color(0xFFD97706).withValues(alpha: 0.08),
@@ -1241,10 +2158,7 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                     ),
                     Text(
                       'Quý khách chưa ký xác nhận Bên B',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Color(0xFFB45309),
-                      ),
+                      style: TextStyle(fontSize: 11, color: Color(0xFFB45309)),
                     ),
                   ],
                 ),
@@ -1308,7 +2222,11 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                     ),
                   ),
                   SizedBox(width: 4),
-                  Icon(Icons.arrow_downward_rounded, size: 13, color: Color(0xFFB45309)),
+                  Icon(
+                    Icons.arrow_downward_rounded,
+                    size: 13,
+                    color: Color(0xFFB45309),
+                  ),
                 ],
               ),
             ),
@@ -1400,10 +2318,12 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                           : 'Ngày ký: $ngayKy • Chờ Bên B ký tên',
                       style: TextStyle(
                         fontSize: 11,
-                        color: _urlChuKyBenB != null && _urlChuKyBenB!.isNotEmpty
+                        color:
+                            _urlChuKyBenB != null && _urlChuKyBenB!.isNotEmpty
                             ? const Color(0xFF64748B)
                             : const Color(0xFFD97706),
-                        fontWeight: _urlChuKyBenB != null && _urlChuKyBenB!.isNotEmpty
+                        fontWeight:
+                            _urlChuKyBenB != null && _urlChuKyBenB!.isNotEmpty
                             ? FontWeight.normal
                             : FontWeight.w600,
                       ),
@@ -1426,7 +2346,8 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                           : const Color(0xFFFEF3C7),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: _urlChuKyBenB != null && _urlChuKyBenB!.isNotEmpty
+                        color:
+                            _urlChuKyBenB != null && _urlChuKyBenB!.isNotEmpty
                             ? const Color(0xFFBBF7D0)
                             : const Color(0xFFFDE68A),
                       ),
@@ -1437,7 +2358,8 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                         Icon(
                           Icons.circle,
                           size: 6,
-                          color: _urlChuKyBenB != null && _urlChuKyBenB!.isNotEmpty
+                          color:
+                              _urlChuKyBenB != null && _urlChuKyBenB!.isNotEmpty
                               ? const Color(0xFF16A34A)
                               : const Color(0xFFD97706),
                         ),
@@ -1449,7 +2371,9 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
-                            color: _urlChuKyBenB != null && _urlChuKyBenB!.isNotEmpty
+                            color:
+                                _urlChuKyBenB != null &&
+                                    _urlChuKyBenB!.isNotEmpty
                                 ? const Color(0xFF15803D)
                                 : const Color(0xFFB45309),
                           ),
@@ -1459,8 +2383,13 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    remainingDays > 0 ? 'Còn lại $remainingDays ngày' : 'Đã đến hạn',
-                    style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                    remainingDays > 0
+                        ? 'Còn lại $remainingDays ngày'
+                        : 'Đã đến hạn',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF64748B),
+                    ),
                   ),
                 ],
               ),
@@ -1597,7 +2526,11 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                 const SizedBox(height: 4),
                 Text(
                   'Cam kết không đổi ${_hopDong?.tongSoThang ?? 12}T',
-                  style: TextStyle(fontSize: 10.5, color: Color(0xFF0284C7), fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    color: Color(0xFF0284C7),
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ],
             ),
@@ -1635,7 +2568,11 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                 const SizedBox(height: 4),
                 const Text(
                   'Đã ký quỹ bảo đảm',
-                  style: TextStyle(fontSize: 10.5, color: Color(0xFF16A34A), fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    color: Color(0xFF16A34A),
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ],
             ),
@@ -1677,14 +2614,22 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                       width: 82,
                       height: 82,
                       color: const Color(0xFFF1F5F9),
-                      child: const Icon(Icons.apartment_rounded, color: _primary, size: 36),
+                      child: const Icon(
+                        Icons.apartment_rounded,
+                        color: _primary,
+                        size: 36,
+                      ),
                     ),
                   )
                 : Container(
                     width: 82,
                     height: 82,
                     color: const Color(0xFFF1F5F9),
-                    child: const Icon(Icons.apartment_rounded, color: _primary, size: 36),
+                    child: const Icon(
+                      Icons.apartment_rounded,
+                      color: _primary,
+                      size: 36,
+                    ),
                   ),
           ),
           const SizedBox(width: 14),
@@ -1695,7 +2640,10 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 2.5,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFEFF6FF),
                         borderRadius: BorderRadius.circular(6),
@@ -1732,17 +2680,28 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                 const SizedBox(height: 4),
                 Text(
                   'Hệ thống Nhà trọ Kiêu Giang • Khép kín',
-                  style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF64748B),
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    const Icon(Icons.groups_rounded, size: 13, color: Color(0xFF0284C7)),
+                    const Icon(
+                      Icons.groups_rounded,
+                      size: 13,
+                      color: Color(0xFF0284C7),
+                    ),
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(
                         'Tối đa: 02 - 03 người (${1 + _danhSachOCung.length} người đang ở)',
-                        style: const TextStyle(fontSize: 11, color: Color(0xFF0284C7), fontWeight: FontWeight.w600),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF0284C7),
+                          fontWeight: FontWeight.w600,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -1811,7 +2770,10 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: _primary,
                         borderRadius: BorderRadius.circular(4),
@@ -1841,9 +2803,16 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                 const SizedBox(height: 8),
                 _buildRowTwoCol('Đại diện chủ trọ:', 'TRỊNH MỸ DUYÊN'),
                 const SizedBox(height: 4),
-                _buildRowTwoCol('Hotline quản lý:', '0328 004 663 (24/7)', valColor: const Color(0xFF0284C7)),
+                _buildRowTwoCol(
+                  'Hotline quản lý:',
+                  '0328 004 663 (24/7)',
+                  valColor: const Color(0xFF0284C7),
+                ),
                 const SizedBox(height: 4),
-                _buildRowTwoCol('Địa chỉ cơ sở:', 'Kiêu Giang House, P. Hiệp Bình Chánh, TP. Thủ Đức, TP.HCM'),
+                _buildRowTwoCol(
+                  'Địa chỉ cơ sở:',
+                  'Kiêu Giang House, P. Hiệp Bình Chánh, TP. Thủ Đức, TP.HCM',
+                ),
               ],
             ),
           ),
@@ -1863,7 +2832,10 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFF0284C7),
                         borderRadius: BorderRadius.circular(4),
@@ -1889,7 +2861,10 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2.5,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(6),
@@ -1906,23 +2881,36 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                _buildRowTwoCol('Số CCCD gắn chip:', rep?.cccd ?? '079201012345'),
+                _buildRowTwoCol(
+                  'Số CCCD gắn chip:',
+                  rep?.cccd ?? '079201012345',
+                ),
                 const SizedBox(height: 4),
                 _buildRowTwoCol('Số điện thoại:', rep?.soDt ?? '0865109632'),
                 const SizedBox(height: 4),
-                _buildRowTwoCol('Địa chỉ thường trú:', rep?.diaChiThuongTru ?? 'Tân Phú, TP.HCM'),
+                _buildRowTwoCol(
+                  'Địa chỉ thường trú:',
+                  rep?.diaChiThuongTru ?? 'Tân Phú, TP.HCM',
+                ),
                 const SizedBox(height: 4),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: const [
-                    Text('Tình trạng cư trú:', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                    Text(
+                      'Tình trạng cư trú:',
+                      style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                    ),
                     Row(
                       children: [
                         Icon(Icons.circle, size: 6, color: Color(0xFF16A34A)),
                         SizedBox(width: 4),
                         Text(
                           'Đã đăng ký tạm trú',
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF16A34A)),
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF16A34A),
+                          ),
                         ),
                       ],
                     ),
@@ -1934,12 +2922,21 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                   const SizedBox(height: 12),
                   Text(
                     'Thành viên ở cùng (${_danhSachOCung.length} người)',
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF475569),
+                    ),
                   ),
                   const SizedBox(height: 6),
                   ..._danhSachOCung.map((member) {
                     final initials = member.hoTenKhach.trim().isNotEmpty
-                        ? member.hoTenKhach.trim().split(' ').last.substring(0, 1).toUpperCase()
+                        ? member.hoTenKhach
+                              .trim()
+                              .split(' ')
+                              .last
+                              .substring(0, 1)
+                              .toUpperCase()
                         : 'M';
                     return Container(
                       margin: const EdgeInsets.only(bottom: 6),
@@ -1955,7 +2952,11 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                             backgroundColor: const Color(0xFFE0F2FE),
                             child: Text(
                               initials,
-                              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: _primary),
+                              style: const TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: _primary,
+                              ),
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -1965,24 +2966,38 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                               children: [
                                 Text(
                                   member.hoTenKhach,
-                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: _textDark),
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: _textDark,
+                                  ),
                                 ),
                                 Text(
                                   'CCCD: ${member.cccd} • SĐT: ${member.soDt}',
-                                  style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: Color(0xFF64748B),
+                                  ),
                                 ),
                               ],
                             ),
                           ),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: const Color(0xFFF1F5F9),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: const Text(
                               'Đang ở',
-                              style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+                              style: TextStyle(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF475569),
+                              ),
                             ),
                           ),
                         ],
@@ -2012,7 +3027,11 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
         children: [
           Row(
             children: const [
-              Icon(Icons.receipt_long_rounded, color: Color(0xFF0284C7), size: 18),
+              Icon(
+                Icons.receipt_long_rounded,
+                color: Color(0xFF0284C7),
+                size: 18,
+              ),
               SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -2026,7 +3045,11 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
               ),
               Text(
                 'Minh bạch niêm yết',
-                style: TextStyle(fontSize: 10.5, color: Color(0xFF0284C7), fontWeight: FontWeight.w600),
+                style: TextStyle(
+                  fontSize: 10.5,
+                  color: Color(0xFF0284C7),
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ],
           ),
@@ -2039,11 +3062,14 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
               if (dv.maDichVu.contains('DIEN')) icon = Icons.bolt_rounded;
               if (dv.maDichVu.contains('NUOC')) icon = Icons.water_drop_rounded;
               if (dv.maDichVu.contains('WIFI')) icon = Icons.wifi_rounded;
-              if (dv.maDichVu.contains('RAC')) icon = Icons.delete_outline_rounded;
+              if (dv.maDichVu.contains('RAC'))
+                icon = Icons.delete_outline_rounded;
               if (dv.maDichVu.contains('XE')) icon = Icons.two_wheeler_rounded;
 
               final isFree = dv.donGia == 0;
-              final priceText = isFree ? 'Miễn phí' : '${FormatUtils.currency(dv.donGia.toDouble())} đ';
+              final priceText = isFree
+                  ? 'Miễn phí'
+                  : '${FormatUtils.currency(dv.donGia.toDouble())} đ';
 
               return Padding(
                 padding: const EdgeInsets.only(bottom: 8),
@@ -2058,15 +3084,46 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
               );
             })
           else ...[
-            _buildDichVuTile(Icons.bolt_rounded, 'Điện sinh hoạt', 'Công tơ điện tử riêng phòng', '3.500 đ', '/ kWh'),
+            _buildDichVuTile(
+              Icons.bolt_rounded,
+              'Điện sinh hoạt',
+              'Công tơ điện tử riêng phòng',
+              '3.500 đ',
+              '/ kWh',
+            ),
             const SizedBox(height: 8),
-            _buildDichVuTile(Icons.water_drop_rounded, 'Nước máy thủy cục', 'Đồng hồ nước thủy cục riêng', '20.000 đ', '/ m³'),
+            _buildDichVuTile(
+              Icons.water_drop_rounded,
+              'Nước máy thủy cục',
+              'Đồng hồ nước thủy cục riêng',
+              '20.000 đ',
+              '/ m³',
+            ),
             const SizedBox(height: 8),
-            _buildDichVuTile(Icons.wifi_rounded, 'Wifi cáp quang tốc độ cao', 'Băng thông 300Mbps', '50.000 đ', '/ phòng / tháng'),
+            _buildDichVuTile(
+              Icons.wifi_rounded,
+              'Wifi cáp quang tốc độ cao',
+              'Băng thông 300Mbps',
+              '50.000 đ',
+              '/ phòng / tháng',
+            ),
             const SizedBox(height: 8),
-            _buildDichVuTile(Icons.delete_outline_rounded, 'Rác & vệ sinh hành lang', 'Lau dọn tuần 3 lần', '50.000 đ', '/ người / tháng'),
+            _buildDichVuTile(
+              Icons.delete_outline_rounded,
+              'Rác & vệ sinh hành lang',
+              'Lau dọn tuần 3 lần',
+              '50.000 đ',
+              '/ người / tháng',
+            ),
             const SizedBox(height: 8),
-            _buildDichVuTile(Icons.two_wheeler_rounded, 'Phí gửi xe máy', 'Free 02 xe - Hầm có bảo vệ 24/24', 'Miễn phí', 'Bao gồm', isFree: true),
+            _buildDichVuTile(
+              Icons.two_wheeler_rounded,
+              'Phí gửi xe máy',
+              'Free 02 xe - Hầm có bảo vệ 24/24',
+              'Miễn phí',
+              'Bao gồm',
+              isFree: true,
+            ),
           ],
         ],
       ),
@@ -2104,11 +3161,18 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: _textDark),
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.bold,
+                    color: _textDark,
+                  ),
                 ),
                 Text(
                   sub,
-                  style: const TextStyle(fontSize: 10.5, color: Color(0xFF94A3B8)),
+                  style: const TextStyle(
+                    fontSize: 10.5,
+                    color: Color(0xFF94A3B8),
+                  ),
                 ),
               ],
             ),
@@ -2136,18 +3200,22 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
     );
   }
 
-  // ─── 8. ĐIỀU KHOẢN TRỌNG YẾU ĐÚNG THỰC TẾ VIỆT NAM & NỘI THẤT ───
-  Widget _buildCardDieuKhoanThucTe() {
-    final noiThatList = _phong?.noiThatSanCo ?? [
-      'Máy lạnh Inverter',
-      'Tủ lạnh riêng 130L',
-      'Nước nóng Ariston',
-      'Tủ áo & bàn làm việc',
-      'Kệ bếp bồn rửa đôi',
-      'Máy giặt & sân phơi',
-      'Cổng vân tay AI & thẻ từ',
-      'Camera an ninh 24/7',
-    ];
+  // ─── 8. ĐIỀU KHOẢN HỢP ĐỒNG THUÊ NHÀ Ở (12 ĐIỀU CHUẨN LUẬT KDBĐS 2023) ───
+  Widget _buildCardDieuKhoanThucTe() => _buildCardDieuKhoanHopDong();
+
+  Widget _buildCardDieuKhoanHopDong() {
+    final noiThatList = _phong?.noiThatSanCo.isNotEmpty == true
+        ? _phong!.noiThatSanCo
+        : [
+            'Máy lạnh Inverter',
+            'Tủ lạnh riêng 130L',
+            'Nước nóng Ariston',
+            'Tủ áo & bàn làm việc',
+            'Kệ bếp bồn rửa đôi',
+            'Máy giặt & sân phơi',
+            'Cổng vân tay AI & thẻ từ',
+            'Camera an ninh 24/7',
+          ];
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -2165,7 +3233,7 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
               SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Điều Khoản Trọng Yếu Thực Tế',
+                  '12 Điều Khoản Hợp Đồng Thuê Nhà Ở',
                   style: TextStyle(
                     fontSize: 14.5,
                     fontWeight: FontWeight.bold,
@@ -2174,42 +3242,48 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                 ),
               ),
               Text(
-                'Cam kết 2 bên',
-                style: TextStyle(fontSize: 10.5, color: Color(0xFF0284C7), fontWeight: FontWeight.w600),
+                'Luật KDBĐS 2023',
+                style: TextStyle(
+                  fontSize: 10.5,
+                  color: Color(0xFF0284C7),
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ],
           ),
           const SizedBox(height: 12),
 
-          // Điều 1: Mục đích & Cư trú
           _buildDieuKhoanItem(
-            '1. Mục đích thuê & Quy định cư trú:',
-            'Phòng chỉ dùng để ở sinh hoạt hợp pháp. Nghiêm cấm sử dụng phòng để kinh doanh trái phép hoặc chứa hàng cấm. Số lượng cư trú tối đa theo đăng ký (02 người). Khách ở qua đêm phải khai báo tạm trú qua App Kiêu Giang trước 22h00.',
+            'Điều 1 & 2: Thông tin nhà ở & Đơn giá dịch vụ:',
+            'Phòng ${_phong?.tenHienThi ?? 'P203'} (${_phong?.dienTich ?? 28}m²), cư trú tối đa 02 người. Tiền phòng: ${FormatUtils.currency((_hopDong?.giaThueThaoThuan ?? 3800000).toDouble())}đ/tháng (cố định suốt hợp đồng). Tiền điện 3.500 đ/kWh (công tơ riêng), nước 20.000 đ/m³ (đồng hồ riêng).',
           ),
           const SizedBox(height: 8),
 
-          // Điều 2: Thanh toán tiền phòng & Cọc
           _buildDieuKhoanItem(
-            '2. Thanh toán tiền phòng & Hoàn cọc 30 ngày:',
-            'Tiền phòng đóng định kỳ từ ngày 01 đến 05 hàng tháng qua chuyển khoản VietQR. Khi hết hạn hợp đồng, Bên B thông báo trước tối thiểu 30 ngày để Bên A kiểm tra bàn giao và hoàn trả 100% tiền đặt cọc (${FormatUtils.currency((_hopDong?.tienDatCoc ?? 3800000).toDouble())}đ).',
+            'Điều 3 & 4: Thanh toán & Thời hạn bàn giao:',
+            'Thanh toán định kỳ hàng tháng từ ngày 01 đến ngày 05 qua chuyển khoản VietQR trên App Kiêu Giang. Thời hạn thuê từ ${_hopDong?.ngayBdFormatted ?? '01/01/2026'} đến ${_hopDong?.ngayKtFormatted ?? '31/12/2026'}. Bàn giao nguyên trạng đầy đủ tiện nghi.',
           ),
           const SizedBox(height: 8),
 
-          // Điều 3: Giờ giấc tự do & An ninh PCCC
           _buildDieuKhoanItem(
-            '3. Giờ giấc tự do & An toàn PCCC:',
-            'Giờ giấc tự do 24/7. Cổng chính kiểm soát bằng vân tay AI và thẻ từ thông minh (không mở cửa cho người lạ). Nghiêm cấm nấu nướng bằng bếp gas mini không an toàn, tắt toàn bộ thiết bị điện sinh nhiệt khi ra khỏi phòng. Giữ trật tự sau 22h00.',
+            'Điều 5 & 6: Quyền và nghĩa vụ Bên A & Bên B:',
+            'Bên A đảm bảo cung cấp điện, nước, internet ổn định và cổng kiểm soát AI 24/7. Bên B sử dụng phòng đúng mục đích cư trú hợp pháp, không tự ý sửa chữa kết cấu, giữ gìn tài sản bàn giao, không gây ồn ào sau 22h00 và khai báo tạm trú trên app.',
           ),
           const SizedBox(height: 8),
 
-          // Điều 4: Bảo quản tài sản & Chấm dứt trước hạn
           _buildDieuKhoanItem(
-            '4. Bảo quản tài sản & Vi phạm hợp đồng:',
-            'Bên B có trách nhiệm bảo quản nguyên vẹn các thiết bị nội thất bàn giao. Tiền đặt cọc chỉ được hoàn trả khi hết hạn hợp đồng thuê. Nếu Bên B chấm dứt hợp đồng trước hạn vì bất kỳ lý do nào khác sẽ không được hoàn trả tiền đặt cọc. Nếu Bên B chậm đóng tiền phòng quá 15 ngày, Bên A có quyền đơn phương thu hồi phòng.',
+            'Điều 7 & 8: Đơn phương chấm dứt & Hoàn 100% cọc 30 ngày:',
+            'Khi hết hạn hoặc muốn chấm dứt hợp đồng, mỗi bên phải thông báo trước tối thiểu 30 ngày trên App Kiêu Giang. Bên A nghiệm thu tài sản và hoàn trả 100% tiền đặt cọc (${FormatUtils.currency((_hopDong?.tienDatCoc ?? 3800000).toDouble())}đ) trong vòng 03 ngày làm việc.',
+          ),
+          const SizedBox(height: 8),
+
+          _buildDieuKhoanItem(
+            'Điều 9 - 12: Vi phạm hợp đồng & Hiệu lực thi hành:',
+            'Bên nào vi phạm gây tổn thất phải bồi thường. Chậm đóng tiền quá 15 ngày Bên A có quyền đơn phương thu hồi phòng. Tranh chấp giải quyết theo Tòa án nhân dân có thẩm quyền. Hợp đồng có giá trị pháp lý tương đương cho 02 bản.',
           ),
           const SizedBox(height: 14),
 
-          // Nội thất bàn giao thực tế từ Supabase
+          // Danh mục bàn giao nội thất
           Row(
             children: [
               Container(
@@ -2218,7 +3292,11 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                   color: const Color(0xFFE0F2FE),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.chair_rounded, size: 15, color: Color(0xFF0284C7)),
+                child: const Icon(
+                  Icons.chair_rounded,
+                  size: 15,
+                  color: Color(0xFF0284C7),
+                ),
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -2243,7 +3321,11 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.check_circle_rounded, size: 11, color: Color(0xFF16A34A)),
+                    Icon(
+                      Icons.check_circle_rounded,
+                      size: 11,
+                      color: Color(0xFF16A34A),
+                    ),
                     SizedBox(width: 3),
                     Text(
                       'Nguyên trạng 100%',
@@ -2258,58 +3340,41 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
 
-          // Bố cục Grid 2 cột cân đối, có icon đặc trưng cho từng loại thiết bị
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final itemWidth = (constraints.maxWidth - 8) / 2;
-              return Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: noiThatList.map((nt) {
-                  final info = _layThongTinNoiThat(nt);
-                  return SizedBox(
-                    width: itemWidth,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF8FAFC),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 32,
-                            height: 32,
-                            decoration: BoxDecoration(
-                              color: info.bgColor,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Icon(info.icon, size: 17, color: info.color),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              nt,
-                              style: const TextStyle(
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w600,
-                                color: _textDark,
-                                height: 1.25,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
+          // Wrap chips nội thất
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: noiThatList.map((item) {
+              final tt = _layThongTinNoiThat(item);
+              return Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: tt.bgColor,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(tt.icon, size: 13, color: tt.color),
+                    const SizedBox(width: 5),
+                    Text(
+                      item,
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        color: Color(0xFF334155),
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
-                  );
-                }).toList(),
+                  ],
+                ),
               );
-            },
+            }).toList(),
           ),
         ],
       ),
@@ -2366,35 +3431,47 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
         Color(0xFFCCFBF1),
       );
     }
-    if (lower.contains('nước nóng') || lower.contains('bình nóng') || lower.contains('ariston')) {
+    if (lower.contains('nước nóng') ||
+        lower.contains('bình nóng') ||
+        lower.contains('ariston')) {
       return const _ThongTinNoiThat(
         Icons.hot_tub_rounded,
         Color(0xFFEA580C),
         Color(0xFFFFEDD5),
       );
     }
-    if (lower.contains('tủ áo') || lower.contains('bàn') || lower.contains('giường') || lower.contains('nệm')) {
+    if (lower.contains('tủ áo') ||
+        lower.contains('bàn') ||
+        lower.contains('giường') ||
+        lower.contains('nệm')) {
       return const _ThongTinNoiThat(
         Icons.chair_rounded,
         Color(0xFF7C3AED),
         Color(0xFFEDE9FE),
       );
     }
-    if (lower.contains('bếp') || lower.contains('bồn rửa') || lower.contains('chậu')) {
+    if (lower.contains('bếp') ||
+        lower.contains('bồn rửa') ||
+        lower.contains('chậu')) {
       return const _ThongTinNoiThat(
         Icons.soup_kitchen_rounded,
         Color(0xFFD97706),
         Color(0xFFFEF3C7),
       );
     }
-    if (lower.contains('máy giặt') || lower.contains('sân phơi') || lower.contains('phơi')) {
+    if (lower.contains('máy giặt') ||
+        lower.contains('sân phơi') ||
+        lower.contains('phơi')) {
       return const _ThongTinNoiThat(
         Icons.local_laundry_service_rounded,
         Color(0xFF2563EB),
         Color(0xFFDBEAFE),
       );
     }
-    if (lower.contains('vân tay') || lower.contains('thẻ từ') || lower.contains('cổng') || lower.contains('khóa')) {
+    if (lower.contains('vân tay') ||
+        lower.contains('thẻ từ') ||
+        lower.contains('cổng') ||
+        lower.contains('khóa')) {
       return const _ThongTinNoiThat(
         Icons.fingerprint_rounded,
         Color(0xFF059669),
@@ -2408,7 +3485,9 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
         Color(0xFFFFE4E6),
       );
     }
-    if (lower.contains('wifi') || lower.contains('mạng') || lower.contains('internet')) {
+    if (lower.contains('wifi') ||
+        lower.contains('mạng') ||
+        lower.contains('internet')) {
       return const _ThongTinNoiThat(
         Icons.wifi_rounded,
         Color(0xFF0284C7),
@@ -2437,7 +3516,11 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
   }
 
   /// Trợ lý dựng hình chữ ký hợp lệ (hỗ trợ cả Base64 Data URI, HTTP URL hoặc Widget mặc định)
-  Widget _buildChuKyImageOrPlaceholder(String? urlChuKy, {double height = 38, bool isBenA = false}) {
+  Widget _buildChuKyImageOrPlaceholder(
+    String? urlChuKy, {
+    double height = 38,
+    bool isBenA = false,
+  }) {
     if (urlChuKy == null || urlChuKy.trim().isEmpty) {
       if (isBenA) {
         return ChuKyBenAMacDinhWidget(height: height);
@@ -2455,7 +3538,9 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
         );
       } catch (e) {
         debugPrint('Lỗi decode base64 chữ ký: $e');
-        return isBenA ? ChuKyBenAMacDinhWidget(height: height) : SizedBox(height: height);
+        return isBenA
+            ? ChuKyBenAMacDinhWidget(height: height)
+            : SizedBox(height: height);
       }
     }
     if (clean.startsWith('http://') || clean.startsWith('https://')) {
@@ -2464,8 +3549,9 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
         child: Image.network(
           clean,
           fit: BoxFit.contain,
-          errorBuilder: (context, error, stackTrace) =>
-              isBenA ? ChuKyBenAMacDinhWidget(height: height) : SizedBox(height: height),
+          errorBuilder: (context, error, stackTrace) => isBenA
+              ? ChuKyBenAMacDinhWidget(height: height)
+              : SizedBox(height: height),
         ),
       );
     }
@@ -2476,13 +3562,16 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
         child: Image.memory(bytes, fit: BoxFit.contain),
       );
     } catch (_) {
-      return isBenA ? ChuKyBenAMacDinhWidget(height: height) : SizedBox(height: height);
+      return isBenA
+          ? ChuKyBenAMacDinhWidget(height: height)
+          : SizedBox(height: height);
     }
   }
 
   // ─── MODAL TOÀN VĂN CHI TIẾT PHỤ LỤC HỢP ĐỒNG ĐIỆN TỬ ───
   void _showChiTietPhuLucModal(PhuLucHopDongModel pl) {
-    final isChuyenPhong = pl.maPhuLuc.startsWith('PLCP') ||
+    final isChuyenPhong =
+        pl.maPhuLuc.startsWith('PLCP') ||
         (pl.maPhongMoi != null && pl.maPhongMoi!.isNotEmpty);
     final effectiveHd = _hopDong?.maHopDong ?? pl.maHopDong;
     final tenNguoiThue = _khachDaiDien?.hoTenKhach ?? 'Khách thuê';
@@ -2521,12 +3610,18 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: isChuyenPhong ? const Color(0xFFE0F2FE) : const Color(0xFFF0FDF4),
+                        color: isChuyenPhong
+                            ? const Color(0xFFE0F2FE)
+                            : const Color(0xFFF0FDF4),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Icon(
-                        isChuyenPhong ? Icons.swap_horiz_rounded : Icons.history_edu_rounded,
-                        color: isChuyenPhong ? const Color(0xFF0284C7) : const Color(0xFF16A34A),
+                        isChuyenPhong
+                            ? Icons.swap_horiz_rounded
+                            : Icons.history_edu_rounded,
+                        color: isChuyenPhong
+                            ? const Color(0xFF0284C7)
+                            : const Color(0xFF16A34A),
                         size: 20,
                       ),
                     ),
@@ -2536,7 +3631,9 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            isChuyenPhong ? 'Phụ Lục Chuyển Phòng' : 'Phụ Lục Gia Hạn Hợp Đồng',
+                            isChuyenPhong
+                                ? 'Phụ Lục Chuyển Phòng'
+                                : 'Phụ Lục Gia Hạn Hợp Đồng',
                             style: const TextStyle(
                               fontSize: 15.5,
                               fontWeight: FontWeight.bold,
@@ -2554,7 +3651,10 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFDCFCE7),
                         borderRadius: BorderRadius.circular(8),
@@ -2571,7 +3671,11 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                     ),
                     const SizedBox(width: 6),
                     IconButton(
-                      icon: const Icon(Icons.close_rounded, color: Color(0xFF64748B), size: 22),
+                      icon: const Icon(
+                        Icons.close_rounded,
+                        color: Color(0xFF64748B),
+                        size: 22,
+                      ),
                       onPressed: () => Navigator.pop(ctx),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
@@ -2601,7 +3705,11 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                           children: [
                             const Row(
                               children: [
-                                Icon(Icons.gavel_rounded, size: 15, color: _primary),
+                                Icon(
+                                  Icons.gavel_rounded,
+                                  size: 15,
+                                  color: _primary,
+                                ),
                                 SizedBox(width: 6),
                                 Text(
                                   'CĂN CỨ PHÁP LÝ HỢP ĐỒNG',
@@ -2617,13 +3725,25 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                             const SizedBox(height: 10),
                             _buildPhuLucRow('Căn cứ Hợp đồng số:', effectiveHd),
                             const SizedBox(height: 5),
-                            _buildPhuLucRow('Cơ sở lưu trú:', 'Kiều Giang House, P. Hiệp Bình Chánh, Thủ Đức'),
+                            _buildPhuLucRow(
+                              'Cơ sở lưu trú:',
+                              'Kiều Giang House, P. Hiệp Bình Chánh, Thủ Đức',
+                            ),
                             const SizedBox(height: 5),
-                            _buildPhuLucRow('Bên A (Chủ trọ):', '$tenChuTro (ĐT: $sdtChuTro)'),
+                            _buildPhuLucRow(
+                              'Bên A (Chủ trọ):',
+                              '$tenChuTro (ĐT: $sdtChuTro)',
+                            ),
                             const SizedBox(height: 5),
-                            _buildPhuLucRow('Bên B (Người thuê):', tenNguoiThue),
+                            _buildPhuLucRow(
+                              'Bên B (Người thuê):',
+                              tenNguoiThue,
+                            ),
                             const SizedBox(height: 5),
-                            _buildPhuLucRow('Ngày lập phụ lục:', pl.ngayLapFormatted),
+                            _buildPhuLucRow(
+                              'Ngày lập phụ lục:',
+                              pl.ngayLapFormatted,
+                            ),
                           ],
                         ),
                       ),
@@ -2650,29 +3770,46 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                             Row(
                               children: [
                                 Icon(
-                                  isChuyenPhong ? Icons.meeting_room_outlined : Icons.calendar_month_outlined,
+                                  isChuyenPhong
+                                      ? Icons.meeting_room_outlined
+                                      : Icons.calendar_month_outlined,
                                   size: 16,
-                                  color: isChuyenPhong ? const Color(0xFF0284C7) : const Color(0xFF16A34A),
+                                  color: isChuyenPhong
+                                      ? const Color(0xFF0284C7)
+                                      : const Color(0xFF16A34A),
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
-                                  isChuyenPhong ? 'THÔNG TIN CHUYỂN ĐỔI PHÒNG' : 'THÔNG TIN GIA HẠN HỢP ĐỒNG',
+                                  isChuyenPhong
+                                      ? 'THÔNG TIN CHUYỂN ĐỔI PHÒNG'
+                                      : 'THÔNG TIN GIA HẠN HỢP ĐỒNG',
                                   style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
-                                    color: isChuyenPhong ? const Color(0xFF0284C7) : const Color(0xFF16A34A),
+                                    color: isChuyenPhong
+                                        ? const Color(0xFF0284C7)
+                                        : const Color(0xFF16A34A),
                                   ),
                                 ),
                               ],
                             ),
                             const SizedBox(height: 12),
                             if (isChuyenPhong) ...[
-                              if (pl.maPhongMoi != null && pl.maPhongMoi!.isNotEmpty) ...[
-                                _buildPhuLucRow('Phòng chuyển đến:', pl.maPhongMoi!, highlight: true),
+                              if (pl.maPhongMoi != null &&
+                                  pl.maPhongMoi!.isNotEmpty) ...[
+                                _buildPhuLucRow(
+                                  'Phòng chuyển đến:',
+                                  pl.maPhongMoi!,
+                                  highlight: true,
+                                ),
                                 const SizedBox(height: 6),
                               ],
                               if (pl.giaTheMoi > 0) ...[
-                                _buildPhuLucRow('Giá thuê phòng mới:', '${FormatUtils.currency(pl.giaTheMoi.toDouble())}/tháng', highlight: true),
+                                _buildPhuLucRow(
+                                  'Giá thuê phòng mới:',
+                                  '${FormatUtils.currency(pl.giaTheMoi.toDouble())}/tháng',
+                                  highlight: true,
+                                ),
                                 const SizedBox(height: 6),
                               ],
                               _buildPhuLucRow(
@@ -2683,18 +3820,30 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                               ),
                             ] else ...[
                               if (pl.ngayGiaHanDen.isNotEmpty) ...[
-                                _buildPhuLucRow('Gia hạn hiệu lực đến:', pl.ngayGiaHanDenFormatted, highlight: true),
+                                _buildPhuLucRow(
+                                  'Gia hạn hiệu lực đến:',
+                                  pl.ngayGiaHanDenFormatted,
+                                  highlight: true,
+                                ),
                                 const SizedBox(height: 6),
                               ],
                               if (pl.giaTheMoi > 0) ...[
-                                _buildPhuLucRow('Giá thuê áp dụng mới:', '${FormatUtils.currency(pl.giaTheMoi.toDouble())}/tháng', highlight: true),
+                                _buildPhuLucRow(
+                                  'Giá thuê áp dụng mới:',
+                                  '${FormatUtils.currency(pl.giaTheMoi.toDouble())}/tháng',
+                                  highlight: true,
+                                ),
                                 const SizedBox(height: 6),
                               ],
                             ],
                             const SizedBox(height: 12),
                             const Text(
                               'Nội dung điều chỉnh cụ thể:',
-                              style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: _textDark),
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.bold,
+                                color: _textDark,
+                              ),
                             ),
                             const SizedBox(height: 6),
                             Container(
@@ -2703,11 +3852,17 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                               decoration: BoxDecoration(
                                 color: const Color(0xFFF8FAFC),
                                 borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: const Color(0xFFE2E8F0)),
+                                border: Border.all(
+                                  color: const Color(0xFFE2E8F0),
+                                ),
                               ),
                               child: Text(
                                 pl.noiDungDieuChinh,
-                                style: const TextStyle(fontSize: 12.5, color: Color(0xFF334155), height: 1.55),
+                                style: const TextStyle(
+                                  fontSize: 12.5,
+                                  color: Color(0xFF334155),
+                                  height: 1.55,
+                                ),
                               ),
                             ),
                           ],
@@ -2726,12 +3881,20 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(Icons.info_outline_rounded, size: 15, color: Color(0xFFD97706)),
+                            const Icon(
+                              Icons.info_outline_rounded,
+                              size: 15,
+                              color: Color(0xFFD97706),
+                            ),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
                                 'Phụ lục này có giá trị pháp lý gắn liền và không tách rời Hợp đồng số $effectiveHd. Mọi quyền lợi và nghĩa vụ khác của hai Bên tiếp tục thực hiện theo Hợp đồng thuê đã ký.',
-                                style: const TextStyle(fontSize: 11, color: Color(0xFF92400E), height: 1.45),
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Color(0xFF92400E),
+                                  height: 1.45,
+                                ),
                               ),
                             ),
                           ],
@@ -2744,26 +3907,50 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                         children: [
                           Expanded(
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 12,
+                              ),
                               decoration: BoxDecoration(
                                 color: const Color(0xFFF8FAFC),
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: const Color(0xFFE2E8F0)),
+                                border: Border.all(
+                                  color: const Color(0xFFE2E8F0),
+                                ),
                               ),
                               child: Column(
                                 children: [
-                                  const Text('ĐẠI DIỆN BÊN A',
-                                    style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+                                  const Text(
+                                    'ĐẠI DIỆN BÊN A',
+                                    style: TextStyle(
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF475569),
+                                    ),
                                   ),
                                   const SizedBox(height: 2),
-                                  const Text('(Ký và ghi rõ họ tên)',
-                                    style: TextStyle(fontSize: 9.5, fontStyle: FontStyle.italic, color: Color(0xFF94A3B8)),
+                                  const Text(
+                                    '(Ký và ghi rõ họ tên)',
+                                    style: TextStyle(
+                                      fontSize: 9.5,
+                                      fontStyle: FontStyle.italic,
+                                      color: Color(0xFF94A3B8),
+                                    ),
                                   ),
                                   const SizedBox(height: 8),
-                                  _buildChuKyImageOrPlaceholder(_urlChuKyBenA, height: 38, isBenA: true),
+                                  _buildChuKyImageOrPlaceholder(
+                                    _urlChuKyBenA,
+                                    height: 38,
+                                    isBenA: true,
+                                  ),
                                   const SizedBox(height: 6),
-                                  const Text(tenChuTro,
-                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _textDark),
+                                  const Text(
+                                    tenChuTro,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: _textDark,
+                                    ),
                                     textAlign: TextAlign.center,
                                   ),
                                 ],
@@ -2773,26 +3960,50 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                           const SizedBox(width: 12),
                           Expanded(
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 12,
+                              ),
                               decoration: BoxDecoration(
                                 color: const Color(0xFFF8FAFC),
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: const Color(0xFFE2E8F0)),
+                                border: Border.all(
+                                  color: const Color(0xFFE2E8F0),
+                                ),
                               ),
                               child: Column(
                                 children: [
-                                  const Text('ĐẠI DIỆN BÊN B',
-                                    style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+                                  const Text(
+                                    'ĐẠI DIỆN BÊN B',
+                                    style: TextStyle(
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF475569),
+                                    ),
                                   ),
                                   const SizedBox(height: 2),
-                                  const Text('(Ký và ghi rõ họ tên)',
-                                    style: TextStyle(fontSize: 9.5, fontStyle: FontStyle.italic, color: Color(0xFF94A3B8)),
+                                  const Text(
+                                    '(Ký và ghi rõ họ tên)',
+                                    style: TextStyle(
+                                      fontSize: 9.5,
+                                      fontStyle: FontStyle.italic,
+                                      color: Color(0xFF94A3B8),
+                                    ),
                                   ),
                                   const SizedBox(height: 8),
-                                  _buildChuKyImageOrPlaceholder(_urlChuKyBenB, height: 38, isBenA: false),
+                                  _buildChuKyImageOrPlaceholder(
+                                    _urlChuKyBenB,
+                                    height: 38,
+                                    isBenA: false,
+                                  ),
                                   const SizedBox(height: 6),
-                                  Text(tenNguoiThue,
-                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _textDark),
+                                  Text(
+                                    tenNguoiThue,
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: _textDark,
+                                    ),
                                     textAlign: TextAlign.center,
                                   ),
                                 ],
@@ -2811,12 +4022,18 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                           onPressed: () => Navigator.pop(ctx),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: _primary,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                             elevation: 0,
                           ),
                           child: const Text(
                             'Đóng văn bản',
-                            style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: Colors.white),
+                            style: TextStyle(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
                       ),
@@ -2848,7 +4065,9 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
             style: TextStyle(
               fontSize: 12,
               fontWeight: highlight ? FontWeight.bold : FontWeight.w600,
-              color: highlight ? const Color(0xFF09638E) : const Color(0xFF1E293B),
+              color: highlight
+                  ? const Color(0xFF09638E)
+                  : const Color(0xFF1E293B),
             ),
           ),
         ),
@@ -2873,7 +4092,10 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
             offset: const Offset(0, 4),
           ),
         ],
-        border: Border.all(color: const Color(0xFF0284C7).withValues(alpha: 0.25), width: 1.2),
+        border: Border.all(
+          color: const Color(0xFF0284C7).withValues(alpha: 0.25),
+          width: 1.2,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2886,7 +4108,11 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                   color: const Color(0xFFE0F2FE),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.history_edu_rounded, color: Color(0xFF0284C7), size: 20),
+                child: const Icon(
+                  Icons.history_edu_rounded,
+                  color: Color(0xFF0284C7),
+                  size: 20,
+                ),
               ),
               const SizedBox(width: 10),
               const Expanded(
@@ -2912,14 +4138,17 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                       builder: (_, scrollCtrl) => Container(
                         decoration: const BoxDecoration(
                           color: Colors.white,
-                          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                          borderRadius: BorderRadius.vertical(
+                            top: Radius.circular(24),
+                          ),
                         ),
                         child: Column(
                           children: [
                             // Handle bar
                             Container(
                               margin: const EdgeInsets.only(top: 12, bottom: 8),
-                              width: 40, height: 4,
+                              width: 40,
+                              height: 4,
                               decoration: BoxDecoration(
                                 color: const Color(0xFFE2E8F0),
                                 borderRadius: BorderRadius.circular(2),
@@ -2936,18 +4165,32 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                                       color: const Color(0xFFE0F2FE),
                                       borderRadius: BorderRadius.circular(10),
                                     ),
-                                    child: const Icon(Icons.history_edu_rounded, color: Color(0xFF0284C7), size: 20),
+                                    child: const Icon(
+                                      Icons.history_edu_rounded,
+                                      color: Color(0xFF0284C7),
+                                      size: 20,
+                                    ),
                                   ),
                                   const SizedBox(width: 10),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
-                                        const Text('Danh Sách Phụ Lục Hợp Đồng',
-                                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                                        const Text(
+                                          'Danh Sách Phụ Lục Hợp Đồng',
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                            color: Color(0xFF0F172A),
+                                          ),
                                         ),
-                                        Text('${_danhSachPhuLuc.length} phụ lục đã ký',
-                                          style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                                        Text(
+                                          '${_danhSachPhuLuc.length} phụ lục đã ký',
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: Color(0xFF64748B),
+                                          ),
                                         ),
                                       ],
                                     ),
@@ -2962,11 +4205,14 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                                 controller: scrollCtrl,
                                 padding: const EdgeInsets.all(16),
                                 itemCount: _danhSachPhuLuc.length,
-                                separatorBuilder: (context, index) => const SizedBox(height: 12),
+                                separatorBuilder: (context, index) =>
+                                    const SizedBox(height: 12),
                                 itemBuilder: (_, i) {
                                   final pl = _danhSachPhuLuc[i];
-                                  final isChuyenPhong = pl.maPhuLuc.startsWith('PLCP') ||
-                                      (pl.maPhongMoi != null && pl.maPhongMoi!.isNotEmpty);
+                                  final isChuyenPhong =
+                                      pl.maPhuLuc.startsWith('PLCP') ||
+                                      (pl.maPhongMoi != null &&
+                                          pl.maPhongMoi!.isNotEmpty);
                                   return InkWell(
                                     onTap: () {
                                       Navigator.pop(sheetCtx);
@@ -2978,39 +4224,73 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                                       decoration: BoxDecoration(
                                         color: const Color(0xFFF8FAFC),
                                         borderRadius: BorderRadius.circular(14),
-                                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                                        border: Border.all(
+                                          color: const Color(0xFFE2E8F0),
+                                        ),
                                       ),
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           Row(
                                             children: [
                                               Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 8,
+                                                      vertical: 3,
+                                                    ),
                                                 decoration: BoxDecoration(
-                                                  color: isChuyenPhong ? const Color(0xFF0EA5E9) : const Color(0xFF09638E),
-                                                  borderRadius: BorderRadius.circular(6),
+                                                  color: isChuyenPhong
+                                                      ? const Color(0xFF0EA5E9)
+                                                      : const Color(0xFF09638E),
+                                                  borderRadius:
+                                                      BorderRadius.circular(6),
                                                 ),
-                                                child: Text(pl.maPhuLuc,
-                                                  style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Colors.white),
+                                                child: Text(
+                                                  pl.maPhuLuc,
+                                                  style: const TextStyle(
+                                                    fontSize: 10.5,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Colors.white,
+                                                  ),
                                                 ),
                                               ),
                                               const SizedBox(width: 8),
                                               Expanded(
                                                 child: Text(
-                                                  isChuyenPhong ? 'Phụ lục chuyển phòng' : 'Phụ lục gia hạn',
-                                                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
-                                                  overflow: TextOverflow.ellipsis,
+                                                  isChuyenPhong
+                                                      ? 'Phụ lục chuyển phòng'
+                                                      : 'Phụ lục gia hạn',
+                                                  style: const TextStyle(
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Color(0xFF0F172A),
+                                                  ),
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
                                                 ),
                                               ),
                                               Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 6,
+                                                      vertical: 2,
+                                                    ),
                                                 decoration: BoxDecoration(
-                                                  color: const Color(0xFFDCFCE7),
-                                                  borderRadius: BorderRadius.circular(6),
+                                                  color: const Color(
+                                                    0xFFDCFCE7,
+                                                  ),
+                                                  borderRadius:
+                                                      BorderRadius.circular(6),
                                                 ),
-                                                child: const Text('ĐÃ DUYỆT',
-                                                  style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF16A34A)),
+                                                child: const Text(
+                                                  'ĐÃ DUYỆT',
+                                                  style: TextStyle(
+                                                    fontSize: 9.5,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Color(0xFF16A34A),
+                                                  ),
                                                 ),
                                               ),
                                             ],
@@ -3021,49 +4301,94 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                                             padding: const EdgeInsets.all(10),
                                             decoration: BoxDecoration(
                                               color: Colors.white,
-                                              borderRadius: BorderRadius.circular(10),
-                                              border: Border.all(color: const Color(0xFFE2E8F0)),
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                              border: Border.all(
+                                                color: const Color(0xFFE2E8F0),
+                                              ),
                                             ),
-                                            child: Text(pl.noiDungDieuChinh,
-                                              style: const TextStyle(fontSize: 12.5, color: Color(0xFF334155), height: 1.5),
+                                            child: Text(
+                                              pl.noiDungDieuChinh,
+                                              style: const TextStyle(
+                                                fontSize: 12.5,
+                                                color: Color(0xFF334155),
+                                                height: 1.5,
+                                              ),
                                             ),
                                           ),
                                           const SizedBox(height: 10),
                                           Wrap(
                                             spacing: 12,
                                             runSpacing: 6,
-                                            crossAxisAlignment: WrapCrossAlignment.center,
+                                            crossAxisAlignment:
+                                                WrapCrossAlignment.center,
                                             children: [
                                               Row(
                                                 mainAxisSize: MainAxisSize.min,
                                                 children: [
-                                                  const Icon(Icons.calendar_today_rounded, size: 13, color: Color(0xFF94A3B8)),
+                                                  const Icon(
+                                                    Icons
+                                                        .calendar_today_rounded,
+                                                    size: 13,
+                                                    color: Color(0xFF94A3B8),
+                                                  ),
                                                   const SizedBox(width: 4),
-                                                  Text('Ngày lập: ',
-                                                    style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                                                  Text(
+                                                    'Ngày lập: ',
+                                                    style: const TextStyle(
+                                                      fontSize: 11.5,
+                                                      color: Color(0xFF64748B),
+                                                    ),
                                                   ),
                                                 ],
                                               ),
                                               if (pl.giaTheMoi > 0)
                                                 Row(
-                                                  mainAxisSize: MainAxisSize.min,
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
                                                   children: [
-                                                    const Icon(Icons.payments_outlined, size: 13, color: Color(0xFF09638E)),
+                                                    const Icon(
+                                                      Icons.payments_outlined,
+                                                      size: 13,
+                                                      color: Color(0xFF09638E),
+                                                    ),
                                                     const SizedBox(width: 4),
                                                     Text(
                                                       '/tháng',
-                                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF09638E)),
+                                                      style: const TextStyle(
+                                                        fontSize: 12,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        color: Color(
+                                                          0xFF09638E,
+                                                        ),
+                                                      ),
                                                     ),
                                                   ],
                                                 ),
-                                              if (isChuyenPhong && pl.maPhongMoi != null)
+                                              if (isChuyenPhong &&
+                                                  pl.maPhongMoi != null)
                                                 Row(
-                                                  mainAxisSize: MainAxisSize.min,
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
                                                   children: [
-                                                    const Icon(Icons.meeting_room_outlined, size: 13, color: Color(0xFF0EA5E9)),
+                                                    const Icon(
+                                                      Icons
+                                                          .meeting_room_outlined,
+                                                      size: 13,
+                                                      color: Color(0xFF0EA5E9),
+                                                    ),
                                                     const SizedBox(width: 4),
-                                                    Text('→ ',
-                                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0EA5E9)),
+                                                    Text(
+                                                      '→ ',
+                                                      style: const TextStyle(
+                                                        fontSize: 12,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        color: Color(
+                                                          0xFF0EA5E9,
+                                                        ),
+                                                      ),
                                                     ),
                                                   ],
                                                 ),
@@ -3071,7 +4396,8 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                                           ),
                                           const SizedBox(height: 8),
                                           const Row(
-                                            mainAxisAlignment: MainAxisAlignment.end,
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.end,
                                             children: [
                                               Text(
                                                 'Xem chi tiết văn bản →',
@@ -3098,7 +4424,10 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                 },
                 borderRadius: BorderRadius.circular(8),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFDCFCE7),
                     borderRadius: BorderRadius.circular(8),
@@ -3116,7 +4445,11 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                         ),
                       ),
                       const SizedBox(width: 4),
-                      const Icon(Icons.arrow_forward_ios_rounded, size: 10, color: Color(0xFF16A34A)),
+                      const Icon(
+                        Icons.arrow_forward_ios_rounded,
+                        size: 10,
+                        color: Color(0xFF16A34A),
+                      ),
                     ],
                   ),
                 ),
@@ -3125,7 +4458,8 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
           ),
           const SizedBox(height: 14),
           ..._danhSachPhuLuc.map((pl) {
-            final isChuyenPhong = pl.maPhuLuc.startsWith('PLCP') ||
+            final isChuyenPhong =
+                pl.maPhuLuc.startsWith('PLCP') ||
                 (pl.maPhongMoi != null && pl.maPhongMoi!.isNotEmpty);
             final title = isChuyenPhong
                 ? 'Phụ lục chuyển sang phòng ${pl.maPhongMoi ?? ""}'
@@ -3148,7 +4482,10 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                     Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0xFF09638E),
                             borderRadius: BorderRadius.circular(6),
@@ -3177,7 +4514,10 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                         ),
                         const SizedBox(width: 6),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0xFFDCFCE7),
                             borderRadius: BorderRadius.circular(6),
@@ -3211,11 +4551,18 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.calendar_today_rounded, size: 12, color: Color(0xFF94A3B8)),
+                            const Icon(
+                              Icons.calendar_today_rounded,
+                              size: 12,
+                              color: Color(0xFF94A3B8),
+                            ),
                             const SizedBox(width: 4),
                             Text(
                               'Ngày lập: ',
-                              style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF94A3B8),
+                              ),
                             ),
                           ],
                         ),
@@ -3223,7 +4570,11 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.payments_outlined, size: 12, color: Color(0xFF09638E)),
+                              const Icon(
+                                Icons.payments_outlined,
+                                size: 12,
+                                color: Color(0xFF09638E),
+                              ),
                               const SizedBox(width: 4),
                               Text(
                                 'Giá: /tháng',
@@ -3292,7 +4643,11 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                   color: const Color(0xFFEFF6FF),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.draw_rounded, color: _primary, size: 18),
+                child: const Icon(
+                  Icons.draw_rounded,
+                  color: _primary,
+                  size: 18,
+                ),
               ),
               const SizedBox(width: 10),
               const Expanded(
@@ -3333,7 +4688,10 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
               const Expanded(child: Divider(color: Color(0xFFE2E8F0))),
               Container(
                 margin: const EdgeInsets.symmetric(horizontal: 10),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFF8FAFC),
                   borderRadius: BorderRadius.circular(20),
@@ -3352,7 +4710,8 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
           // ── BÊN B (Đại diện Bên Thuê - Người thuê trực tiếp ký) ──
           _buildKhuVucChuKyBenB(
             tenNguoi: rep?.hoTenKhach.toUpperCase() ?? 'HỒ THỊ MỸ DUYÊN',
-            chucVu: 'CCCD: ${rep?.cccd ?? '079201012345'} • SĐT: ${rep?.soDt ?? '0865109632'}',
+            chucVu:
+                'CCCD: ${rep?.cccd ?? '079201012345'} • SĐT: ${rep?.soDt ?? '0865109632'}',
             ngayKy: ngayKy,
             urlChuKy: _urlChuKyBenB,
             control: _controlBenB,
@@ -3374,7 +4733,11 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
             ),
             child: const Row(
               children: [
-                Icon(Icons.info_outline_rounded, size: 14, color: Color(0xFFD97706)),
+                Icon(
+                  Icons.info_outline_rounded,
+                  size: 14,
+                  color: Color(0xFFD97706),
+                ),
                 SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -3412,7 +4775,10 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: _primary,
                     borderRadius: BorderRadius.circular(6),
@@ -3443,7 +4809,10 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                       ),
                       Text(
                         chucVu,
-                        style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: Color(0xFF64748B),
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -3451,7 +4820,10 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFDCFCE7),
                     borderRadius: BorderRadius.circular(20),
@@ -3460,7 +4832,11 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.verified_rounded, size: 12, color: Color(0xFF15803D)),
+                      Icon(
+                        Icons.verified_rounded,
+                        size: 12,
+                        color: Color(0xFF15803D),
+                      ),
                       SizedBox(width: 4),
                       Text(
                         'Đã ký xác nhận',
@@ -3500,7 +4876,11 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                         bottom: 8,
                         child: Opacity(
                           opacity: 0.08,
-                          child: Icon(Icons.verified_user_rounded, size: 80, color: _primary),
+                          child: Icon(
+                            Icons.verified_user_rounded,
+                            size: 80,
+                            color: _primary,
+                          ),
                         ),
                       ),
                       if (urlChuKy != null && urlChuKy.isNotEmpty)
@@ -3533,12 +4913,19 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.verified_rounded, size: 13, color: Color(0xFF16A34A)),
+                    const Icon(
+                      Icons.verified_rounded,
+                      size: 13,
+                      color: Color(0xFF16A34A),
+                    ),
                     const SizedBox(width: 4),
                     Flexible(
                       child: Text(
                         'Ký xác nhận ngày $ngayKy • Ban Quản Lý Nhà Trọ Kiều Giang',
-                        style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B)),
+                        style: const TextStyle(
+                          fontSize: 10.5,
+                          color: Color(0xFF64748B),
+                        ),
                         textAlign: TextAlign.center,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -3551,7 +4938,10 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                 // Ràng buộc bảo mật đối với Bên B
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFF1F5F9),
                     borderRadius: BorderRadius.circular(8),
@@ -3559,7 +4949,11 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                   ),
                   child: const Row(
                     children: [
-                      Icon(Icons.lock_outline_rounded, size: 13, color: Color(0xFF64748B)),
+                      Icon(
+                        Icons.lock_outline_rounded,
+                        size: 13,
+                        color: Color(0xFF64748B),
+                      ),
                       SizedBox(width: 6),
                       Expanded(
                         child: Text(
@@ -3610,7 +5004,10 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFF15803D),
                     borderRadius: BorderRadius.circular(6),
@@ -3641,7 +5038,10 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                       ),
                       Text(
                         chucVu,
-                        style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: Color(0xFF64748B),
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -3650,7 +5050,10 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                 ),
                 if (daKy)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFF16A34A),
                       borderRadius: BorderRadius.circular(20),
@@ -3673,7 +5076,10 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                   )
                 else
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFFEF3C7),
                       borderRadius: BorderRadius.circular(20),
@@ -3721,26 +5127,36 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                               height: 110,
                               width: double.infinity,
                               fit: BoxFit.contain,
-                              errorBuilder: (context, error, stackTrace) => Container(
-                                height: 110,
-                                alignment: Alignment.center,
-                                child: const Text(
-                                  '(Không tải được ảnh chữ ký)',
-                                  style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
-                                ),
-                              ),
+                              errorBuilder: (context, error, stackTrace) =>
+                                  Container(
+                                    height: 110,
+                                    alignment: Alignment.center,
+                                    child: const Text(
+                                      '(Không tải được ảnh chữ ký)',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Color(0xFF94A3B8),
+                                      ),
+                                    ),
+                                  ),
                             ),
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     'Bên B ký ngày $ngayKy',
-                    style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B)),
+                    style: const TextStyle(
+                      fontSize: 10.5,
+                      color: Color(0xFF64748B),
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 7,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFF1F5F9),
                       borderRadius: BorderRadius.circular(8),
@@ -3749,7 +5165,11 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                     child: const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.lock_rounded, size: 12, color: Color(0xFF16A34A)),
+                        Icon(
+                          Icons.lock_rounded,
+                          size: 12,
+                          color: Color(0xFF16A34A),
+                        ),
                         SizedBox(width: 5),
                         Flexible(
                           child: Text(
@@ -3776,7 +5196,11 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                 children: [
                   Row(
                     children: const [
-                      Icon(Icons.touch_app_rounded, size: 13, color: Color(0xFF15803D)),
+                      Icon(
+                        Icons.touch_app_rounded,
+                        size: 13,
+                        color: Color(0xFF15803D),
+                      ),
                       SizedBox(width: 4),
                       Expanded(
                         child: Text(
@@ -3801,7 +5225,10 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: const Color(0xFF86EFAC), width: 1.5),
+                      border: Border.all(
+                        color: const Color(0xFF86EFAC),
+                        width: 1.5,
+                      ),
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(10),
@@ -3846,7 +5273,10 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                         child: OutlinedButton.icon(
                           onPressed: () => control.clear(),
                           icon: const Icon(Icons.clear_rounded, size: 15),
-                          label: const Text('Xóa', style: TextStyle(fontSize: 12.5)),
+                          label: const Text(
+                            'Xóa',
+                            style: TextStyle(fontSize: 12.5),
+                          ),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: const Color(0xFF64748B),
                             side: const BorderSide(color: Color(0xFFCBD5E1)),
@@ -3874,7 +5304,10 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                               : const Icon(Icons.check_rounded, size: 16),
                           label: Text(
                             dangLuu ? 'Đang lưu...' : 'Xác nhận ký Bên B',
-                            style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+                            style: const TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF15803D),
@@ -3941,14 +5374,20 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                     fit: BoxFit.scaleDown,
                     child: Text(
                       'Tải File PDF',
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFE0F2FE),
                     foregroundColor: _primary,
                     elevation: 0,
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 0,
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
                     ),
@@ -3967,7 +5406,8 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                       return;
                     }
                     int daysLeft = 999;
-                    if (_hopDong?.ngayKt != null && _hopDong!.ngayKt.isNotEmpty) {
+                    if (_hopDong?.ngayKt != null &&
+                        _hopDong!.ngayKt.isNotEmpty) {
                       try {
                         final dt = DateTime.parse(_hopDong!.ngayKt);
                         daysLeft = dt.difference(DateTime.now()).inDays;
@@ -3999,14 +5439,20 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                     fit: BoxFit.scaleDown,
                     child: Text(
                       'Gia Hạn Hợp Đồng',
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _primary,
                     foregroundColor: Colors.white,
                     elevation: 0,
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 0,
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
                     ),
@@ -4023,7 +5469,9 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
           child: OutlinedButton.icon(
             onPressed: () async {
               if (!isTerminated && !_isNguoiDaiDien) {
-                _thongBaoKhongCoQuyen(hanhDong: 'Chấm dứt hợp đồng & Trả phòng');
+                _thongBaoKhongCoQuyen(
+                  hanhDong: 'Chấm dứt hợp đồng & Trả phòng',
+                );
                 return;
               }
               final result = await Navigator.push<bool>(
@@ -4044,20 +5492,30 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
             icon: Icon(
               isTerminated ? Icons.verified_rounded : Icons.logout_rounded,
               size: 18,
-              color: isTerminated ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
+              color: isTerminated
+                  ? const Color(0xFF16A34A)
+                  : const Color(0xFFDC2626),
             ),
             label: Text(
-              isTerminated ? 'Xem Biên Bản Thanh Lý Hợp Đồng' : 'Chấm Dứt Hợp Đồng & Trả Phòng',
+              isTerminated
+                  ? 'Xem Biên Bản Thanh Lý Hợp Đồng'
+                  : 'Chấm Dứt Hợp Đồng & Trả Phòng',
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.bold,
-                color: isTerminated ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
+                color: isTerminated
+                    ? const Color(0xFF16A34A)
+                    : const Color(0xFFDC2626),
               ),
             ),
             style: OutlinedButton.styleFrom(
-              backgroundColor: isTerminated ? const Color(0xFFF0FDF4) : const Color(0xFFFEF2F2),
+              backgroundColor: isTerminated
+                  ? const Color(0xFFF0FDF4)
+                  : const Color(0xFFFEF2F2),
               side: BorderSide(
-                color: isTerminated ? const Color(0xFFBBF7D0) : const Color(0xFFFECACA),
+                color: isTerminated
+                    ? const Color(0xFFBBF7D0)
+                    : const Color(0xFFFECACA),
               ),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(14),
@@ -4135,4 +5593,3 @@ class _ThongTinNoiThat {
   final Color bgColor;
   const _ThongTinNoiThat(this.icon, this.color, this.bgColor);
 }
-

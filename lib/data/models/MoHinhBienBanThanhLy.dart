@@ -11,8 +11,7 @@ class BienBanThanhLyModel {
   final double tienKhTraThem;
   final double tienCocHoanLai;
   final String ghiChu;
-  final String trangThai; // 'Chờ duyệt' | 'Đã duyệt' | 'Từ chối'
-  final String? loaiTraPhong; // 'Đúng hạn' | 'Trước hạn'
+  final String trangThai; // 'CHO_DUYET' | 'DA_DUYET' | 'TU_CHOI'
   final String? anhDongHoDien;
   final String? anhDongHoNuoc;
 
@@ -25,11 +24,40 @@ class BienBanThanhLyModel {
     required this.tienKhTraThem,
     required this.tienCocHoanLai,
     this.ghiChu = '',
-    this.trangThai = 'Chờ duyệt',
-    this.loaiTraPhong,
+    this.trangThai = 'CHO_DUYET',
     this.anhDongHoDien,
     this.anhDongHoNuoc,
   });
+
+  bool get isChoDuyet {
+    final s = trangThai.trim().toUpperCase();
+    return s == 'CHO_DUYET' ||
+        s == 'CHỜ DUYỆT' ||
+        s == 'CHO DUYET' ||
+        s == 'PENDING' ||
+        s.startsWith('CHỜ');
+  }
+
+  bool get isDaDuyet {
+    if (isChoDuyet) return false;
+    final s = trangThai.trim().toUpperCase();
+    return s == 'DA_DUYET' ||
+        s == 'ĐÃ DUYỆT' ||
+        s == 'DA DUYET' ||
+        s == 'APPROVED' ||
+        s == 'THANH_CONG' ||
+        s == 'THÀNH CÔNG';
+  }
+
+  bool get isTuChoi {
+    final s = trangThai.trim().toUpperCase();
+    return s == 'TU_CHOI' ||
+        s == 'TỪ CHỐI' ||
+        s == 'TU CHOI' ||
+        s == 'REJECTED' ||
+        s == 'DA_HUY' ||
+        s == 'ĐÃ HỦY';
+  }
 
   factory BienBanThanhLyModel.fromJson(Map<String, dynamic> json) {
     String tt = json['trang_thai']?.toString() ?? '';
@@ -39,9 +67,9 @@ class BienBanThanhLyModel {
     if (tt.isEmpty) {
       final match = RegExp(r'\[Trạng thái:\s*([^\]]+)\]').firstMatch(gc);
       if (match != null) {
-        tt = match.group(1)?.trim() ?? 'Chờ duyệt';
+        tt = match.group(1)?.trim() ?? 'CHO_DUYET';
       } else {
-        tt = 'Chờ duyệt';
+        tt = 'CHO_DUYET';
       }
     }
     // Dọn dẹp tiền tố [Trạng thái: ...] trong ghi chú để trường ghi_chu sạch sẽ
@@ -57,7 +85,6 @@ class BienBanThanhLyModel {
       tienCocHoanLai: (num.tryParse(json['tien_coc_hoan_lai']?.toString() ?? '') ?? 0).toDouble(),
       ghiChu: gc,
       trangThai: tt,
-      loaiTraPhong: json['loai_tra_phong']?.toString(),
       anhDongHoDien: json['anh_dong_ho_dien']?.toString(),
       anhDongHoNuoc: json['anh_dong_ho_nuoc']?.toString(),
     );
@@ -75,9 +102,6 @@ class BienBanThanhLyModel {
       'ghi_chu': ghiChu,
       'trang_thai': trangThai,
     };
-    if (loaiTraPhong != null) {
-      map['loai_tra_phong'] = loaiTraPhong;
-    }
     if (anhDongHoDien != null) {
       map['anh_dong_ho_dien'] = anhDongHoDien;
     }
