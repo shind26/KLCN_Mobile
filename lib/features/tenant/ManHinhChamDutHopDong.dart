@@ -154,6 +154,26 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
 
   /// Gửi đơn yêu cầu trả phòng lên Supabase
   Future<void> _guiYeuCauTraPhong() async {
+    // 0. Kiểm tra ngày dự kiến dọn đi: Phải trong vòng 30 ngày tới kể từ hôm nay
+    final nowCheck = DateTime.now();
+    final todayOnly = DateTime(nowCheck.year, nowCheck.month, nowCheck.day);
+    final chosenOnly = DateTime(_ngayDuKien.year, _ngayDuKien.month, _ngayDuKien.day);
+    final diffDays = chosenOnly.difference(todayOnly).inDays;
+
+    if (diffDays < 1 || diffDays > 30) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            diffDays > 30
+                ? 'Ngày dự kiến dọn đi chỉ được chọn trong vòng 30 ngày tới kể từ hôm nay (không được chọn ngày quá xa).'
+                : 'Ngày dự kiến dọn đi phải từ ngày mai trở đi.',
+          ),
+          backgroundColor: const Color(0xFFDC2626),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
     // Đảm bảo logic trước khi gửi: nếu không đủ điều kiện đúng hạn thì luôn là Trước hạn
     if (!_duDieuKienDungHan && _isDungHan) {
       _isDungHan = false;
@@ -384,15 +404,22 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
   /// Chọn ngày dự kiến dọn đi
   Future<void> _chonNgayDuKien() async {
     final now = DateTime.now();
-    final initialDate = _ngayDuKien.isBefore(now.add(const Duration(days: 1)))
-        ? now.add(const Duration(days: 15))
-        : _ngayDuKien;
+    final minDate = now.add(const Duration(days: 1));
+    final maxDate = now.add(const Duration(days: 30));
+
+    DateTime initialDate = _ngayDuKien;
+    if (initialDate.isBefore(minDate)) {
+      initialDate = minDate;
+    } else if (initialDate.isAfter(maxDate)) {
+      initialDate = maxDate;
+    }
 
     final picked = await showDatePicker(
       context: context,
       initialDate: initialDate,
-      firstDate: now.add(const Duration(days: 1)),
-      lastDate: now.add(const Duration(days: 365 * 3)),
+      firstDate: minDate,
+      lastDate: maxDate,
+      helpText: 'CHỌN NGÀY DỰ KIẾN DỌN ĐI (TỐI ĐA 30 NGÀY)',
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -1022,7 +1049,7 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
                       SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Vào ngày dọn đi, Ban Quản Lý sẽ gặp bạn trực tiếp tại phòng để chốt điện nước, kiểm tra đồ đạc và tất toán tiền cọc.',
+                          'Quy định trả phòng: Vui lòng chọn ngày dự kiến dọn đi trong vòng 30 ngày tới (thông báo trước tối thiểu 15 ngày). Vào ngày dọn đi, Ban Quản Lý sẽ gặp bạn trực tiếp tại phòng để chốt điện nước, kiểm tra đồ đạc và tất toán tiền cọc.',
                           style: TextStyle(fontSize: 12, color: _textMuted, height: 1.4),
                         ),
                       ),
@@ -1190,7 +1217,7 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    diffDays > 0 ? 'Dự kiến sau $diffDays ngày' : 'Hôm nay',
+                    diffDays > 0 ? 'Dự kiến sau $diffDays ngày (tối đa trong vòng 30 ngày)' : 'Hôm nay',
                     style: const TextStyle(fontSize: 11.5, color: _textMuted),
                   ),
                 ],

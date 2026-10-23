@@ -1,4 +1,4 @@
-import 'dart:math';
+﻿import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:nhatro_kieugiang/core/services/DichVuSms.dart';
 import 'package:nhatro_kieugiang/core/services/DichVuXacThuc.dart';
@@ -8,9 +8,11 @@ import 'package:nhatro_kieugiang/features/tenant/ManHinhBanGiaoVaCapNhatHoSo.dar
 import 'package:nhatro_kieugiang/features/tenant/ManHinhTrangChuCuDan.dart';
 import 'package:nhatro_kieugiang/core/utils/ThongBaoHelper.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:nhatro_kieugiang/core/utils/LienHeHelper.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  final String? accountLockedMessage;
+  const LoginScreen({super.key, this.accountLockedMessage});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -41,6 +43,13 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   void initState() {
     super.initState();
+
+    if (widget.accountLockedMessage != null && widget.accountLockedMessage!.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _hienThiThongBaoKhoaTaiKhoan(widget.accountLockedMessage!);
+      });
+    }
 
     // Background orb pulse animation
     _orbController = AnimationController(
@@ -131,6 +140,100 @@ class _LoginScreenState extends State<LoginScreen>
     }
   }
 
+  void _hienThiThongBaoKhoaTaiKhoan(String message) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        contentPadding: const EdgeInsets.fromLTRB(22, 24, 22, 20),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFFBEB),
+                shape: BoxShape.circle,
+                border: Border.all(color: const Color(0xFFFDE68A), width: 1.5),
+              ),
+              child: const Icon(
+                Icons.lock_outline_rounded,
+                color: Color(0xFFD97706),
+                size: 30,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'TÀI KHOẢN ĐÃ BỊ TẠM KHÓA',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFFB45309),
+                letterSpacing: 0.3,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFFDF5),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFFEF3C7)),
+              ),
+              child: Text(
+                message,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFF78350F),
+                  height: 1.5,
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.pop(ctx);
+                LienHeHelper.hienThiLuaChonLienHe(context);
+              },
+              icon: const Icon(Icons.phone_in_talk_rounded, size: 18),
+              label: const Text(
+                'Liên hệ Ban Quản Lý (0328.004.663)',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF09638E),
+                foregroundColor: Colors.white,
+                minimumSize: const Size(double.infinity, 44),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 0,
+              ),
+            ),
+            const SizedBox(height: 6),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text(
+                'Đã hiểu',
+                style: TextStyle(
+                  color: Color(0xFF64748B),
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _handleLogin() async {
     if (_isLoading) return;
     FocusScope.of(context).unfocus();
@@ -163,12 +266,16 @@ class _LoginScreenState extends State<LoginScreen>
           _errorMessage = err;
           _isLoading = false;
         });
-        ThongBaoHelper.hienToast(
-          context,
-          tieuDe: 'Đăng nhập thất bại',
-          noiDung: err,
-          type: ThongBaoType.thatBai,
-        );
+        if (err.toLowerCase().contains('khóa') || err.toLowerCase().contains('tamkhoa')) {
+          _hienThiThongBaoKhoaTaiKhoan(err);
+        } else {
+          ThongBaoHelper.hienToast(
+            context,
+            tieuDe: 'Đăng nhập thất bại',
+            noiDung: err,
+            type: ThongBaoType.thatBai,
+          );
+        }
         return;
       }
 
@@ -223,6 +330,26 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Future<void> _kiemTraVaDieuHuong(UserModel user) async {
+    // Kiểm tra trực tiếp trạng thái tài khoản từ Supabase
+    try {
+      final db = Supabase.instance.client;
+      final accRes = await db
+          .from('tai_khoan')
+          .select('trang_thai')
+          .eq('ma_tai_khoan', user.maTaiKhoan)
+          .maybeSingle();
+      final st = accRes?['trang_thai']?.toString() ?? '';
+      if (st.toLowerCase() == 'tamkhoa' || (accRes != null && st.toLowerCase() != 'hoatdong')) {
+        await AuthService.logout();
+        if (!mounted) return;
+        setState(() => _isLoading = false);
+        _hienThiThongBaoKhoaTaiKhoan(
+          'Tài khoản của bạn đã bị TẠM KHÓA do hóa đơn phòng quá hạn từ 10 ngày trở lên theo quy chế tòa nhà.\nVui lòng liên hệ Ban Quản Lý (0328.004.663) để được hỗ trợ mở lại!',
+        );
+        return;
+      }
+    } catch (_) {}
+
     // Nếu là Admin hoặc Quản lý: vào thẳng giao diện tương ứng
     if (user.isAdmin || user.vaiTro.toLowerCase() == 'quanly') {
       Navigator.pushAndRemoveUntil(

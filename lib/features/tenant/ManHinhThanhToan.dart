@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -9,6 +9,7 @@ import 'package:flutter/services.dart'
 import 'package:gal/gal.dart';
 import 'package:http/http.dart' as http;
 import 'package:nhatro_kieugiang/core/services/DichVuThongBaoHeThong.dart';
+import 'package:nhatro_kieugiang/core/services/DichVuXacThuc.dart';
 import 'package:nhatro_kieugiang/core/services/VnPayService.dart';
 import 'package:nhatro_kieugiang/core/utils/AmThanhThanhToanHelper.dart';
 import 'package:nhatro_kieugiang/core/utils/ThongBaoHelper.dart';
@@ -462,6 +463,47 @@ class _PaymentScreenState extends State<PaymentScreen>
     accountNo: _accountNo,
   );
 
+  /// Tự động cập nhật tài khoản thành 'TamKhoa' trên Supabase nếu trễ hạn >= 10 ngày
+  Future<void> _autoLockAccountIfOverdue() async {
+    try {
+      final db = Supabase.instance.client;
+      String? accountId = AuthService.currentUser?.maTaiKhoan;
+      if (accountId == null || accountId.isEmpty) {
+        final hdRow = await db
+            .from('hop_dong')
+            .select('ma_khach_dai_dien')
+            .eq('ma_hop_dong', widget.hoaDon.maHopDong)
+            .maybeSingle();
+        if (hdRow != null) {
+          final maKhach = hdRow['ma_khach_dai_dien'];
+          if (maKhach != null) {
+            final ktRow = await db
+                .from('khach_thue')
+                .select('ma_tai_khoan')
+                .eq('ma_khach', maKhach)
+                .maybeSingle();
+            accountId = ktRow?['ma_tai_khoan']?.toString();
+          }
+        }
+      }
+
+      if (accountId != null && accountId.isNotEmpty) {
+        await db
+            .from('tai_khoan')
+            .update({'trang_thai': 'TamKhoa'})
+            .eq('ma_tai_khoan', accountId);
+        final cur = AuthService.currentUser;
+        if (cur != null && cur.maTaiKhoan == accountId) {
+          AuthService.currentUserNotifier.value =
+              cur.copyWith(trangThai: 'TamKhoa');
+        }
+        debugPrint('[AUTO_LOCK] ManHinhThanhToan: Đã cập nhật tai_khoan $accountId sang TamKhoa');
+      }
+    } catch (e) {
+      debugPrint('[AUTO_LOCK] ManHinhThanhToan lỗi khóa tài khoản: $e');
+    }
+  }
+
   // VietQR Image URL – mẫu qr_only (vuông 1:1, ma trận QR thuần túy)
   String get _vietQrUrl => VietQrHelper.buildVietQrImageUrl(
     amount: _soTienCanThanhToan.toDouble(),
@@ -520,6 +562,13 @@ Nội dung: ${widget.hoaDon.noiDungChuyenKhoan}''';
 
     final db = Supabase.instance.client;
     final maHoaDon = widget.hoaDon.maHoaDon.trim();
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    // ma_phieu_thu là varchar(10) trong Supabase: 'PT' + 8 số cuối của timestamp
+    final maPhieuThu = 'PT${(timestamp % 100000000).toString().padLeft(8, '0')}';
+    final maTraCuu = 'FT26${(timestamp % 1000000000000).toString().padLeft(12, '0')}';
+    final String hinhThucThu = (reason != null && reason.contains('VNPAY'))
+        ? 'Cổng VNPAY'
+        : 'Chuyển khoản MB Bank';
 
     try {
       // 1. CẬP NHẬT TRẠNG THÁI HÓA ĐƠN
@@ -546,24 +595,34 @@ Nội dung: ${widget.hoaDon.noiDungChuyenKhoan}''';
 
       // 2. GHI LỊCH SỬ VÀO BẢNG phieu_thu CHO TỪNG ĐỢT RIÊNG BIỆT
       try {
-        final timestamp = DateTime.now().millisecondsSinceEpoch;
-        final maPhieuThu = 'PT_${maHoaDon}_$timestamp';
-        final ghiChuThu = isAllOrStep2
-            ? (_isPayingRemainingDebt
-                  ? 'Thanh toán Đợt 2 (Tất toán)'
-                  : 'Thanh toán toàn bộ')
-            : 'Thanh toán Đợt 1 (50%)';
-
         await db.from('phieu_thu').insert({
           'ma_phieu_thu': maPhieuThu,
           'ma_hoa_don': maHoaDon,
-          'so_tien': _soTienCanThanhToan,
-          'phuong_thuc': 'VNPAY',
+          'ma_tra_cuu': maTraCuu,
+          'so_tien_thu': _soTienCanThanhToan,
+          'hinh_thuc': hinhThucThu,
           'ngay_thu': DateTime.now().toIso8601String(),
-          'ghi_chu': ghiChuThu,
+          'trang_thai': 'Đã thanh toán',
         });
+        debugPrint('[PHIEU_THU] Đã ghi nhận phiếu thu thành công: $maPhieuThu cho hóa đơn $maHoaDon');
       } catch (ePt) {
         debugPrint('[PHIEU_THU] Lỗi lưu phiếu thu: $ePt');
+      }
+
+      // Tự động mở lại tài khoản về HoatDong trên Supabase khi thanh toán hoàn tất
+      final curUser = AuthService.currentUser;
+      if (curUser != null && curUser.maTaiKhoan.isNotEmpty) {
+        try {
+          await db
+              .from('tai_khoan')
+              .update({'trang_thai': 'HoatDong'})
+              .eq('ma_tai_khoan', curUser.maTaiKhoan);
+          AuthService.currentUserNotifier.value =
+              curUser.copyWith(trangThai: 'HoatDong');
+          debugPrint('[AUTO_UNLOCK] Đã mở lại HoatDong cho tài khoản ${curUser.maTaiKhoan}');
+        } catch (eTk) {
+          debugPrint('[AUTO_UNLOCK] Lỗi mở lại tài khoản: $eTk');
+        }
       }
 
       if (mounted) widget.onPaymentSuccess?.call(_soTienCanThanhToan);
@@ -618,6 +677,7 @@ Nội dung: ${widget.hoaDon.noiDungChuyenKhoan}''';
           amountPaid: _soTienCanThanhToan, // 2.100.000đ khi trả từng đợt
           tenDot:
               tenDot, // Thêm dòng này để biên lai hiện "Đợt 1 / 2" hoặc "Đợt 2 / 2"
+          transactionRef: maTraCuu,
         ),
       ),
     );
@@ -1095,34 +1155,25 @@ Nội dung: ${widget.hoaDon.noiDungChuyenKhoan}''';
                     child: Column(
                       children: [
                         Text(
-                          _soNgayQuaHan >= 10
-                              ? (_isPayingRemainingDebt
-                                  ? '🔒 ĐÃ KHÓA VÂN TAY (Trễ hạn Đợt 2 $_soNgayQuaHan ngày)'
-                                  : '🔒 ĐÃ KHÓA VÂN TAY (Trễ hạn $_soNgayQuaHan ngày)')
-                              : (_isPayingRemainingDebt
-                                  ? '⚠️ CẢNH BÁO: Sắp khóa vân tay nếu không đóng nợ Đợt 2 (Trễ $_soNgayQuaHan ngày)'
-                                  : '⚠️ CẢNH BÁO: Sắp khóa vân tay nếu không thanh toán (Trễ $_soNgayQuaHan ngày)'),
+                          _isPayingRemainingDebt
+                              ? '⚠️ KHOẢN NỢ ĐỢT 2 QUÁ HẠN ' + _soNgayQuaHan.toString() + ' NGÀY'
+                              : '⚠️ HÓA ĐƠN ĐANG QUÁ HẠN ' + _soNgayQuaHan.toString() + ' NGÀY',
                           textAlign: TextAlign.center,
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
-                            color: _soNgayQuaHan >= 10
-                                ? const Color(0xFFDC2626)
-                                : const Color(0xFFB45309),
+                            color: Color(0xFFDC2626),
                           ),
                         ),
-                        if (_soNgayQuaHan >= 10) ...[
-                          const SizedBox(height: 4),
-                          const Text(
-                            'Sau khi thanh toán, vui lòng liên hệ BQL qua SĐT/Zalo 0328.004.663 để được hỗ trợ mở lại vân tay.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 10.5,
-                              color: Color(0xFF991B1B),
-                              fontWeight: FontWeight.w500,
-                            ),
+                        const SizedBox(height: 3),
+                        const Text(
+                          'Quý khách vui lòng thanh toán để hoàn tất nghĩa vụ tiền phòng kỳ này.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            color: Color(0xFF7F1D1D),
                           ),
-                        ],
+                        ),
                       ],
                     ),
                   ),
@@ -1302,13 +1353,11 @@ Nội dung: ${widget.hoaDon.noiDungChuyenKhoan}''';
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        isLocked
-                            ? '🔒 ĐÃ KHÓA VÂN TAY (TRỄ ĐỢT 2 $_soNgayQuaHan NGÀY)'
-                            : (isWarn
-                                ? '⚠️ CẢNH BÁO SẮP KHÓA VÂN TAY (TRỄ ĐỢT 2)'
-                                : (isOverdue
-                                    ? 'TRỄ HẠN ĐỢT 2 $_soNgayQuaHan NGÀY'
-                                    : 'THANH TOÁN KHOẢN NỢ CÒN LẠI (ĐỢT 2)')),
+                        _isPayingRemainingDebt
+                            ? 'TRỄ HẠN ĐỢT 2 $_soNgayQuaHan NGÀY'
+                            : (isOverdue
+                                ? 'HÓA ĐƠN QUÁ HẠN $_soNgayQuaHan NGÀY'
+                                : 'THANH TOÁN HÓA ĐƠN TIỀN PHÒNG'),
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w800,
@@ -1339,11 +1388,7 @@ Nội dung: ${widget.hoaDon.noiDungChuyenKhoan}''';
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    isLocked
-                        ? 'Đã khóa vân tay'
-                        : (isWarn
-                            ? 'Sắp khóa vân tay'
-                            : (isOverdue ? 'Quá hạn Đợt 2' : 'Đợt 2/2')),
+                    isOverdue ? 'Quá hạn $_soNgayQuaHan ngày' : 'Đợt 2/2',
                     style: const TextStyle(
                       fontSize: 10.5,
                       fontWeight: FontWeight.bold,
@@ -1375,13 +1420,9 @@ Nội dung: ${widget.hoaDon.noiDungChuyenKhoan}''';
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      isLocked
-                          ? 'Khoản nợ Đợt 2 đã quá hạn $_soNgayQuaHan ngày (từ 10 ngày trở lên). Hệ thống ĐÃ KHÓA VÂN TAY ra vào phòng. Quý khách vui lòng thanh toán nốt ${FormatUtils.currency(_tongTien.toDouble())}đ hoặc liên hệ BQL qua SĐT/Zalo 0328.004.663 để được hỗ trợ mở khóa.'
-                          : (isWarn
-                              ? 'Khoản nợ Đợt 2 đã quá hạn $_soNgayQuaHan ngày từ ngày ${widget.hoaDon.hanDongTienFormatted}. Nếu không tiếp tục đóng tiền trước ngày thứ 10 quá hạn, hệ thống sẽ TẠM KHÓA VÂN TAY ra vào. Vui lòng thanh toán ${FormatUtils.currency(_tongTien.toDouble())}đ ngay.'
-                              : (isOverdue
-                                  ? 'Khoản nợ Đợt 2 đã trễ hạn từ ngày ${widget.hoaDon.hanDongTienFormatted}. Quý khách vui lòng thanh toán ${FormatUtils.currency(_tongTien.toDouble())}đ sớm để tránh bị khóa vân tay ra vào (khi trễ từ 5-10 ngày).'
-                                  : 'Hóa đơn đang còn nợ ${FormatUtils.currency(_tongTien.toDouble())}. Quý khách vui lòng chuyển khoản toàn bộ số tiền này để tất toán hóa đơn (khoản nợ còn lại không áp dụng chia nhỏ thêm đợt).')),
+                      isOverdue
+                          ? 'Khoản nợ đã trễ hạn $_soNgayQuaHan ngày từ ngày ${widget.hoaDon.hanDongTienFormatted}. Quý khách vui lòng thanh toán ${FormatUtils.currency(_tongTien.toDouble())}đ để hoàn tất hóa đơn kỳ này.'
+                          : 'Hóa đơn đang còn nợ ${FormatUtils.currency(_tongTien.toDouble())}. Quý khách vui lòng chuyển khoản toàn bộ số tiền này để tất toán hóa đơn.',
                       style: TextStyle(
                         fontSize: 11.5,
                         color: isOverdue ? const Color(0xFF7F1D1D) : const Color(0xFF78350F),
@@ -1493,7 +1534,7 @@ Nội dung: ${widget.hoaDon.noiDungChuyenKhoan}''';
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Hóa đơn đã quá hạn thanh toán nên không áp dụng hình thức chia 2 đợt. Quý khách vui lòng thanh toán toàn bộ số tiền để tránh gián đoạn dịch vụ và khóa vân tay ra vào.',
+                      'Hóa đơn đã quá hạn thanh toán nên không áp dụng hình thức chia 2 đợt. Quý khách vui lòng thanh toán toàn bộ số tiền để tránh gián đoạn dịch vụ lưu trú.',
                       style: const TextStyle(
                         fontSize: 11.5,
                         color: Color(0xFF7F1D1D),

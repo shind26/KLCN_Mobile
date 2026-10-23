@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 
 import 'package:bcrypt/bcrypt.dart';
 import 'package:flutter/foundation.dart';
@@ -77,7 +77,37 @@ class AuthService {
       );
       if (userJsonStr != null && userJsonStr.isNotEmpty) {
         final Map<String, dynamic> userMap = jsonDecode(userJsonStr);
-        currentUserNotifier.value = UserModel.fromJson(userMap);
+        final localUser = UserModel.fromJson(userMap);
+
+        // Kiểm tra trực tiếp trạng thái tài khoản từ Supabase để chống lọt tài khoản bị TamKhoa
+        try {
+          final res = await Supabase.instance.client
+              .from('tai_khoan')
+              .select()
+              .eq('ma_tai_khoan', localUser.maTaiKhoan)
+              .maybeSingle();
+          if (res != null) {
+            final latestUser = UserModel.fromJson(Map<String, dynamic>.from(res));
+            final dbStatus = res['trang_thai']?.toString() ?? latestUser.trangThai;
+            if (dbStatus.toLowerCase() == 'tamkhoa' || !latestUser.isActive) {
+              debugPrint(
+                '>>> [AuthService.init] Tài khoản ${latestUser.maTaiKhoan} có trạng thái $dbStatus trên Supabase -> Tự động đăng xuất!',
+              );
+              await logout();
+              return;
+            }
+            currentUserNotifier.value = latestUser;
+            return;
+          }
+        } catch (eDb) {
+          debugPrint('>>> [AuthService.init] Lỗi đồng bộ Supabase: $eDb');
+        }
+
+        if (!localUser.isActive) {
+          await logout();
+          return;
+        }
+        currentUserNotifier.value = localUser;
         debugPrint(
           '>>> [AuthService.init] Phục hồi phiên đăng nhập thành công: ${currentUserNotifier.value?.tenDangNhap} (Vai trò: ${currentUserNotifier.value?.vaiTro})',
         );
@@ -128,10 +158,11 @@ class AuthService {
       }
 
       final user = UserModel.fromJson(Map<String, dynamic>.from(res));
-      if (!user.isActive) {
+      final dbStatus = res['trang_thai']?.toString() ?? user.trangThai;
+      if (dbStatus.toLowerCase() == 'tamkhoa' || !user.isActive) {
         return (
           success: false,
-          error: 'Tài khoản đang bị tạm khóa. Vui lòng liên hệ BQL!',
+          error: 'Tài khoản của bạn đã bị TẠM KHÓA do hóa đơn quá hạn từ 10 ngày trở lên. Vui lòng liên hệ Ban Quản Lý (0328.004.663) để được hỗ trợ mở lại!',
           user: null,
         );
       }
@@ -176,10 +207,11 @@ class AuthService {
       UserModel user;
       if (res != null) {
         user = UserModel.fromJson(Map<String, dynamic>.from(res));
-        if (!user.isActive) {
+        final dbStatus = res['trang_thai']?.toString() ?? user.trangThai;
+        if (dbStatus.toLowerCase() == 'tamkhoa' || !user.isActive) {
           return (
             success: false,
-            error: 'Tài khoản đang bị tạm khóa. Vui lòng liên hệ BQL!',
+            error: 'Tài khoản của bạn đã bị TẠM KHÓA do hóa đơn quá hạn từ 10 ngày trở lên. Vui lòng liên hệ Ban Quản Lý (0328.004.663) để được hỗ trợ mở lại!',
             user: null,
           );
         }

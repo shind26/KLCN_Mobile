@@ -10,8 +10,10 @@ import 'package:nhatro_kieugiang/core/utils/TienIchDinhDang.dart';
 import 'package:nhatro_kieugiang/core/widgets/LoadingMeoMeo.dart';
 import 'package:nhatro_kieugiang/core/utils/LienHeHelper.dart';
 import 'package:nhatro_kieugiang/data/models/MoHinhHopDong.dart';
+import 'package:nhatro_kieugiang/data/models/MoHinhNguoiDung.dart';
 import 'package:nhatro_kieugiang/data/models/MoHinhPhong.dart';
 import 'package:nhatro_kieugiang/features/guest/ManHinhTrangChuKhach.dart';
+import 'package:nhatro_kieugiang/features/auth/ManHinhDangNhap.dart';
 import 'package:nhatro_kieugiang/features/tenant/ManHinhBaoSuCo.dart';
 import 'package:nhatro_kieugiang/features/tenant/ManHinhBienBanBanGiaoTaiSan.dart';
 import 'package:nhatro_kieugiang/features/tenant/ManHinhChamDutHopDong.dart';
@@ -550,25 +552,14 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
 
         if (isOverdue) {
           // Bắn thông báo chuông và banner hệ thống nhắc nhở quá hạn
-          if (overdueDays >= 10) {
+          if (overdueDays >= 5) {
             SystemNotificationService.show(
               title: isPartialDebt
-                  ? '🔒 ĐÃ KHÓA VÂN TAY (Nợ Đợt 2 trễ hạn $overdueDays ngày)'
-                  : '🔒 ĐÃ KHÓA VÂN TAY (Trễ hạn $overdueDays ngày)',
+                  ? '⚠️ CẢNH BÁO TRỄ HẠN ĐỢT 2 $overdueDays NGÀY'
+                  : '⚠️ CẢNH BÁO TRỄ HẠN $overdueDays NGÀY',
               body: isPartialDebt
-                  ? 'Vân tay của bạn ĐÃ BỊ TẠM KHÓA do nợ Đợt 2 hóa đơn ${_hoaDonMoiNhat!.maHoaDon} quá hạn $overdueDays ngày. Vui lòng thanh toán hoặc liên hệ BQL qua SĐT/Zalo ${LienHeHelper.defaultHotlineDisplay} để được hỗ trợ mở khóa.'
-                  : 'Vân tay của bạn ĐÃ BỊ TẠM KHÓA do hóa đơn ${_hoaDonMoiNhat!.maHoaDon} quá hạn $overdueDays ngày. Vui lòng thanh toán hoặc liên hệ BQL qua SĐT/Zalo ${LienHeHelper.defaultHotlineDisplay} để được hỗ trợ mở khóa.',
-              tag: 'bill_locked_${_hoaDonMoiNhat!.maHoaDon}',
-              loai: 'hoa_don',
-            );
-          } else if (overdueDays >= 5) {
-            SystemNotificationService.show(
-              title: isPartialDebt
-                  ? '⚠️ CẢNH BÁO TRỄ HẠN ĐỢT 2 $overdueDays NGÀY: SẮP KHÓA VÂN TAY'
-                  : '⚠️ CẢNH BÁO TRỄ HẠN $overdueDays NGÀY: SẮP KHÓA VÂN TAY',
-              body: isPartialDebt
-                  ? 'Khoản nợ Đợt 2 hóa đơn ${_hoaDonMoiNhat!.maHoaDon} đã quá hạn $overdueDays ngày. Nếu không tiếp tục đóng tiền, hệ thống sẽ tạm khóa vân tay ra vào phòng của bạn. Vui lòng thanh toán ngay!'
-                  : 'Hóa đơn ${_hoaDonMoiNhat!.maHoaDon} đã quá hạn $overdueDays ngày. Nếu không tiếp tục đóng tiền, hệ thống sẽ tạm khóa vân tay ra vào phòng của bạn. Vui lòng thanh toán ngay!',
+                  ? 'Khoản nợ Đợt 2 hóa đơn ${_hoaDonMoiNhat!.maHoaDon} đã quá hạn $overdueDays ngày. Vui lòng thanh toán sớm!'
+                  : 'Hóa đơn ${_hoaDonMoiNhat!.maHoaDon} đã quá hạn $overdueDays ngày. Vui lòng thanh toán sớm!',
               tag: 'bill_warn_5d_${_hoaDonMoiNhat!.maHoaDon}',
               loai: 'hoa_don',
             );
@@ -595,20 +586,13 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
           noiDungNotif = isPartialDebt
               ? 'Khoản nợ Đợt 2 (${FormatUtils.currency(_hoaDonMoiNhat!.tongTien)}) chưa thanh toán. Hạn nộp: ${_hoaDonMoiNhat!.hanDongTienFormatted}.'
               : 'Hóa đơn tháng này (${FormatUtils.currency(_hoaDonMoiNhat!.tongTien)}) chưa thanh toán. Hạn nộp: ${_hoaDonMoiNhat!.hanDongTienFormatted}.';
-        } else if (overdueDays >= 10) {
-          tieuDeNotif = isPartialDebt
-              ? '🔒 ĐÃ KHÓA VÂN TAY (NỢ ĐỢT 2 QUÁ HẠN $overdueDays NGÀY)'
-              : '🔒 ĐÃ KHÓA VÂN TAY (QUÁ HẠN $overdueDays NGÀY)';
-          noiDungNotif = isPartialDebt
-              ? 'Vân tay ra vào phòng ĐÃ BỊ TẠM KHÓA do nợ Đợt 2 hóa đơn ${_hoaDonMoiNhat!.maHoaDon} trễ hạn $overdueDays ngày. Vui lòng liên hệ BQL qua SĐT hoặc Zalo: ${LienHeHelper.defaultHotlineDisplay} (hoặc thanh toán để mở lại).'
-              : 'Vân tay ra vào phòng ĐÃ BỊ TẠM KHÓA do hóa đơn ${_hoaDonMoiNhat!.maHoaDon} trễ hạn $overdueDays ngày. Vui lòng liên hệ BQL qua SĐT hoặc Zalo: ${LienHeHelper.defaultHotlineDisplay} (hoặc thanh toán để mở lại).';
         } else if (overdueDays >= 5) {
           tieuDeNotif = isPartialDebt
-              ? '⚠️ TRỄ HẠN ĐỢT 2 $overdueDays NGÀY (CẢNH BÁO KHÓA VÂN TAY)'
-              : '⚠️ TRỄ HẠN $overdueDays NGÀY (CẢNH BÁO KHÓA VÂN TAY)';
+              ? '⚠️ CẢNH BÁO TRỄ HẠN ĐỢT 2 $overdueDays NGÀY'
+              : '⚠️ CẢNH BÁO TRỄ HẠN $overdueDays NGÀY';
           noiDungNotif = isPartialDebt
-              ? 'Khoản nợ Đợt 2 hóa đơn ${_hoaDonMoiNhat!.maHoaDon} quá hạn $overdueDays ngày. Nếu không tiếp tục đóng tiền, BQL sẽ tạm khóa vân tay ra vào. Số tiền còn nợ: ${FormatUtils.currency(_hoaDonMoiNhat!.tongTien)}. Bấm để thanh toán.'
-              : 'Hóa đơn ${_hoaDonMoiNhat!.maHoaDon} quá hạn $overdueDays ngày. Nếu không tiếp tục đóng tiền, BQL sẽ tạm khóa vân tay ra vào. Tổng tiền: ${FormatUtils.currency(_hoaDonMoiNhat!.tongTien)}. Bấm để thanh toán.';
+              ? 'Khoản nợ Đợt 2 hóa đơn ${_hoaDonMoiNhat!.maHoaDon} quá hạn $overdueDays ngày. Số tiền nợ: ${FormatUtils.currency(_hoaDonMoiNhat!.tongTien)}. Bấm để thanh toán.'
+              : 'Hóa đơn ${_hoaDonMoiNhat!.maHoaDon} quá hạn $overdueDays ngày. Tổng tiền: ${FormatUtils.currency(_hoaDonMoiNhat!.tongTien)}. Bấm để thanh toán.';
         } else {
           tieuDeNotif = isPartialDebt
               ? '⚠️ NỢ ĐỢT 2 QUÁ HẠN $overdueDays NGÀY'
@@ -865,6 +849,25 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
       final db = Supabase.instance.client;
       final user = AuthService.currentUser;
 
+      // ── 0. Kiểm tra trực tiếp trạng thái tài khoản trên Supabase ─────────
+      if (user != null && user.maTaiKhoan.isNotEmpty) {
+        try {
+          final accRow = await db
+              .from('tai_khoan')
+              .select('trang_thai')
+              .eq('ma_tai_khoan', user.maTaiKhoan)
+              .maybeSingle();
+          final status = accRow?['trang_thai']?.toString() ?? '';
+          if (status.toLowerCase() == 'tamkhoa' || (accRow != null && status.toLowerCase() != 'hoatdong')) {
+            debugPrint('[AUTO_LOCK_KICK] Tài khoản ${user.maTaiKhoan} có trạng thái $status trên Supabase -> Đá văng ra màn hình đăng nhập!');
+            await _daVangRaDangNhapDoKhoaTaiKhoan();
+            return;
+          }
+        } catch (eAcc) {
+          debugPrint('[AUTO_LOCK_KICK] Lỗi kiểm tra tai_khoan: $eAcc');
+        }
+      }
+
       // ── 1. Tìm khách thuê theo ma_tai_khoan ─────────────────
       Map<String, dynamic>? khachThueRow;
       if (user != null && user.maTaiKhoan.isNotEmpty) {
@@ -1098,6 +1101,74 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
           }
         });
       }
+    }
+  }
+
+  /// Đăng xuất và điều hướng ra màn hình đăng nhập kèm thông báo khóa tài khoản
+  Future<void> _daVangRaDangNhapDoKhoaTaiKhoan([String? reason]) async {
+    if (!mounted) return;
+    await AuthService.logout();
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(
+        builder: (_) => LoginScreen(
+          accountLockedMessage: reason ??
+              'Tài khoản của bạn đã bị TẠM KHÓA do hóa đơn phòng quá hạn từ 10 ngày trở lên theo quy chế tòa nhà.\nVui lòng liên hệ Ban Quản Lý (0328.004.663) để được hỗ trợ mở lại!',
+        ),
+      ),
+      (route) => false,
+    );
+  }
+
+  /// Tự động kiểm tra trễ hạn >= 10 ngày để cập nhật trang_thai = 'TamKhoa' trong bảng tai_khoan trên Supabase
+  Future<void> _kiemTraVaCapNhatTrangThaiKhoaTaiKhoan(
+    HoaDonModel? bill,
+    UserModel? user,
+    Map<String, dynamic>? khachThueData,
+  ) async {
+    final accountId = (user?.maTaiKhoan != null && user!.maTaiKhoan.isNotEmpty)
+        ? user.maTaiKhoan
+        : (khachThueData?['ma_tai_khoan']?.toString() ?? '');
+    if (accountId.isEmpty) return;
+
+    try {
+      final db = Supabase.instance.client;
+      final bool isOverdue10Days = bill != null &&
+          bill.trangThai != 'Đã thanh toán' &&
+          bill.trangThai != 'Chờ gửi' &&
+          bill.tongTien > 0 &&
+          bill.soNgayConLai <= -10;
+
+      if (isOverdue10Days) {
+        // Trễ hạn >= 10 ngày -> Tự động cập nhật trang_thai = 'TamKhoa' trong bảng tai_khoan
+        await db
+            .from('tai_khoan')
+            .update({'trang_thai': 'TamKhoa'})
+            .eq('ma_tai_khoan', accountId);
+
+        if (user != null && user.trangThai != 'TamKhoa') {
+          AuthService.currentUserNotifier.value =
+              user.copyWith(trangThai: 'TamKhoa');
+        }
+        debugPrint(
+          '[AUTO_LOCK] Đã tự động TẠM KHÓA tài khoản $accountId trên Supabase do hóa đơn trễ hạn ${-bill.soNgayConLai} ngày',
+        );
+      } else {
+        // Hóa đơn đã thanh toán hoặc chưa đến mức 10 ngày -> Mở lại HoatDong nếu trước đó bị TamKhoa
+        if (user != null && user.trangThai == 'TamKhoa') {
+          await db
+              .from('tai_khoan')
+              .update({'trang_thai': 'HoatDong'})
+              .eq('ma_tai_khoan', accountId);
+          AuthService.currentUserNotifier.value =
+              user.copyWith(trangThai: 'HoatDong');
+          debugPrint(
+            '[AUTO_UNLOCK] Đã tự động khôi phục HoatDong cho tài khoản $accountId',
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('[AUTO_LOCK] Lỗi kiểm tra cập nhật trạng thái tài khoản: $e');
     }
   }
 
@@ -3019,9 +3090,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                       const SizedBox(width: 3),
                       Text(
                         remainingDays < 0
-                            ? (overdueDays >= 10
-                                ? 'ĐỢT 2 • KHÓA VÂN TAY'
-                                : 'ĐỢT 2 • TRỄ $overdueDays NGÀY')
+                            ? 'ĐỢT 2 • TRỄ $overdueDays NGÀY'
                             : 'ĐỢT 2 • CÒN NỢ',
                         style: TextStyle(
                           fontSize: 11,
@@ -3293,17 +3362,9 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              overdueDays >= 10
-                                  ? (isPartial
-                                      ? '🔒 ĐÃ KHÓA VÂN TAY (Trễ Đợt 2 $overdueDays ngày)'
-                                      : '🔒 ĐÃ KHÓA VÂN TAY (Quá hạn $overdueDays ngày)')
-                                  : (overdueDays >= 5
-                                      ? (isPartial
-                                          ? '⚠️ Cảnh báo: Trễ Đợt 2 $overdueDays ngày (Sắp khóa vân tay)'
-                                          : '⚠️ Cảnh báo: Quá hạn $overdueDays ngày (Sắp khóa vân tay)')
-                                      : (isPartial
-                                          ? 'Khoản nợ Đợt 2 đã quá hạn $overdueDays ngày'
-                                          : 'Hóa đơn đã quá hạn $overdueDays ngày')),
+                              isPartial
+                                  ? '⚠️ Khoản nợ Đợt 2 đã quá hạn $overdueDays ngày'
+                                  : '⚠️ Hóa đơn đã quá hạn $overdueDays ngày',
                               style: const TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w800,
@@ -3311,11 +3372,9 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                               ),
                             ),
                             Text(
-                              overdueDays >= 10
-                                  ? 'Vân tay đã bị tạm khóa. Vui lòng thanh toán hoặc liên hệ BQL'
-                                  : (isPartial
-                                      ? 'Hạn chót Đợt 2: ${hd.hanDongTienFormatted}'
-                                      : 'Hạn thanh toán: ${hd.hanDongTienFormatted}'),
+                              isPartial
+                                  ? 'Hạn chót Đợt 2: ${hd.hanDongTienFormatted}. Vui lòng thanh toán sớm!'
+                                  : 'Hạn thanh toán: ${hd.hanDongTienFormatted}. Vui lòng thanh toán sớm!',
                               style: const TextStyle(
                                 fontSize: 11,
                                 color: Color(0xFF7F1D1D),
@@ -3340,31 +3399,13 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    overdueDays >= 10
-                        ? (isPartial
-                            ? '• QUÁ HẠN ĐỢT 2 10 NGÀY: Hệ thống ĐÃ KHÓA VÂN TAY ra vào phòng của bạn theo quy chế tòa nhà.\n'
-                              '• Vui lòng thanh toán số tiền còn lại (${FormatUtils.currency(tongTienThucTe)}) hoặc liên hệ BQL qua SĐT/Zalo: ${LienHeHelper.defaultHotlineDisplay} để được hỗ trợ mở lại vân tay.\n'
-                              '• Bấm "Thanh toán Đợt 2 / VietQR" bên dưới để gạch nợ tự động 24/7.'
-                            : '• QUÁ HẠN 10 NGÀY: Hệ thống ĐÃ KHÓA VÂN TAY ra vào phòng của bạn theo quy chế tòa nhà.\n'
-                              '• Vui lòng thanh toán tiền phòng (${FormatUtils.currency(tongTienThucTe)}) hoặc liên hệ BQL qua SĐT/Zalo: ${LienHeHelper.defaultHotlineDisplay} để được hỗ trợ mở lại vân tay.\n'
-                              '• Bấm "Thanh toán / VietQR" bên dưới để gạch nợ tự động 24/7.')
-                        : (overdueDays >= 5
-                            ? (isPartial
-                                ? '• CẢNH BÁO TRỄ HẠN ĐỢT 2 $overdueDays NGÀY: Nếu không tiếp tục đóng tiền còn lại (${FormatUtils.currency(tongTienThucTe)}), hệ thống sẽ TẠM KHÓA VÂN TAY ra vào phòng của bạn!\n'
-                                  '• Nhà trọ KHÔNG áp dụng chính sách gia hạn tiền phòng.\n'
-                                  '• Hướng giải quyết: Bấm "Thanh toán Đợt 2 / VietQR" bên dưới để đóng tiền ngay lập tức, tránh bị khóa vân tay.'
-                                : '• CẢNH BÁO QUÁ HẠN $overdueDays NGÀY: Nếu không tiếp tục đóng tiền (${FormatUtils.currency(tongTienThucTe)}), hệ thống sẽ TẠM KHÓA VÂN TAY ra vào phòng của bạn!\n'
-                                  '• Nhà trọ KHÔNG áp dụng chính sách gia hạn tiền phòng.\n'
-                                  '• Hướng giải quyết: Bấm "Thanh toán / VietQR" bên dưới để đóng tiền ngay lập tức, tránh bị khóa vân tay.')
-                            : (isPartial
-                                ? '• Khoản nợ Đợt 2 chưa được thanh toán (${FormatUtils.currency(tongTienThucTe)}).\n'
-                                  '• Trễ hạn 5 ngày: Cảnh báo sắp khóa vân tay nếu không đóng tiền.\n'
-                                  '• Trễ hạn 10 ngày: Hệ thống sẽ khóa vân tay ra vào phòng.\n'
-                                  '• Bấm "Thanh toán Đợt 2 / VietQR" bên dưới để hoàn tất đóng tiền ngay lập tức.'
-                                : '• Hóa đơn tiền phòng tháng này chưa được thanh toán (${FormatUtils.currency(tongTienThucTe)}).\n'
-                                  '• Trễ hạn 5 ngày: Cảnh báo sắp khóa vân tay nếu không đóng tiền.\n'
-                                  '• Trễ hạn 10 ngày: Hệ thống sẽ khóa vân tay ra vào phòng.\n'
-                                  '• Bấm "Thanh toán / VietQR" bên dưới để hoàn tất đóng tiền ngay lập tức.')),
+                    isPartial
+                        ? '• Khoản nợ Đợt 2 đang quá hạn $overdueDays ngày (${FormatUtils.currency(tongTienThucTe)}).\n'
+                          '• Nhà trọ KHÔNG áp dụng chính sách gia hạn tiền phòng.\n'
+                          '• Quý khách vui lòng bấm "Thanh toán Đợt 2 / VietQR" bên dưới để hoàn tất đóng tiền.'
+                        : '• Hóa đơn tiền phòng đang quá hạn $overdueDays ngày (${FormatUtils.currency(tongTienThucTe)}).\n'
+                          '• Nhà trọ KHÔNG áp dụng chính sách gia hạn tiền phòng.\n'
+                          '• Quý khách vui lòng bấm "Thanh toán / VietQR" bên dưới để hoàn tất đóng tiền.',
                     style: const TextStyle(
                       fontSize: 11.5,
                       height: 1.45,
@@ -8576,16 +8617,23 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      builder: (ctx) => SafeArea(
+        top: false,
+        child: Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(ctx).size.height * 0.90,
+          ),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
             Center(
               child: Container(
                 width: 40,
@@ -8660,8 +8708,8 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                   Text(
                     '• Hạn nộp định kỳ: Bắt buộc hoàn tất trước hoặc đúng ngày 04 hàng tháng.\n'
                     '• Tòa nhà KHÔNG có chính sách cho gia hạn nợ tiền phòng.\n'
-                    '• Trễ hạn từ 5 ngày: BQL gửi thông báo cảnh báo nếu không tiếp tục đóng tiền sẽ bị tạm khóa vân tay ra vào.\n'
-                    '• Trễ hạn từ 10 ngày: Hệ thống ĐÃ KHÓA VÂN TAY ra vào phòng. Cư dân vui lòng liên hệ BQL qua SĐT hoặc Zalo ${LienHeHelper.defaultHotlineDisplay} để được hỗ trợ mở lại.',
+                    '• Trễ hạn từ 5 ngày: BQL gửi thông báo cảnh báo trễ hạn đóng tiền phòng.\n'
+                    '• Trễ hạn từ 10 ngày: BQL sẽ liên hệ trực tiếp hoặc tạm ngưng tiện ích lưu trú nếu không thanh toán. Hotline BQL: ${LienHeHelper.defaultHotlineDisplay}.',
                     style: TextStyle(
                       fontSize: 11.5,
                       height: 1.5,
@@ -8671,83 +8719,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                 ],
               ),
             ),
-            if (hd.soNgayConLai <= -10) ...[
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFEF2F2),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFFCA5A5)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.lock_rounded, color: Color(0xFFDC2626), size: 24),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'VÂN TAY ĐÃ BỊ TẠM KHÓA',
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFFDC2626),
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            hd.trangThai == 'Thanh toán một phần'
-                                ? 'Do khoản nợ Đợt 2 trễ hạn ${-hd.soNgayConLai} ngày, quyền vân tay ra vào đã bị tạm khóa. Vui lòng thanh toán hoặc liên hệ BQL qua SĐT/Zalo ${LienHeHelper.defaultHotlineDisplay} để mở lại.'
-                                : 'Do trễ hạn ${-hd.soNgayConLai} ngày, quyền vân tay ra vào đã bị tạm khóa. Vui lòng thanh toán hoặc liên hệ BQL qua SĐT/Zalo ${LienHeHelper.defaultHotlineDisplay} để mở lại.',
-                            style: const TextStyle(fontSize: 11, color: Color(0xFF991B1B)),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ] else if (hd.soNgayConLai <= -5) ...[
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFFBEB),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFFCD34D)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.warning_amber_rounded, color: Color(0xFFD97706), size: 24),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'CẢNH BÁO: SẮP KHÓA VÂN TAY',
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFFB45309),
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            hd.trangThai == 'Thanh toán một phần'
-                                ? 'Khoản nợ Đợt 2 đã trễ hạn ${-hd.soNgayConLai} ngày. Nếu không tiếp tục đóng tiền, hệ thống sẽ tạm khóa vân tay khi trễ 10 ngày.'
-                                : 'Hóa đơn đã trễ hạn ${-hd.soNgayConLai} ngày. Nếu không tiếp tục đóng tiền, hệ thống sẽ tạm khóa vân tay khi trễ 10 ngày.',
-                            style: const TextStyle(fontSize: 11, color: Color(0xFF92400E)),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+
             const SizedBox(height: 16),
             const Text(
               'Hướng xử lý bắt buộc:',
@@ -8847,234 +8819,14 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
           ],
         ),
       ),
-    );
+    ),
+  ),
+);
   }
 
-  /// Modal thông báo chuyên biệt khi vân tay đã bị khóa do trễ hạn >= 10 ngày
+  /// Chuyển tiếp tới modal hướng dẫn quá hạn
   void _showThongBaoKhoaVanTayModal(HoaDonModel hd) {
-    final overdueDays = hd.soNgayConLai < 0 ? -hd.soNgayConLai : 0;
-    final activeRoom = _hopDong?.maPhong ?? widget.roomNumber ?? 'P203';
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE2E8F0),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFEF2F2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.lock_rounded,
-                    color: Color(0xFFDC2626),
-                    size: 26,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'ĐÃ KHÓA VÂN TAY RA VÀO',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w900,
-                          color: Color(0xFFDC2626),
-                        ),
-                      ),
-                      Text(
-                        hd.trangThai == 'Thanh toán một phần'
-                            ? 'Hóa đơn ${hd.maHoaDon} • Trễ hạn Đợt 2 $overdueDays ngày'
-                            : 'Hóa đơn ${hd.maHoaDon} • Trễ hạn $overdueDays ngày',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF991B1B),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFEF2F2),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFFCA5A5)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Thông báo từ Ban Quản Lý Kiều Giang:',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF991B1B),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    hd.trangThai == 'Thanh toán một phần'
-                        ? 'Quyền mở cổng bằng vân tay của bạn đã bị TẠM KHÓA do khoản nợ Đợt 2 quá hạn $overdueDays ngày (từ 10 ngày trở lên theo quy chế tòa nhà).\n\n'
-                          'Để kích hoạt lại vân tay ra vào, vui lòng thanh toán toàn bộ số tiền nợ còn lại (${FormatUtils.currency(hd.tongTien)}) hoặc liên hệ ngay với Ban Quản Lý qua SĐT hoặc Zalo.'
-                        : 'Quyền mở cổng bằng vân tay của bạn đã bị TẠM KHÓA do hóa đơn quá hạn $overdueDays ngày (từ 10 ngày trở lên theo quy chế tòa nhà).\n\n'
-                          'Để kích hoạt lại vân tay ra vào, vui lòng thanh toán toàn bộ tiền phòng hoặc liên hệ ngay với Ban Quản Lý qua SĐT hoặc Zalo.',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      height: 1.5,
-                      color: Color(0xFF7F1D1D),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Các phương án hỗ trợ mở khóa:',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF0F172A),
-              ),
-            ),
-            const SizedBox(height: 10),
-
-            // Nút 1: Nhắn tin Zalo BQL
-            ListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: const BorderSide(color: Color(0xFF0284C7), width: 1.2),
-              ),
-              tileColor: const Color(0xFFF0F9FF),
-              leading: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE0F2FE),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(Icons.chat_bubble_rounded, color: Color(0xFF0284C7), size: 22),
-              ),
-              title: const Text(
-                'Nhắn tin qua Zalo BQL (0328.004.663)',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF0369A1)),
-              ),
-              subtitle: const Text(
-                'Nhắn tin gửi biên lai để BQL kích hoạt lại vân tay ngay',
-                style: TextStyle(fontSize: 11.5, color: Color(0xFF075985)),
-              ),
-              trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Color(0xFF0284C7)),
-              onTap: () {
-                Navigator.pop(ctx);
-                LienHeHelper.moZaloChat(context);
-              },
-            ),
-            const SizedBox(height: 8),
-
-            // Nút 2: Gọi điện thoại Hotline
-            ListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: const BorderSide(color: Color(0xFFCBD5E1)),
-              ),
-              tileColor: Colors.white,
-              leading: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(Icons.phone_in_talk_rounded, color: Color(0xFF0F172A), size: 22),
-              ),
-              title: const Text(
-                'Gọi điện Hotline (0328.004.663)',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
-              ),
-              subtitle: const Text(
-                'Hỗ trợ khẩn cấp mở cửa và kiểm tra hóa đơn 24/7',
-                style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
-              ),
-              trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Color(0xFF94A3B8)),
-              onTap: () {
-                Navigator.pop(ctx);
-                LienHeHelper.goiDien(context);
-              },
-            ),
-            const SizedBox(height: 8),
-
-            // Nút 3: Thanh toán ngay VietQR
-            ListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: const BorderSide(color: Color(0xFF16A34A), width: 1.2),
-              ),
-              tileColor: const Color(0xFFF0FDF4),
-              leading: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFDCFCE7),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(Icons.qr_code_scanner_rounded, color: Color(0xFF16A34A), size: 22),
-              ),
-              title: const Text(
-                'Thanh toán nợ phòng bằng VietQR',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF15803D)),
-              ),
-              subtitle: const Text(
-                'Gạch nợ tự động trong 30 giây để đủ điều kiện mở lại vân tay',
-                style: TextStyle(fontSize: 11.5, color: Color(0xFF166534)),
-              ),
-              trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Color(0xFF16A34A)),
-              onTap: () {
-                Navigator.pop(ctx);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => PaymentScreen(
-                      hoaDon: hd,
-                      tenPhong: 'Phòng $activeRoom',
-                      onPaymentSuccess: (_) => _fetchTenantData(),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ],
-        ),
-      ),
-    );
+    _showHuongDanQuaHanModal(hd);
   }
 
   // VietQR Modal -> Navigate to full animated PaymentScreen

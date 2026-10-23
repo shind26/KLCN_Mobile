@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/services.dart';
 import 'package:nhatro_kieugiang/core/utils/AmThanhThanhToanHelper.dart';
 import 'package:nhatro_kieugiang/core/utils/ThongBaoHelper.dart';
@@ -23,6 +24,7 @@ class PaymentCompletedScreen extends StatefulWidget {
   final String? note;
   final num? amountPaid;
   final String? tenDot;
+  final String? transactionRef;
 
   const PaymentCompletedScreen({
     super.key,
@@ -36,6 +38,7 @@ class PaymentCompletedScreen extends StatefulWidget {
     this.note,
     this.amountPaid,
     this.tenDot,
+    this.transactionRef,
   });
 
   @override
@@ -60,7 +63,7 @@ class _PaymentCompletedScreenState extends State<PaymentCompletedScreen>
   late Animation<double> _badgeScale;
   late Animation<double> _rippleAnimation;
 
-  final String _transactionRef = 'FT26278507322143';
+  late final String _transactionRef = widget.transactionRef ?? 'FT26278507322143';
 
   num get _displayAmount {
     if (widget.amountPaid != null && widget.amountPaid! > 0) {
@@ -84,7 +87,45 @@ class _PaymentCompletedScreenState extends State<PaymentCompletedScreen>
     // 🔔 Phát âm thanh chuông ngân thanh toán thành công (Fintech Chime)
     WidgetsBinding.instance.addPostFrameCallback((_) {
       PaymentSoundHelper.playSuccess();
+      _ensurePhieuThuRecorded();
     });
+  }
+
+  /// Tự động kiểm tra và lưu dự phòng vào bảng phieu_thu nếu chưa có bản ghi
+  Future<void> _ensurePhieuThuRecorded() async {
+    try {
+      final db = Supabase.instance.client;
+      final maHD = widget.hoaDon.maHoaDon.trim();
+      if (maHD.isEmpty) return;
+
+      final existing = await db
+          .from('phieu_thu')
+          .select('ma_phieu_thu')
+          .eq('ma_hoa_don', maHD)
+          .limit(1);
+
+      if (existing.isEmpty) {
+        final timestamp = DateTime.now().millisecondsSinceEpoch;
+        final maPT = 'PT${(timestamp % 100000000).toString().padLeft(8, '0')}';
+        final num soTien = widget.amountPaid ?? _displayAmount;
+        final String hinhThuc = widget.bankName.isNotEmpty
+            ? widget.bankName
+            : 'Chuyển khoản MB Bank';
+
+        await db.from('phieu_thu').insert({
+          'ma_phieu_thu': maPT,
+          'ma_hoa_don': maHD,
+          'ma_tra_cuu': _transactionRef,
+          'so_tien_thu': soTien,
+          'hinh_thuc': hinhThuc,
+          'ngay_thu': DateTime.now().toIso8601String(),
+          'trang_thai': 'Đã thanh toán',
+        });
+        debugPrint('[PHIEU_THU] Đã ghi nhận phiếu thu bổ sung: $maPT cho $maHD');
+      }
+    } catch (e) {
+      debugPrint('[PHIEU_THU] Lỗi đồng bộ phiếu thu: $e');
+    }
   }
 
   void _initAnimations() {

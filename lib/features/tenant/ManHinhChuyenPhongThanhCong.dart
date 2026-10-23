@@ -391,9 +391,9 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
     }
 
     // Bước 1 & 2: Tiếp nhận / BQL đang xử lý
-    if (st == 'Chờ duyệt' || st == 'Đang xử lý') {
+    if (st == 'Chờ duyệt' || st == 'CHO_DUYET' || st == 'Đang xử lý') {
       setState(() {
-        _currentStatus = st;
+        _currentStatus = (st == 'CHO_DUYET') ? 'Chờ duyệt' : st;
         _isInspectionDone = false;
         _hasAcceptedInspection = false;
         _damageFee = huHai;
@@ -896,7 +896,7 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
                         child: Text(
                           _currentStatus == 'Đang xử lý'
                               ? 'BQL Kiều Giang đang xử lý hồ sơ'
-                              : 'Đang chờ BQL Kiêu Giang tiếp nhận',
+                              : 'Đang chờ Ban Quản Lý duyệt',
                           style: const TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
@@ -913,7 +913,7 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
           const SizedBox(height: 10),
 
           const Text(
-            'Đã Gửi Yêu Cầu Chuyển Phòng!',
+            'Đang Chờ Ban Quản Lý Duyệt',
             style: TextStyle(
               fontSize: 17,
               fontWeight: FontWeight.w900,
@@ -922,12 +922,43 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
           ),
           const SizedBox(height: 6),
           Text(
-            'Yêu cầu chuyển từ ${widget.currentRoomNumber} sang $targetName (${widget.targetRoom["toaNha"]}) đã được ghi nhận trên hệ thống.',
+            'Yêu cầu chuyển từ ${widget.currentRoomNumber} sang $targetName (${widget.targetRoom["toaNha"]}) đã được gửi thành công và đang chờ BQL xem xét duyệt.',
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontSize: 12,
               color: Color(0xFF475569),
               height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFFBEB),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFFDE68A)),
+            ),
+            child: const Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.info_outline_rounded,
+                  size: 16,
+                  color: Color(0xFFB45309),
+                ),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Yêu cầu chuyển phòng đã được gửi. Vào ngày dọn, BQL sẽ gặp trực tiếp để bàn giao chìa khóa. Toàn bộ tiền điện nước phát sinh phòng cũ, chi phí hư hỏng (nếu có) và chênh lệch cọc sẽ được kết chuyển vào hóa đơn kỳ tới của phòng mới.',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF92400E),
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -1112,7 +1143,7 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
                   SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'BQL sẽ liên hệ và trực tiếp đến phòng để khảo sát hiện trạng thiết bị & chốt số điện nước trước ngày bạn chuyển phòng. Sau khi kiểm tra xong, biên bản nghiệm thu và quyết toán cọc sẽ hiển thị tại đây.',
+                      'Yêu cầu chuyển phòng đã được gửi. Vào ngày dọn, BQL sẽ gặp trực tiếp để bàn giao chìa khóa. Toàn bộ tiền điện nước phát sinh phòng cũ, chi phí hư hỏng (nếu có) và chênh lệch cọc sẽ được kết chuyển vào hóa đơn kỳ tới của phòng mới.',
                       style: TextStyle(
                         fontSize: 11,
                         height: 1.35,

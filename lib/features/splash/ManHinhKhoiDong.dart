@@ -2,6 +2,8 @@
 import 'package:nhatro_kieugiang/core/services/DichVuXacThuc.dart';
 import 'package:nhatro_kieugiang/features/guest/ManHinhTrangChuKhach.dart';
 import 'package:nhatro_kieugiang/features/tenant/ManHinhTrangChuCuDan.dart';
+import 'package:nhatro_kieugiang/features/auth/ManHinhDangNhap.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -63,11 +65,38 @@ class _SplashScreenState extends State<SplashScreen>
     final currentUser = AuthService.currentUser;
     debugPrint('>>> [SplashScreen] Kiểm tra đăng nhập: isLoggedIn = $isLoggedIn, user = ${currentUser?.tenDangNhap}');
 
-    final Widget targetScreen = isLoggedIn
-        ? TenantHomeScreen(
-            tenantName: currentUser?.tenDangNhap,
-          )
-        : const GuestHomeScreen();
+    bool isAccountLocked = false;
+    String lockedMessage = '';
+
+    if (isLoggedIn && currentUser != null) {
+      try {
+        final accRes = await Supabase.instance.client
+            .from('tai_khoan')
+            .select('trang_thai')
+            .eq('ma_tai_khoan', currentUser.maTaiKhoan)
+            .maybeSingle();
+        final status = accRes?['trang_thai']?.toString() ?? '';
+        if (status.toLowerCase() == 'tamkhoa' || (accRes != null && status.toLowerCase() != 'hoatdong')) {
+          isAccountLocked = true;
+          lockedMessage =
+              'Tài khoản của bạn đã bị TẠM KHÓA do hóa đơn phòng quá hạn từ 10 ngày trở lên theo quy chế tòa nhà.\nVui lòng liên hệ Ban Quản Lý (0328.004.663) để được hỗ trợ mở lại!';
+          await AuthService.logout();
+        }
+      } catch (e) {
+        debugPrint('[SplashScreen] Lỗi kiểm tra trạng thái tài khoản: $e');
+      }
+    }
+
+    final Widget targetScreen;
+    if (isAccountLocked) {
+      targetScreen = LoginScreen(accountLockedMessage: lockedMessage);
+    } else if (AuthService.isLoggedIn) {
+      targetScreen = TenantHomeScreen(
+        tenantName: currentUser?.tenDangNhap,
+      );
+    } else {
+      targetScreen = const GuestHomeScreen();
+    }
 
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(

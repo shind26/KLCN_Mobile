@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:nhatro_kieugiang/core/services/DichVuXacThuc.dart';
 import 'package:nhatro_kieugiang/core/services/VnPayService.dart';
 import 'package:nhatro_kieugiang/core/utils/AmThanhThanhToanHelper.dart';
 import 'package:nhatro_kieugiang/core/utils/ThongBaoHelper.dart';
@@ -124,6 +125,40 @@ class _ManHinhVnPayWebViewState extends State<ManHinhVnPayWebView> {
                 .eq('ma_hoa_don', maHD);
           }
 
+          final timestamp = DateTime.now().millisecondsSinceEpoch;
+          final maPhieuThu = 'PT${(timestamp % 100000000).toString().padLeft(8, '0')}';
+          final maTraCuu = 'VNP${(timestamp % 1000000000000).toString().padLeft(12, '0')}';
+          try {
+            await db.from('phieu_thu').insert({
+              'ma_phieu_thu': maPhieuThu,
+              'ma_hoa_don': maHD,
+              'ma_tra_cuu': maTraCuu,
+              'so_tien_thu': widget.amountToPay,
+              'hinh_thuc': 'Cổng VNPAY',
+              'ngay_thu': DateTime.now().toIso8601String(),
+              'trang_thai': 'Đã thanh toán',
+            });
+            debugPrint('[VNPAY] Đã lưu phiếu thu thành công: $maPhieuThu cho $maHD');
+          } catch (ePt) {
+            debugPrint('[VNPAY] Lỗi lưu phiếu thu: $ePt');
+          }
+
+          // Tự động mở lại tài khoản về HoatDong trên Supabase khi thanh toán xong
+          final curUser = AuthService.currentUser;
+          if (curUser != null && curUser.maTaiKhoan.isNotEmpty) {
+            try {
+              await db
+                  .from('tai_khoan')
+                  .update({'trang_thai': 'HoatDong'})
+                  .eq('ma_tai_khoan', curUser.maTaiKhoan);
+              AuthService.currentUserNotifier.value =
+                  curUser.copyWith(trangThai: 'HoatDong');
+              debugPrint('[AUTO_UNLOCK] VNPAY đã mở lại HoatDong cho tài khoản ${curUser.maTaiKhoan}');
+            } catch (eTk) {
+              debugPrint('[AUTO_UNLOCK] Lỗi mở lại tài khoản VNPAY: $eTk');
+            }
+          }
+
           widget.onPaymentSuccess?.call(widget.amountToPay);
         } catch (e) {
           debugPrint('Lỗi cập nhật Supabase: $e');
@@ -131,6 +166,9 @@ class _ManHinhVnPayWebViewState extends State<ManHinhVnPayWebView> {
 
         if (!mounted) return;
         PaymentSoundHelper.playSuccess();
+
+        final timestampForRef = DateTime.now().millisecondsSinceEpoch;
+        final vnpRef = 'VNP${(timestampForRef % 1000000000000).toString().padLeft(12, '0')}';
 
         Navigator.pushReplacement(
           context,
@@ -141,6 +179,7 @@ class _ManHinhVnPayWebViewState extends State<ManHinhVnPayWebView> {
               bankName: 'Cổng thanh toán VNPAY',
               transactionTime: DateTime.now().toString(),
               amountPaid: widget.amountToPay,
+              transactionRef: vnpRef,
             ),
           ),
         );
