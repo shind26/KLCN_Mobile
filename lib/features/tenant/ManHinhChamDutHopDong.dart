@@ -277,12 +277,29 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
           '${_ngayDuKien.year}-${_ngayDuKien.month.toString().padLeft(2, '0')}-${_ngayDuKien.day.toString().padLeft(2, '0')}';
       final lyDo = _lyDoController.text.trim();
 
+      // Tải chỉ số điện nước mới nhất từ bảng phong
+      double chiSoDienCuoi = 0.0;
+      double chiSoNuocCuoi = 0.0;
+      try {
+        final pRow = await db
+            .from('phong')
+            .select('chi_so_dien, chi_so_nuoc')
+            .eq('ma_phong', _hd.maPhong)
+            .maybeSingle();
+        if (pRow != null) {
+          chiSoDienCuoi = double.tryParse(pRow['chi_so_dien']?.toString() ?? '') ?? 0.0;
+          chiSoNuocCuoi = double.tryParse(pRow['chi_so_nuoc']?.toString() ?? '') ?? 0.0;
+        }
+      } catch (errP) {
+        debugPrint('Lỗi tải chỉ số điện nước từ bảng phong khi tạo biên bản thanh lý: $errP');
+      }
+
       final bbData = <String, dynamic>{
         'ma_thanh_ly': maTL,
         'ma_hop_dong': _hd.maHopDong,
         'ngay_tra_phong': ngayTraStr,
-        'chi_so_dien_cuoi': 0,
-        'chi_so_nuoc_cuoi': 0,
+        'chi_so_dien_cuoi': chiSoDienCuoi,
+        'chi_so_nuoc_cuoi': chiSoNuocCuoi,
         'tien_kh_tra_them': 0,
         'tien_coc_hoan_lai': tienCocHoan,
         'trang_thai': 'CHO_DUYET',
@@ -1259,14 +1276,11 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
                 onTap: duDieuKien
                     ? () => setState(() => _isDungHan = true)
                     : () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              'Hợp đồng còn $soNgayConLai ngày mới hết hạn (> 30 ngày). Theo điều khoản, bạn phải chọn hình thức Trước hạn.',
-                            ),
-                            behavior: SnackBarBehavior.floating,
-                            backgroundColor: const Color(0xFFD97706),
-                          ),
+                        ThongBaoHelper.hienToast(
+                          context,
+                          tieuDe: 'Trả Phòng Trước Hạn',
+                          noiDung: 'Hợp đồng còn $soNgayConLai ngày. Bạn chỉ có thể chọn Trước hạn.',
+                          type: ThongBaoType.canhBao,
                         );
                       },
                 borderRadius: BorderRadius.circular(14),
@@ -1402,8 +1416,8 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
                 Expanded(
                   child: Text(
                     !duDieuKien
-                        ? 'Chấm dứt trước hạn sẽ mất cọc theo hợp đồng (HĐ còn $soNgayConLai ngày). Tiền cọc hoàn lại: 0đ.'
-                        : 'Chấm dứt trước hạn sẽ mất cọc theo hợp đồng. Tiền cọc hoàn lại: 0đ.',
+                        ? 'Trả phòng trước hạn sẽ mất cọc (HĐ còn $soNgayConLai ngày).'
+                        : 'Trả phòng trước hạn sẽ mất cọc theo hợp đồng.',
                     style: const TextStyle(
                       fontSize: 11.5,
                       fontWeight: FontWeight.w500,

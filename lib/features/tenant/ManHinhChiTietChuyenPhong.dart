@@ -664,7 +664,7 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
                     ),
                   ),
                   const Text(
-                    'đ / tháng',
+                    '/ tháng',
                     style: TextStyle(
                       fontSize: 11.5,
                       fontWeight: FontWeight.bold,
@@ -753,12 +753,14 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
             children: [
               Icon(Icons.sync_alt_rounded, color: _primary, size: 18),
               SizedBox(width: 8),
-              Text(
-                'Đối Chiếu Phòng & Tiền Cọc Tham Khảo',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: _textDark,
+              Expanded(
+                child: Text(
+                  'Đối Chiếu Phòng & Tiền Cọc Tham Khảo',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: _textDark,
+                  ),
                 ),
               ),
             ],
@@ -799,7 +801,7 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
                       const SizedBox(height: 4),
                       Text('• Tầng $oldFloor', style: const TextStyle(fontSize: 11.5)),
                       Text(
-                        '• Giá: ${FormatUtils.currency(widget.currentPrice.toDouble())}đ',
+                        '• Giá: ${FormatUtils.currency(widget.currentPrice.toDouble())}',
                         style: const TextStyle(fontSize: 11.5),
                       ),
                     ],
@@ -840,7 +842,7 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
                       const SizedBox(height: 4),
                       Text('• Tầng $newFloor', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
                       Text(
-                        '• Giá: ${FormatUtils.currency(targetPrice.toDouble())}đ',
+                        '• Giá: ${FormatUtils.currency(targetPrice.toDouble())}',
                         style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
                       ),
                     ],
@@ -871,19 +873,19 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                _buildDepositRow('Cọc phòng cũ:', '${FormatUtils.currency(oldDeposit.toDouble())}đ (Bảo lưu chuyển sang)'),
+                _buildDepositRow('Cọc phòng cũ:', '${FormatUtils.currency(oldDeposit.toDouble())} (Bảo lưu)'),
                 const SizedBox(height: 4),
-                _buildDepositRow('Cọc phòng mới:', '${FormatUtils.currency(targetDeposit.toDouble())}đ'),
+                _buildDepositRow('Cọc phòng mới:', FormatUtils.currency(targetDeposit.toDouble())),
                 const SizedBox(height: 6),
                 const Divider(height: 1, color: Color(0xFFE2E8F0)),
                 const SizedBox(height: 6),
                 _buildDepositRow(
                   'Chênh lệch cọc:',
                   depositDiff == 0
-                      ? '0đ (Cọc 2 phòng bằng nhau)'
+                      ? '0đ (Cọc bằng nhau)'
                       : (depositDiff > 0
-                          ? '+${FormatUtils.currency(absDepositDiff.toDouble())}đ (Bù thêm)'
-                          : '-${FormatUtils.currency(absDepositDiff.toDouble())}đ (Hoàn trả)'),
+                          ? '+${FormatUtils.currency(absDepositDiff.toDouble())} (Bù thêm)'
+                          : '-${FormatUtils.currency(absDepositDiff.toDouble())} (Hoàn trả)'),
                   isBold: true,
                   valueColor: depositDiff == 0
                       ? const Color(0xFF0284C7)
@@ -894,8 +896,8 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
                   depositDiff == 0
                       ? '• Cọc bảo lưu 100%, không phát sinh bù cọc hay hoàn tiền.'
                       : (depositDiff > 0
-                          ? '• Khoản bù thêm (${FormatUtils.currency(absDepositDiff.toDouble())}đ) sẽ được cộng trực tiếp vào hóa đơn kỳ tới của phòng mới.'
-                          : '• Khoản hoàn trả (${FormatUtils.currency(absDepositDiff.toDouble())}đ) sẽ được trừ trực tiếp giảm giá vào hóa đơn kỳ tới của phòng mới.'),
+                          ? '• Khoản bù thêm (${FormatUtils.currency(absDepositDiff.toDouble())}) sẽ được cộng trực tiếp vào hóa đơn kỳ tới của phòng mới.'
+                          : '• Khoản hoàn trả (${FormatUtils.currency(absDepositDiff.toDouble())}) sẽ được trừ trực tiếp giảm giá vào hóa đơn kỳ tới của phòng mới.'),
                   style: const TextStyle(
                     fontSize: 11,
                     fontStyle: FontStyle.italic,
@@ -913,7 +915,7 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
 
   Widget _buildDepositRow(String title, String value, {bool isBold = false, Color? valueColor}) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           title,
@@ -923,12 +925,16 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
             fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
           ),
         ),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 11.5,
-            fontWeight: isBold ? FontWeight.bold : FontWeight.w600,
-            color: valueColor ?? _textDark,
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: isBold ? FontWeight.bold : FontWeight.w600,
+              color: valueColor ?? _textDark,
+            ),
           ),
         ),
       ],
@@ -938,40 +944,36 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
   // ─── 5. FINANCIAL POLICY CARD (NGHIỆP VỤ TÀI CHÍNH KẾT CHUYỂN) ───
   Widget _buildFinancialPolicyCard() {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: const Color(0xFFF0FDF4),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: const Color(0xFFBBF7D0)),
       ),
-      child: const Column(
+      child: const Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(Icons.account_balance_wallet_outlined, color: Color(0xFF15803D), size: 18),
-              SizedBox(width: 8),
-              Text(
-                'Quy Trình Xử Lý Tài Chính Phát Sinh',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF166534),
+          Icon(Icons.account_balance_wallet_outlined, color: Color(0xFF15803D), size: 18),
+          SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Tài chính kết chuyển vào hóa đơn kỳ tới',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF166534),
+                  ),
                 ),
-              ),
-            ],
-          ),
-          SizedBox(height: 8),
-          Text(
-            'Toàn bộ tiền bạc không thu/chi tiền mặt tại chỗ vào ngày dọn phòng mà sẽ ĐƯỢC TỔNG HỢP VÀO HÓA ĐƠN ĐẦU TIÊN CỦA PHÒNG MỚI:',
-            style: TextStyle(fontSize: 11.5, color: Color(0xFF15803D), fontWeight: FontWeight.bold, height: 1.35),
-          ),
-          SizedBox(height: 6),
-          Text(
-            '• Tiền điện nước phát sinh những ngày cuối ở phòng cũ (tính từ ngày chốt công tơ gần nhất đến ngày 01).\n'
-            '• Tiền đền bù hư hỏng cơ sở vật chất phòng cũ (nếu có sau khi BQL kiểm tra bàn giao).\n'
-            '• Tiền chênh lệch cọc: bù thêm nếu cọc phòng mới cao hơn, hoặc trừ giảm giá nếu cọc phòng mới thấp hơn.',
-            style: TextStyle(fontSize: 11, color: Color(0xFF166534), height: 1.45),
+                SizedBox(height: 3),
+                Text(
+                  'Điện nước phòng cũ, chi phí hư hại (nếu có) và bù/trừ tiền cọc sẽ được tổng hợp trực tiếp vào hóa đơn đầu tiên của phòng mới.',
+                  style: TextStyle(fontSize: 11, color: Color(0xFF166534), height: 1.35),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -1132,10 +1134,10 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
           Row(
             children: [
               Expanded(
-                child: Text('⚡ Điện: ${FormatUtils.currency(giaDien)}đ/kWh', style: const TextStyle(fontSize: 11)),
+                child: Text('⚡ Điện: ${FormatUtils.currency(giaDien)}/kWh', style: const TextStyle(fontSize: 11), overflow: TextOverflow.ellipsis),
               ),
               Expanded(
-                child: Text('💧 Nước: ${FormatUtils.currency(giaNuoc)}đ/m³', style: const TextStyle(fontSize: 11)),
+                child: Text('💧 Nước: ${FormatUtils.currency(giaNuoc)}/m³', style: const TextStyle(fontSize: 11), overflow: TextOverflow.ellipsis),
               ),
             ],
           ),
@@ -1143,10 +1145,10 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
           Row(
             children: [
               Expanded(
-                child: Text('🧹 Rác: ${FormatUtils.currency(giaRac)}đ/người', style: const TextStyle(fontSize: 11)),
+                child: Text('🧹 Rác: ${FormatUtils.currency(giaRac)}/người', style: const TextStyle(fontSize: 11), overflow: TextOverflow.ellipsis),
               ),
               Expanded(
-                child: Text('📶 Wifi: ${FormatUtils.currency(giaWifi)}đ/phòng', style: const TextStyle(fontSize: 11)),
+                child: Text('📶 Wifi: ${FormatUtils.currency(giaWifi)}/phòng', style: const TextStyle(fontSize: 11), overflow: TextOverflow.ellipsis),
               ),
             ],
           ),
@@ -1242,33 +1244,23 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
           const SizedBox(height: 8),
 
           // Quy định chuyển phòng ngày 01
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFFBEB),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFFFDE68A)),
-            ),
-            child: const Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(Icons.info_outline_rounded, size: 16, color: Color(0xFFB45309)),
-                SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Quy định Ban Quản Lý: Lịch chuyển phòng chỉ áp dụng vào ngày đầu tháng (ngày 01) để thuận tiện chốt công tơ điện nước và kết chuyển tài chính trọn kỳ vào hóa đơn phòng mới.',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Color(0xFF92400E),
-                      height: 1.35,
-                      fontWeight: FontWeight.w500,
-                    ),
+          const Row(
+            children: [
+              Icon(Icons.info_outline_rounded, size: 14, color: Color(0xFFB45309)),
+              SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'Lịch chuyển phòng chỉ áp dụng vào ngày 01 đầu tháng.',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF92400E),
+                    fontStyle: FontStyle.italic,
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
 
           // Reason pills
           const Text(

@@ -15,6 +15,9 @@ class RoomModel {
   final String moTaNgan;
   final List<String> tienIch;
   final List<String> noiThatSanCo;
+  final double chiSoDien;
+  final double chiSoNuoc;
+  final DateTime? ngayCapNhatChiSo;
 
   RoomModel({
     required this.maPhong,
@@ -32,6 +35,9 @@ class RoomModel {
     required this.moTaNgan,
     required this.tienIch,
     required this.noiThatSanCo,
+    this.chiSoDien = 0.0,
+    this.chiSoNuoc = 0.0,
+    this.ngayCapNhatChiSo,
   });
 
   static List<String> _parseStringList(dynamic val) {
@@ -52,6 +58,13 @@ class RoomModel {
         num.tryParse(json['don_gia_co_ban']?.toString() ?? '') ??
         0;
 
+    DateTime? parsedNgayCapNhat;
+    if (json['ngay_cap_nhat_chi_so'] != null &&
+        json['ngay_cap_nhat_chi_so'].toString().trim().isNotEmpty) {
+      parsedNgayCapNhat =
+          DateTime.tryParse(json['ngay_cap_nhat_chi_so'].toString());
+    }
+
     return RoomModel(
       maPhong: json['ma_phong']?.toString() ?? '',
       maLoaiPhong: json['ma_loai_phong']?.toString() ?? '',
@@ -70,6 +83,11 @@ class RoomModel {
       moTaNgan: json['mo_ta_ngan']?.toString() ?? '',
       tienIch: _parseStringList(json['tien_ich']),
       noiThatSanCo: _parseStringList(json['noi_that_san_co']),
+      chiSoDien:
+          double.tryParse(json['chi_so_dien']?.toString() ?? '') ?? 0.0,
+      chiSoNuoc:
+          double.tryParse(json['chi_so_nuoc']?.toString() ?? '') ?? 0.0,
+      ngayCapNhatChiSo: parsedNgayCapNhat,
     );
   }
 }

@@ -396,6 +396,237 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
     );
   }
 
+  /// Kiểm tra xem thông báo từ bảng `thong_bao` có dành cho cư dân hiện tại không
+  bool _isThongBaoDanhChoToi(Map<String, dynamic> row) {
+    final rowTaiKhoan = row['ma_tai_khoan']?.toString().trim();
+    final rowPhong = row['ma_phong']?.toString().trim();
+    final rowToaNha = row['toa_nha']?.toString().trim();
+
+    // 1. Nếu cả 3 trường đều rỗng/null -> Thông báo chung toàn hệ thống/tất cả cư dân
+    final bool isChung = (rowTaiKhoan == null || rowTaiKhoan.isEmpty) &&
+        (rowPhong == null || rowPhong.isEmpty) &&
+        (rowToaNha == null || rowToaNha.isEmpty);
+    if (isChung) return true;
+
+    // 2. Nếu khớp mã tài khoản
+    if (rowTaiKhoan != null && rowTaiKhoan.isNotEmpty) {
+      final user = AuthService.currentUser;
+      final myMaTk = user?.maTaiKhoan ??
+          _khachThueData?['ma_tai_khoan']?.toString() ??
+          '';
+      if (myMaTk.isNotEmpty &&
+          rowTaiKhoan.toLowerCase() == myMaTk.toLowerCase()) {
+        return true;
+      }
+    }
+
+    // 3. Nếu khớp mã phòng
+    if (rowPhong != null && rowPhong.isNotEmpty) {
+      final myRoomRaw = _hopDong?.maPhong ?? widget.roomNumber ?? 'P203';
+      final myRoomDigits = myRoomRaw.replaceAll(RegExp(r'[^0-9]'), '');
+      final rowRoomDigits = rowPhong.replaceAll(RegExp(r'[^0-9]'), '');
+      if (myRoomDigits.isNotEmpty &&
+          (myRoomDigits == rowRoomDigits ||
+              myRoomRaw.toLowerCase() == rowPhong.toLowerCase())) {
+        return true;
+      }
+    }
+
+    // 4. Nếu khớp tòa nhà
+    if (rowToaNha != null && rowToaNha.isNotEmpty) {
+      final myBuilding = (_phong?.toaNha ?? 'Kiêu Giang').toLowerCase();
+      if (rowToaNha.toLowerCase().contains(myBuilding) ||
+          myBuilding.contains(rowToaNha.toLowerCase())) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /// Cập nhật đã đọc lên bảng thong_bao trên Supabase
+  Future<void> _danhDauDaDocThongBaoSupabase(String maThongBao) async {
+    if (maThongBao.isEmpty) return;
+    try {
+      await Supabase.instance.client
+          .from('thong_bao')
+          .update({'da_doc': true})
+          .eq('ma_thong_bao', maThongBao);
+    } catch (e) {
+      debugPrint('[NOTIF] Lỗi cập nhật da_doc cho $maThongBao: $e');
+    }
+  }
+
+  /// Cập nhật tất cả thông báo của cư dân thành đã đọc trên Supabase
+  Future<void> _danhDauTatCaDaDocSupabase() async {
+    try {
+      final db = Supabase.instance.client;
+      final user = AuthService.currentUser;
+      final myMaTk = user?.maTaiKhoan ??
+          _khachThueData?['ma_tai_khoan']?.toString() ??
+          '';
+      final myRoomRaw = _hopDong?.maPhong ?? widget.roomNumber ?? 'P203';
+      final myRoomDigits = myRoomRaw.replaceAll(RegExp(r'[^0-9]'), '');
+
+      if (myMaTk.isNotEmpty) {
+        await db
+            .from('thong_bao')
+            .update({'da_doc': true})
+            .eq('ma_tai_khoan', myMaTk);
+      }
+      if (myRoomDigits.isNotEmpty) {
+        await db
+            .from('thong_bao')
+            .update({'da_doc': true})
+            .or('ma_phong.eq.P$myRoomDigits,ma_phong.eq.$myRoomDigits');
+      }
+    } catch (e) {
+      debugPrint('[NOTIF] Lỗi markAllAsRead Supabase: $e');
+    }
+  }
+
+  /// Hiển thị hộp thoại chi tiết thông báo từ BQL gửi xuống
+  void _hienChiTietThongBaoModal(Map<String, dynamic> row) {
+    final maThongBao = row['ma_thong_bao']?.toString() ?? '';
+    final tieuDe = row['tieu_de']?.toString() ?? 'Thông Báo Cư Dân';
+    final noiDung = row['noi_dung']?.toString() ?? '';
+    final loaiTb = row['loai_thong_bao']?.toString() ?? 'Thông báo';
+    final ngayTaoRaw = row['ngay_tao']?.toString();
+    final dt = DateTime.tryParse(ngayTaoRaw ?? '') ?? DateTime.now();
+    final ngayTaoFmt =
+        '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')} - ${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
+
+    // Đánh dấu đã đọc ở cả local và Supabase
+    if (maThongBao.isNotEmpty) {
+      _danhDauDaDocThongBaoSupabase(maThongBao);
+      SystemNotificationService.markAsRead('tb_table_$maThongBao');
+    }
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+        titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF09638E).withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Icon(
+                Icons.campaign_rounded,
+                color: Color(0xFF09638E),
+                size: 26,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    loaiTb.toUpperCase(),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF09638E),
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    tieuDe,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(
+                    Icons.access_time_rounded,
+                    size: 14,
+                    color: Color(0xFF64748B),
+                  ),
+                  const SizedBox(width: 5),
+                  Text(
+                    ngayTaoFmt,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF64748B),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Text(
+                  noiDung.isNotEmpty
+                      ? noiDung
+                      : 'Không có nội dung chi tiết.',
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    color: Color(0xFF1E293B),
+                    height: 1.5,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          SizedBox(
+            width: double.infinity,
+            height: 44,
+            child: ElevatedButton(
+              onPressed: () => Navigator.pop(ctx),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF09638E),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 0,
+              ),
+              child: const Text(
+                'Đã Hiểu',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   /// Đồng bộ toàn bộ thông báo thực từ Supabase vào trung tâm chuông thông báo
   Future<void> _dongBoDanhSachThongBao() async {
     try {
@@ -405,6 +636,47 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
       final activeRoom = _hopDong?.maPhong ?? (widget.roomNumber ?? 'P203');
 
       final List<Map<String, dynamic>> danhSachMoi = [];
+
+      // 0. Lấy thông báo từ bảng `thong_bao` (Supabase)
+      try {
+        final thongBaoRows = await db
+            .from('thong_bao')
+            .select()
+            .order('ngay_tao', ascending: false)
+            .limit(30);
+
+        for (final row in (thongBaoRows as List)) {
+          if (!_isThongBaoDanhChoToi(row)) continue;
+
+          final maTb = row['ma_thong_bao']?.toString() ?? '';
+          if (maTb.isEmpty) continue;
+          final tieuDe = row['tieu_de']?.toString() ?? 'Thông Báo Cư Dân';
+          final noiDung = row['noi_dung']?.toString() ?? '';
+          final loaiTb = row['loai_thong_bao']?.toString() ?? 'thong_bao';
+          final bool daDocDb = row['da_doc'] == true;
+          final idNotif = 'tb_table_$maTb';
+          final daDoc = _danhSachIdDaDoc.contains(idNotif) || daDocDb;
+          final thoiGian =
+              DateTime.tryParse(row['ngay_tao']?.toString() ?? '') ??
+              DateTime.now();
+
+          danhSachMoi.add({
+            'id': idNotif,
+            'tieu_de': tieuDe,
+            'noi_dung': noiDung,
+            'loai': loaiTb,
+            'thoi_gian': thoiGian,
+            'da_doc': daDoc,
+            'is_error':
+                loaiTb.toLowerCase().contains('khẩn') ||
+                loaiTb.toLowerCase().contains('khan') ||
+                loaiTb.toLowerCase().contains('canh_bao'),
+            'on_xem': () => _hienChiTietThongBaoModal(row),
+          });
+        }
+      } catch (e) {
+        debugPrint('[NOTIF] Lỗi tải dữ liệu bảng thong_bao: $e');
+      }
 
       // 1. Lấy thông tin chuyển phòng từ yeu_cau_chuyen_phong
       try {
@@ -1239,6 +1511,15 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
           callback: (payload) {
             debugPrint('[REALTIME] Thay đổi dang_ky_khach_qua_dem: ${payload.newRecord}');
             _checkKhachQuaDemRealtimeUpdate(payload.newRecord);
+          },
+        )
+        ..onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'thong_bao',
+          callback: (payload) {
+            debugPrint('[REALTIME] Thay đổi thong_bao: ${payload.newRecord}');
+            _checkBangThongBaoRealtimeUpdate(payload.newRecord);
           },
         )
         ..subscribe();
@@ -2122,6 +2403,44 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
     }
   }
 
+  void _checkBangThongBaoRealtimeUpdate(Map<String, dynamic> record) {
+    if (record.isEmpty || !mounted) return;
+    if (!_isThongBaoDanhChoToi(record)) return;
+
+    final maTb = record['ma_thong_bao']?.toString() ?? '';
+    if (maTb.isEmpty) return;
+    final approvalKey = 'tb_table_$maTb';
+
+    if (_notifiedApprovalKeys.contains(approvalKey) ||
+        ThongBaoHelper.daXem(approvalKey)) {
+      return;
+    }
+
+    _notifiedApprovalKeys.add(approvalKey);
+    ThongBaoHelper.danhDauDaXem(approvalKey);
+
+    final tieuDe = record['tieu_de']?.toString() ?? 'Thông Báo Cư Dân';
+    final noiDung = record['noi_dung']?.toString() ?? '';
+    final loaiTb = record['loai_thong_bao']?.toString() ?? 'thong_bao';
+    final isKhauCap = loaiTb.toLowerCase().contains('khẩn') ||
+        loaiTb.toLowerCase().contains('khan') ||
+        loaiTb.toLowerCase().contains('canh_bao') ||
+        loaiTb.toLowerCase().contains('canhbao');
+
+    // Đồng bộ lại danh sách chuông
+    _dongBoDanhSachThongBao();
+
+    // Bắn thông báo ngoài hệ thống OS & banner nổi Dynamic Heads-Up
+    _hienThongBaoHeThong(
+      tieuDe: tieuDe,
+      noiDung: noiDung,
+      loai: loaiTb,
+      isError: isKhauCap,
+      tag: approvalKey,
+      onXem: () => _hienChiTietThongBaoModal(record),
+    );
+  }
+
   Future<void> _pollCheckApprovals() async {
     if (!mounted) return;
     final maHD = _hopDong?.maHopDong ?? maHopDong;
@@ -2249,6 +2568,32 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
           }
           _lastGuestStatuses[id] = st;
         }
+      }
+
+      // 6. Kiểm tra thông báo mới từ bảng thong_bao
+      try {
+        final tbRes = await db
+            .from('thong_bao')
+            .select()
+            .order('ngay_tao', ascending: false)
+            .limit(5);
+
+        for (final row in (tbRes as List)) {
+          if (!_isThongBaoDanhChoToi(row)) continue;
+          final maTb = row['ma_thong_bao']?.toString() ?? '';
+          if (maTb.isEmpty) continue;
+          final approvalKey = 'tb_table_$maTb';
+          final bool daDocDb = row['da_doc'] == true;
+
+          // Nếu chưa đọc và chưa được bắn thông báo
+          if (!daDocDb &&
+              !_notifiedApprovalKeys.contains(approvalKey) &&
+              !ThongBaoHelper.daXem(approvalKey)) {
+            _checkBangThongBaoRealtimeUpdate(row);
+          }
+        }
+      } catch (e) {
+        debugPrint('[POLL] Lỗi poll bảng thong_bao: $e');
       }
     } catch (_) {}
   }
@@ -7540,10 +7885,10 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                   iconBg: const Color(0xFFE0F2FE),
                   title: 'Điện nước',
                   subtitle: 'Chốt số',
-                  onTap: () {
+                  onTap: () async {
                     final curRoom =
                         _hopDong?.maPhong ?? widget.roomNumber ?? 'P203';
-                    Navigator.push(
+                    await Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (_) => MeterReadingScreen(
@@ -7553,6 +7898,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                         ),
                       ),
                     );
+                    _fetchTenantData(isSilent: true);
                   },
                 ),
               ),
@@ -8412,6 +8758,33 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                   style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
                 ),
               ),
+              const SizedBox(width: 8),
+              InkWell(
+                onTap: () => _showModalChinhSuaPhuongTien(null),
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF09638E),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.add_rounded, color: Colors.white, size: 15),
+                      SizedBox(width: 3),
+                      Text(
+                        'Thêm xe',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ],
           ),
           const Divider(height: 20, color: Color(0xFFF1F5F9)),
@@ -8422,15 +8795,26 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
               decoration: BoxDecoration(
                 color: const Color(0xFFF8FAFC),
                 borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
               ),
-              child: const Row(
+              child: Row(
                 children: [
-                  Icon(Icons.directions_walk_rounded, color: Color(0xFF94A3B8), size: 22),
-                  SizedBox(width: 10),
-                  Expanded(
+                  const Icon(Icons.directions_walk_rounded, color: Color(0xFF94A3B8), size: 24),
+                  const SizedBox(width: 10),
+                  const Expanded(
                     child: Text(
-                      'Hiện tại bạn chưa đăng ký phương tiện xe gửi tại trọ.',
+                      'Hiện tại bạn chưa đăng ký xe gửi tại trọ.',
                       style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: () => _showModalChinhSuaPhuongTien(null),
+                    icon: const Icon(Icons.add_rounded, size: 16, color: Color(0xFF09638E)),
+                    label: const Text('Thêm ngay', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF09638E))),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
                   ),
                 ],
@@ -8452,54 +8836,450 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
   }
 
   Widget _buildVehicleRowItem(int index, Map<String, dynamic> xe) {
+    final maPt = xe['ma_phuong_tien']?.toString() ?? '';
     final bienSo = xe['bien_so_xe']?.toString() ?? 'Chưa có biển số';
     final loaiXe = xe['loai_xe']?.toString() ?? 'Xe máy';
-    final ghiChu = xe['ghi_chu']?.toString() ?? '';
-    final trangThai = xe['trang_thai']?.toString() ?? 'Hoạt động';
 
-    return Row(
-      children: [
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: const Color(0xFFE0F2FE),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: const Center(
-            child: Icon(Icons.moped_rounded, color: Color(0xFF09638E), size: 20),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                bienSo,
-                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+    return InkWell(
+      onTap: () => _showModalChinhSuaPhuongTien(xe),
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE0F2FE),
+                borderRadius: BorderRadius.circular(10),
               ),
-              const SizedBox(height: 2),
-              Text(
-                '$loaiXe${ghiChu.isNotEmpty ? " • $ghiChu" : ""}',
-                style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+              child: const Center(
+                child: Icon(Icons.moped_rounded, color: Color(0xFF09638E), size: 20),
               ),
-            ],
-          ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    bienSo,
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    loaiXe,
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.edit_outlined, size: 19, color: Color(0xFF09638E)),
+              onPressed: () => _showModalChinhSuaPhuongTien(xe),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              tooltip: 'Chỉnh sửa phương tiện',
+            ),
+            const SizedBox(width: 10),
+            IconButton(
+              icon: const Icon(Icons.delete_outline_rounded, size: 19, color: Color(0xFFEF4444)),
+              onPressed: () async {
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (c) => AlertDialog(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                    title: const Text('Xác Nhận Xóa Phương Tiện', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    content: Text('Bạn có chắc chắn muốn xóa phương tiện "$bienSo" khỏi hồ sơ không?'),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Hủy')),
+                      ElevatedButton(
+                        onPressed: () => Navigator.pop(c, true),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFEF4444),
+                          foregroundColor: Colors.white,
+                        ),
+                        child: const Text('Xóa Phương Tiện'),
+                      ),
+                    ],
+                  ),
+                );
+                if (confirm == true) {
+                  try {
+                    await Supabase.instance.client
+                        .from('phuong_tien')
+                        .delete()
+                        .eq('ma_phuong_tien', maPt);
+                    if (mounted) {
+                      ThongBaoHelper.hienToast(
+                        context,
+                        tieuDe: 'Thành công',
+                        noiDung: 'Đã xóa phương tiện khỏi danh sách.',
+                        type: ThongBaoType.thanhCong,
+                      );
+                      _fetchTenantData(isSilent: true);
+                    }
+                  } catch (err) {
+                    ThongBaoHelper.hienToast(
+                      context,
+                      tieuDe: 'Lỗi',
+                      noiDung: 'Không thể xóa phương tiện: $err',
+                      type: ThongBaoType.thatBai,
+                    );
+                  }
+                }
+              },
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              tooltip: 'Xóa phương tiện',
+            ),
+          ],
         ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-          decoration: BoxDecoration(
-            color: const Color(0xFFECFDF5),
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: const Color(0xFFA7F3D0)),
-          ),
-          child: Text(
-            trangThai,
-            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF059669)),
-          ),
-        ),
-      ],
+      ),
+    );
+  }
+
+  /// Hộp thoại/BottomSheet Thêm hoặc Chỉnh Sửa Phương Tiện Xe Gửi Tại Trọ
+  void _showModalChinhSuaPhuongTien(Map<String, dynamic>? phuongTienHienTai) {
+    final isEditing = phuongTienHienTai != null;
+    final maPt = phuongTienHienTai?['ma_phuong_tien']?.toString() ?? '';
+    final bienSoCtrl = TextEditingController(text: phuongTienHienTai?['bien_so_xe']?.toString() ?? '');
+    String loaiXeSelected = phuongTienHienTai?['loai_xe']?.toString() ?? 'Xe máy';
+
+    final dsLoaiXe = ['Xe máy', 'Xe tay ga', 'Xe số', 'Xe điện', 'Xe đạp điện'];
+    if (!dsLoaiXe.contains(loaiXeSelected)) {
+      dsLoaiXe.add(loaiXeSelected);
+    }
+
+    bool isSubmitting = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) {
+          return Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(ctx).viewInsets.bottom,
+            ),
+            child: Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Thanh kéo modal
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFCBD5E1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Header modal
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF09638E).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            Icons.two_wheeler_rounded,
+                            color: Color(0xFF09638E),
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                isEditing ? 'Chỉnh Sửa Phương Tiện' : 'Đăng Ký Phương Tiện Mới',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF0F172A),
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                isEditing ? 'Cập nhật loại xe và biển số xe' : 'Đăng ký xe gửi tại nhà trọ Kiêu Giang',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF64748B),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close_rounded, color: Color(0xFF64748B)),
+                          onPressed: () => Navigator.pop(ctx),
+                        ),
+                      ],
+                    ),
+                    const Divider(height: 24, color: Color(0xFFE2E8F0)),
+
+                    // Chọn loại xe
+                    const Text(
+                      'Loại phương tiện *',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF334155),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: dsLoaiXe.map((lx) {
+                        final isSel = lx == loaiXeSelected;
+                        return ChoiceChip(
+                          label: Text(lx),
+                          selected: isSel,
+                          selectedColor: const Color(0xFF09638E),
+                          labelStyle: TextStyle(
+                            color: isSel ? Colors.white : const Color(0xFF334155),
+                            fontWeight: isSel ? FontWeight.bold : FontWeight.w500,
+                            fontSize: 12,
+                          ),
+                          backgroundColor: const Color(0xFFF1F5F9),
+                          side: BorderSide(
+                            color: isSel ? const Color(0xFF09638E) : const Color(0xFFE2E8F0),
+                          ),
+                          onSelected: (val) {
+                            if (val) setModalState(() => loaiXeSelected = lx);
+                          },
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Nhập biển số xe
+                    const Text(
+                      'Biển số xe *',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF334155),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: bienSoCtrl,
+                      textCapitalization: TextCapitalization.characters,
+                      style: const TextStyle(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.0,
+                        color: Color(0xFF0F172A),
+                      ),
+                      decoration: InputDecoration(
+                        hintText: 'Ví dụ: 59-X1 234.56',
+                        hintStyle: const TextStyle(
+                          color: Color(0xFF94A3B8),
+                          fontSize: 13,
+                          fontWeight: FontWeight.normal,
+                          letterSpacing: 0,
+                        ),
+                        prefixIcon: const Icon(Icons.pin_rounded, color: Color(0xFF09638E), size: 20),
+                        filled: true,
+                        fillColor: const Color(0xFFF8FAFC),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: Color(0xFF09638E), width: 1.5),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Nút Lưu và Xóa
+                    Row(
+                      children: [
+                        if (isEditing) ...[
+                          IconButton(
+                            onPressed: isSubmitting
+                                ? null
+                                : () async {
+                                    final confirm = await showDialog<bool>(
+                                      context: ctx,
+                                      builder: (c) => AlertDialog(
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                                        title: const Text('Xác Nhận Xóa Phương Tiện', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                        content: Text('Bạn có chắc chắn muốn xóa phương tiện biển số "${bienSoCtrl.text.trim()}" khỏi hồ sơ không?'),
+                                        actions: [
+                                          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Hủy')),
+                                          ElevatedButton(
+                                            onPressed: () => Navigator.pop(c, true),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: const Color(0xFFEF4444),
+                                              foregroundColor: Colors.white,
+                                            ),
+                                            child: const Text('Xóa Phương Tiện'),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                    if (confirm == true) {
+                                      setModalState(() => isSubmitting = true);
+                                      try {
+                                        await Supabase.instance.client
+                                            .from('phuong_tien')
+                                            .delete()
+                                            .eq('ma_phuong_tien', maPt);
+                                        if (mounted) {
+                                          Navigator.pop(ctx);
+                                          ThongBaoHelper.hienToast(
+                                            context,
+                                            tieuDe: 'Thành công',
+                                            noiDung: 'Đã xóa phương tiện khỏi danh sách.',
+                                            type: ThongBaoType.thanhCong,
+                                          );
+                                          _fetchTenantData(isSilent: true);
+                                        }
+                                      } catch (err) {
+                                        setModalState(() => isSubmitting = false);
+                                        ThongBaoHelper.hienToast(
+                                          context,
+                                          tieuDe: 'Lỗi',
+                                          noiDung: 'Không thể xóa phương tiện: $err',
+                                          type: ThongBaoType.thatBai,
+                                        );
+                                      }
+                                    }
+                                  },
+                            icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFEF4444)),
+                            style: IconButton.styleFrom(
+                              backgroundColor: const Color(0xFFFEE2E2),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              padding: const EdgeInsets.all(12),
+                            ),
+                            tooltip: 'Xóa phương tiện',
+                          ),
+                          const SizedBox(width: 10),
+                        ],
+                        Expanded(
+                          child: SizedBox(
+                            height: 48,
+                            child: ElevatedButton(
+                              onPressed: isSubmitting
+                                  ? null
+                                  : () async {
+                                      final bienSo = bienSoCtrl.text.trim().toUpperCase();
+                                      if (bienSo.isEmpty) {
+                                        ThongBaoHelper.hienToast(
+                                          context,
+                                          tieuDe: 'Thiếu thông tin',
+                                          noiDung: 'Vui lòng nhập biển số xe.',
+                                          type: ThongBaoType.canhBao,
+                                        );
+                                        return;
+                                      }
+
+                                      setModalState(() => isSubmitting = true);
+                                      try {
+                                        final db = Supabase.instance.client;
+                                        final maKhach = _khachThueData?['ma_khach']?.toString() ??
+                                            AuthService.currentUser?.maTaiKhoan ??
+                                            '';
+                                        final activeRoom = _hopDong?.maPhong ?? widget.roomNumber ?? 'P203';
+
+                                        if (isEditing) {
+                                          await db.from('phuong_tien').update({
+                                            'loai_xe': loaiXeSelected,
+                                            'bien_so_xe': bienSo,
+                                          }).eq('ma_phuong_tien', maPt);
+                                        } else {
+                                          final newMaPt = 'PT_${DateTime.now().millisecondsSinceEpoch.toString().substring(4)}';
+                                          await db.from('phuong_tien').insert({
+                                            'ma_phuong_tien': newMaPt,
+                                            'ma_khach': maKhach,
+                                            'ma_phong': activeRoom,
+                                            'loai_xe': loaiXeSelected,
+                                            'bien_so_xe': bienSo,
+                                            'trang_thai': 'Đang sử dụng',
+                                            'ngay_dang_ky': DateTime.now().toIso8601String(),
+                                          });
+                                        }
+
+                                        if (mounted) {
+                                          Navigator.pop(ctx);
+                                          ThongBaoHelper.hienToast(
+                                            context,
+                                            tieuDe: 'Thành công',
+                                            noiDung: isEditing
+                                                ? 'Đã cập nhật thông tin phương tiện!'
+                                                : 'Đã thêm phương tiện mới thành công!',
+                                            type: ThongBaoType.thanhCong,
+                                          );
+                                          _fetchTenantData(isSilent: true);
+                                        }
+                                      } catch (err) {
+                                        setModalState(() => isSubmitting = false);
+                                        ThongBaoHelper.hienToast(
+                                          context,
+                                          tieuDe: 'Lỗi',
+                                          noiDung: 'Không thể lưu phương tiện: $err',
+                                          type: ThongBaoType.thatBai,
+                                        );
+                                      }
+                                    },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF09638E),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                elevation: 0,
+                              ),
+                              child: isSubmitting
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                    )
+                                  : Text(
+                                      isEditing ? 'Lưu Thay Đổi' : 'Xác Nhận Đăng Ký',
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -9019,7 +9799,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
     );
   }
 
-  void _showMeterReadingModal() {
+  void _showMeterReadingModal() async {
     // Xác định kỳ tháng hiện tại
     final now = DateTime.now();
     final kyThang = '${now.month}/${now.year}';
@@ -9034,7 +9814,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
             ? 'P${widget.roomNumber}'
             : 'P203');
 
-    Navigator.push(
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => MeterReadingScreen(
@@ -9045,6 +9825,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
         ),
       ),
     );
+    _fetchTenantData(isSilent: true);
   }
 
   void _showExtendContractHistoryModal() {
@@ -10616,6 +11397,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                         TextButton(
                           onPressed: () {
                             SystemNotificationService.markAllAsRead();
+                            _danhDauTatCaDaDocSupabase();
                           },
                           style: TextButton.styleFrom(
                             padding: const EdgeInsets.symmetric(

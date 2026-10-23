@@ -212,6 +212,43 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
         debugPrint('Lỗi kiểm tra phụ lục chuyển phòng: $e');
       }
 
+      // 1.2 Tải trực tiếp chỉ số hiện tại từ bảng 'phong' (3 cột: chi_so_dien, chi_so_nuoc, ngay_cap_nhat_chi_so)
+      double? phongChiSoDien;
+      double? phongChiSoNuoc;
+      DateTime? phongNgayCapNhat;
+      try {
+        final cleanMaPhong = widget.maPhong.trim();
+        var phongRow = await db
+            .from('phong')
+            .select('chi_so_dien, chi_so_nuoc, ngay_cap_nhat_chi_so')
+            .eq('ma_phong', cleanMaPhong)
+            .maybeSingle();
+
+        if (phongRow == null) {
+          final pNum = cleanMaPhong.replaceAll(RegExp(r'[^0-9]'), '');
+          if (pNum.isNotEmpty) {
+            final listAlt = await db
+                .from('phong')
+                .select('chi_so_dien, chi_so_nuoc, ngay_cap_nhat_chi_so')
+                .or('ma_phong.eq.P$pNum,ma_phong.eq.$pNum');
+            if ((listAlt as List).isNotEmpty) {
+              phongRow = listAlt.first;
+            }
+          }
+        }
+
+        if (phongRow != null) {
+          phongChiSoDien = double.tryParse(phongRow['chi_so_dien']?.toString() ?? '');
+          phongChiSoNuoc = double.tryParse(phongRow['chi_so_nuoc']?.toString() ?? '');
+          if (phongRow['ngay_cap_nhat_chi_so'] != null) {
+            phongNgayCapNhat = DateTime.tryParse(phongRow['ngay_cap_nhat_chi_so'].toString());
+          }
+          debugPrint('[METER] Đã tải từ bảng phong: dien=$phongChiSoDien, nuoc=$phongChiSoNuoc, ngay=$phongNgayCapNhat');
+        }
+      } catch (e) {
+        debugPrint('Lỗi tải chỉ số từ bảng phong: $e');
+      }
+
       // 2. Tải chỉ số từ bảng chi_so_dien_nuoc thực tế trên Supabase!
       try {
         final chiSoList = await db
@@ -269,43 +306,32 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
             _nuocController.text = nVal != null ? (nVal % 1 == 0 ? nVal.toInt().toString() : nVal.toString()) : nuocMoi.toString();
           }
 
-          _chiSoDienTruoc = double.tryParse(recordKyNay['chi_so_dien_cu']?.toString() ?? '210') ?? 210.0;
-          _chiSoNuocTruoc = double.tryParse(recordKyNay['chi_so_nuoc_cu']?.toString() ?? '36') ?? 36.0;
+          _chiSoDienTruoc = double.tryParse(recordKyNay['chi_so_dien_cu']?.toString() ?? '') ?? (phongChiSoDien ?? 0.0);
+          _chiSoNuocTruoc = double.tryParse(recordKyNay['chi_so_nuoc_cu']?.toString() ?? '') ?? (phongChiSoNuoc ?? 0.0);
 
           _urlAnhDienDaGui = recordKyNay['anh_dien']?.toString();
           _urlAnhNuocDaGui = recordKyNay['anh_nuoc']?.toString();
-        } else if (ngayChuyenPhong != null) {
-          // Phòng mới chuyển đến chưa có dữ liệu chốt số -> khởi tạo mốc chỉ số đầu kỳ = 0
-          _daGuiDonKyNay = null;
-          _chiSoDienTruoc = 0.0;
-          _chiSoNuocTruoc = 0.0;
-          _dienController.clear();
-          _nuocController.clear();
-        } else if (list.isNotEmpty) {
-          final latest = list.first;
-          final dienMoiCu = double.tryParse(latest['chi_so_dien_moi']?.toString() ?? '');
-          final nuocMoiCu = double.tryParse(latest['chi_so_nuoc_moi']?.toString() ?? '');
-
-          // Chỉ số cũ tháng này = chỉ số mới đã chốt của tháng trước
-          _chiSoDienTruoc = dienMoiCu ?? double.tryParse(latest['chi_so_dien_cu']?.toString() ?? '210') ?? 210.0;
-          _chiSoNuocTruoc = nuocMoiCu ?? double.tryParse(latest['chi_so_nuoc_cu']?.toString() ?? '36') ?? 36.0;
         } else {
-          // Lấy bản ghi mới nhất trong hệ thống làm mốc
-          final allLatest = await db
-              .from('chi_so_dien_nuoc')
-              .select()
-              .order('ngay_ghi_nhan', ascending: false)
-              .limit(1);
-          if ((allLatest as List).isNotEmpty) {
-            final latest = allLatest.first;
-            _chiSoDienTruoc = double.tryParse(latest['chi_so_dien_moi']?.toString() ?? '210') ?? 210.0;
-            _chiSoNuocTruoc = double.tryParse(latest['chi_so_nuoc_moi']?.toString() ?? '36') ?? 36.0;
+          // Chưa nộp đơn kỳ này: ƯU TIÊN LẤY CHỈ SỐ TỪ BẢNG PHÒNG XUỐNG LÀM MỐC ĐẦU KỲ
+          _daGuiDonKyNay = null;
+          if (phongChiSoDien != null || phongChiSoNuoc != null) {
+            _chiSoDienTruoc = phongChiSoDien ?? 0.0;
+            _chiSoNuocTruoc = phongChiSoNuoc ?? 0.0;
+          } else if (list.isNotEmpty) {
+            final latest = list.first;
+            final dienMoiCu = double.tryParse(latest['chi_so_dien_moi']?.toString() ?? '');
+            final nuocMoiCu = double.tryParse(latest['chi_so_nuoc_moi']?.toString() ?? '');
+            _chiSoDienTruoc = dienMoiCu ?? double.tryParse(latest['chi_so_dien_cu']?.toString() ?? '0') ?? 0.0;
+            _chiSoNuocTruoc = nuocMoiCu ?? double.tryParse(latest['chi_so_nuoc_cu']?.toString() ?? '0') ?? 0.0;
+          } else {
+            _chiSoDienTruoc = 0.0;
+            _chiSoNuocTruoc = 0.0;
           }
         }
       } catch (e) {
         debugPrint('Lỗi tải bảng chi_so_dien_nuoc: $e');
-        _chiSoDienTruoc = ngayChuyenPhong != null ? 0.0 : 210.0;
-        _chiSoNuocTruoc = ngayChuyenPhong != null ? 0.0 : 36.0;
+        _chiSoDienTruoc = phongChiSoDien ?? 0.0;
+        _chiSoNuocTruoc = phongChiSoNuoc ?? 0.0;
       }
 
       _maCongTo = '#CTO-${widget.maPhong}';
@@ -655,6 +681,36 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
       };
 
       await db.from('chi_so_dien_nuoc').upsert(upsertData);
+
+      // CẬP NHẬT 3 CỘT Ở BẢNG 'phong': chi_so_dien, chi_so_nuoc, ngay_cap_nhat_chi_so
+      try {
+        final cleanMaPhong = widget.maPhong.trim();
+        final nowIso = now.toIso8601String();
+        final phongUpdateData = {
+          'chi_so_dien': _dienMoi,
+          'chi_so_nuoc': _nuocMoi,
+          'ngay_cap_nhat_chi_so': nowIso,
+        };
+
+        final updated = await db
+            .from('phong')
+            .update(phongUpdateData)
+            .eq('ma_phong', cleanMaPhong)
+            .select();
+
+        if ((updated as List).isEmpty) {
+          final pNum = cleanMaPhong.replaceAll(RegExp(r'[^0-9]'), '');
+          if (pNum.isNotEmpty) {
+            await db
+                .from('phong')
+                .update(phongUpdateData)
+                .or('ma_phong.eq.P$pNum,ma_phong.eq.$pNum');
+          }
+        }
+        debugPrint('[METER] Đã cập nhật 3 cột chi_so_dien=$_dienMoi, chi_so_nuoc=$_nuocMoi, ngay_cap_nhat_chi_so=$nowIso vào bảng phong!');
+      } catch (errPhong) {
+        debugPrint('Lỗi cập nhật 3 cột vào bảng phong: $errPhong');
+      }
 
       // Cập nhật trạng thái đã nộp đơn kỳ này để khóa màn hình lập tức
       _daGuiDonKyNay = Map<String, dynamic>.from(upsertData);

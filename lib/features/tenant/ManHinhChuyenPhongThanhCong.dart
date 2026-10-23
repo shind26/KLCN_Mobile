@@ -912,53 +912,28 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
           ],
           const SizedBox(height: 10),
 
-          const Text(
-            'Đang Chờ Ban Quản Lý Duyệt',
-            style: TextStyle(
-              fontSize: 17,
+          Text(
+            _currentStatus == 'Đã duyệt'
+                ? 'Chuyển Phòng Thành Công'
+                : (_currentStatus == 'Chờ khách xác nhận'
+                    ? 'Chờ Xác Nhận Biên Bản'
+                    : (_currentStatus == 'Chờ chủ duyệt'
+                        ? 'Chờ Chủ Trọ Duyệt'
+                        : 'Yêu Cầu Đã Gửi Thành Công')),
+            style: const TextStyle(
+              fontSize: 16.5,
               fontWeight: FontWeight.w900,
               color: _textDark,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
           Text(
-            'Yêu cầu chuyển từ ${widget.currentRoomNumber} sang $targetName (${widget.targetRoom["toaNha"]}) đã được gửi thành công và đang chờ BQL xem xét duyệt.',
+            '${widget.currentRoomNumber} → $targetName • Hẹn ngày: ${widget.moveInDateFormatted}',
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontSize: 12,
-              color: Color(0xFF475569),
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFFBEB),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFFDE68A)),
-            ),
-            child: const Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(
-                  Icons.info_outline_rounded,
-                  size: 16,
-                  color: Color(0xFFB45309),
-                ),
-                SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Yêu cầu chuyển phòng đã được gửi. Vào ngày dọn, BQL sẽ gặp trực tiếp để bàn giao chìa khóa. Toàn bộ tiền điện nước phát sinh phòng cũ, chi phí hư hỏng (nếu có) và chênh lệch cọc sẽ được kết chuyển vào hóa đơn kỳ tới của phòng mới.',
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF92400E),
-                      height: 1.35,
-                    ),
-                  ),
-                ),
-              ],
+              fontWeight: FontWeight.w500,
+              color: Color(0xFF64748B),
             ),
           ),
         ],
@@ -1121,38 +1096,6 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
                   ),
                 ),
               ],
-            ),
-            const SizedBox(height: 10),
-
-            // Thông báo thực tế
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFFBEB),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFFEF3C7)),
-              ),
-              child: const Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(
-                    Icons.info_outline_rounded,
-                    size: 15,
-                    color: Color(0xFFD97706),
-                  ),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Yêu cầu chuyển phòng đã được gửi. Vào ngày dọn, BQL sẽ gặp trực tiếp để bàn giao chìa khóa. Toàn bộ tiền điện nước phát sinh phòng cũ, chi phí hư hỏng (nếu có) và chênh lệch cọc sẽ được kết chuyển vào hóa đơn kỳ tới của phòng mới.',
-                      style: TextStyle(
-                        fontSize: 11,
-                        height: 1.35,
-                        color: Color(0xFF92400E),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
             ),
             const SizedBox(height: 12),
 
@@ -3130,10 +3073,9 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
           // Bước 1: Tiếp nhận & Tạm giữ phòng
           _buildStepRow(
             stepNum: '1',
-            title: 'Khách gửi yêu cầu & Giữ phòng $targetName',
+            title: 'Gửi yêu cầu giữ phòng $targetName',
             status: 'Hoàn thành',
-            desc:
-                'Hệ thống đã ghi nhận yêu cầu và tạm khóa phòng $targetName để ưu tiên cho bạn.',
+            desc: 'Đã tạm giữ phòng ưu tiên cho bạn.',
             isActive: true,
           ),
           const SizedBox(height: 12),
@@ -3141,11 +3083,11 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
           // Bước 2: BQL kiểm tra & Nghiệm thu phòng cũ
           _buildStepRow(
             stepNum: '2',
-            title: 'BQL kiểm tra & Nghiệm thu phòng cũ',
+            title: 'BQL kiểm tra phòng cũ',
             status: _isInspectionDone ? 'Đã kiểm tra' : 'Chờ trong 24h',
             desc: _isInspectionDone
-                ? 'Kỹ thuật viên ($_inspectorName) đã lập bảng kê hiện trạng thiết bị và chốt số điện nước.'
-                : 'BQL Kiều Giang sẽ kiểm tra hiện trạng thiết bị phòng và chốt điện nước trước ngày dọn.',
+                ? 'Đã lập biên bản kiểm tra thiết bị & điện nước.'
+                : 'BQL sẽ liên hệ kiểm tra thiết bị trước ngày dọn.',
             isActive: _isInspectionDone,
             extraWidget: _isInspectionDone
                 ? Padding(
@@ -3169,7 +3111,7 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
                             Icon(Icons.receipt_long_rounded, size: 14, color: _primary),
                             SizedBox(width: 5),
                             Text(
-                              'Xem bảng kê biên bản thiết bị',
+                              'Xem biên bản thiết bị',
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
@@ -3188,17 +3130,17 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
           // Bước 3: Khách thuê xác nhận biên bản & Đối soát cọc
           _buildStepRow(
             stepNum: '3',
-            title: 'Khách xác nhận biên bản & Đối soát cọc',
+            title: 'Xác nhận biên bản nghiệm thu',
             status: _hasAcceptedInspection
                 ? 'Đã xác nhận'
                 : (_currentStatus == 'Chờ khách xác nhận'
                     ? 'Cần xác nhận'
                     : 'Chờ sau bước 2'),
             desc: _hasAcceptedInspection
-                ? 'Bạn đã ký xác nhận biên bản kiểm tra thiết bị và quyết toán cọc bảo lưu.'
+                ? 'Đã xác nhận biên bản và đối soát cọc.'
                 : (_currentStatus == 'Chờ khách xác nhận'
-                    ? 'Biên bản đã sẵn sàng! Vui lòng bấm xem bảng kê và xác nhận để gửi BQL duyệt.'
-                    : 'Bạn sẽ kiểm tra đối chiếu chi phí và ký xác nhận sau khi BQL kiểm tra xong.'),
+                    ? 'Vui lòng kiểm tra và bấm xác nhận biên bản.'
+                    : 'Xác nhận sau khi BQL kiểm tra xong.'),
             isActive: _hasAcceptedInspection || _currentStatus == 'Chờ khách xác nhận',
             extraWidget: (_currentStatus == 'Chờ khách xác nhận' && !_hasAcceptedInspection)
                 ? Padding(
@@ -3222,7 +3164,7 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
                             Icon(Icons.touch_app_rounded, size: 14, color: Color(0xFFD97706)),
                             SizedBox(width: 5),
                             Text(
-                              'Bấm vào đây để xem & xác nhận biên bản',
+                              'Bấm xem & xác nhận biên bản',
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
@@ -3241,13 +3183,13 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
           // Bước 4: BQL / Chủ trọ phê duyệt chính thức & Bàn giao
           _buildStepRow(
             stepNum: '4',
-            title: 'BQL duyệt & Ký phụ lục hợp đồng mới',
+            title: 'Phê duyệt & Nhận phòng',
             status: _currentStatus == 'Đã duyệt'
                 ? 'Đã duyệt'
                 : (_currentStatus == 'Chờ chủ duyệt' ? 'Chờ phê duyệt' : 'Chờ các bước trước'),
             desc: _currentStatus == 'Đã duyệt'
-                ? 'Hợp đồng đã chuyển sang phòng $targetName, phụ lục đã có hiệu lực và nhận phòng đúng hẹn!'
-                : 'Ban Quản Lý sẽ phê duyệt chính thức và cập nhật hợp đồng sau khi bạn ký biên bản.',
+                ? 'Hợp đồng mới đã có hiệu lực.'
+                : 'BQL phê duyệt và bàn giao phòng đúng hẹn.',
             isActive: _currentStatus == 'Đã duyệt',
             extraWidget: _currentStatus == 'Đã duyệt'
                 ? Padding(
@@ -3271,7 +3213,7 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
                             Icon(Icons.description_rounded, size: 14, color: _primary),
                             SizedBox(width: 5),
                             Text(
-                              'Xem phụ lục hợp đồng chuyển phòng',
+                              'Xem phụ lục hợp đồng',
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
@@ -3566,62 +3508,22 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
 
           const SizedBox(height: 10),
 
-          // Hộp giải thích rõ ràng tiền phát sinh gồm những gì
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Row(
-                  children: [
-                    Icon(Icons.help_outline_rounded, size: 14, color: _primary),
-                    SizedBox(width: 5),
-                    Text(
-                      'Tiền phát sinh khi chuyển phòng gồm những gì?',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: _primaryDark,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                const Text(
-                  '• Điện nước & hư hại phòng cũ: Được đo và chốt tại biên bản nghiệm thu, cấn trừ trực tiếp vào tiền cọc phòng cũ.\n'
-                  '• Chênh lệch cọc: Nếu tiền cọc cũ sau khi trừ chi phí chưa đủ tiền cọc phòng mới thì bù thêm (+); nếu còn dư cọc thì được TRỪ TRỰC TIẾP (-) vào hóa đơn kỳ tới.',
-                  style: TextStyle(fontSize: 10.5, color: Color(0xFF64748B), height: 1.4),
-                ),
-              ],
-            ),
-          ),
-
           const SizedBox(height: 10),
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.info_outline_rounded, size: 14, color: Color(0xFF64748B)),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    isApproved
-                        ? 'Khoản tiền trên đã được cập nhật vào hóa đơn của bạn trên hệ thống.'
-                        : 'Chi phí trên sẽ được BQL kết chuyển tự động vào kỳ thu tiền tiếp theo khi duyệt chuyển phòng.',
-                    style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), height: 1.3),
+          const Row(
+            children: [
+              Icon(Icons.info_outline_rounded, size: 13, color: Color(0xFF64748B)),
+              SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'Chi phí phát sinh được kết chuyển trực tiếp vào hóa đơn kỳ tới của phòng mới.',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontStyle: FontStyle.italic,
+                    color: Color(0xFF64748B),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
 
           if (isApproved) ...[
@@ -3686,49 +3588,24 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
   // ─── 5. SUPPORT CARD ───
   Widget _buildSupportCard() {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: const Color(0xFFEFF6FF),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: const Color(0xFFBFDBFE)),
       ),
-      child: Row(
+      child: const Row(
         children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Icon(
-              Icons.support_agent_rounded,
-              color: _primary,
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: 10),
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Ban Quản Lý Nhà Trọ Kiêu Giang',
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.bold,
-                    color: _primaryDark,
-                  ),
-                ),
-                SizedBox(height: 2),
-                Text(
-                  'Yêu cầu chuyển phòng & dự thảo phụ lục đang được BQL tiếp nhận và xử lý trong 24 giờ làm việc.',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Color(0xFF64748B),
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
+          Icon(Icons.support_agent_rounded, color: _primary, size: 20),
+          SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'BQL Kiều Giang tiếp nhận & hỗ trợ cư dân 24/7',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: _primaryDark,
+              ),
             ),
           ),
         ],

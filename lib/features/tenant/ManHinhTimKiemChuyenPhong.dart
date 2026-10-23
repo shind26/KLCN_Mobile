@@ -1102,7 +1102,7 @@ class _RoomTransferSearchScreenState extends State<RoomTransferSearchScreen> {
                         ),
                       ),
                       const Text(
-                        'đ/th',
+                        '/th',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
