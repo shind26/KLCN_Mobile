@@ -20,10 +20,16 @@ class DepositService {
   /// Kiểm tra tính hợp lệ của ngày dự kiến vào ở:
   /// - Không cho đặt ở quá khứ
   /// - Tối đa 5 ngày kể từ ngày hiện tại
-  static ({bool isValid, String? error}) validateExpectedDate(DateTime selectedDate) {
+  static ({bool isValid, String? error}) validateExpectedDate(
+    DateTime selectedDate,
+  ) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final chosen = DateTime(selectedDate.year, selectedDate.month, selectedDate.day);
+    final chosen = DateTime(
+      selectedDate.year,
+      selectedDate.month,
+      selectedDate.day,
+    );
 
     if (chosen.isBefore(today)) {
       return (
@@ -68,7 +74,9 @@ class DepositService {
           .maybeSingle();
 
       if (tkRow != null) {
-        debugPrint('[hasExistingAccount]: Số $cleanPhone ($normalized) khớp tài khoản ${tkRow['ma_tai_khoan']} (${tkRow['ten_dang_nhap']})');
+        debugPrint(
+          '[hasExistingAccount]: Số $cleanPhone ($normalized) khớp tài khoản ${tkRow['ma_tai_khoan']} (${tkRow['ten_dang_nhap']})',
+        );
         return true;
       }
 
@@ -82,8 +90,12 @@ class DepositService {
       if (ktRows.isNotEmpty) {
         for (final row in ktRows) {
           final mtk = row['ma_tai_khoan']?.toString();
-          if (mtk != null && mtk.trim().isNotEmpty && mtk.trim().toLowerCase() != 'null') {
-            debugPrint('[hasExistingAccount]: Số $cleanPhone ($normalized) khớp khách thuê ${row['ma_khach']} có tài khoản $mtk');
+          if (mtk != null &&
+              mtk.trim().isNotEmpty &&
+              mtk.trim().toLowerCase() != 'null') {
+            debugPrint(
+              '[hasExistingAccount]: Số $cleanPhone ($normalized) khớp khách thuê ${row['ma_khach']} có tài khoản $mtk',
+            );
             return true;
           }
         }
@@ -101,7 +113,9 @@ class DepositService {
               .inFilter('trang_thai', ['Đang thuê', 'Còn hạn', 'HieuLuc'])
               .limit(1);
           if (activeHds.isNotEmpty) {
-            debugPrint('[hasExistingAccount]: Số $cleanPhone ($normalized) thuộc khách thuê đang có hợp đồng hiệu lực');
+            debugPrint(
+              '[hasExistingAccount]: Số $cleanPhone ($normalized) thuộc khách thuê đang có hợp đồng hiệu lực',
+            );
             return true;
           }
         }
@@ -113,7 +127,10 @@ class DepositService {
   }
 
   /// Kiểm tra xem phòng có đang bị khóa (đang có người thuê, hợp đồng còn hạn, đã cọc, đang giữ chỗ bởi khách khác, hoặc có lịch hẹn đã duyệt)
-  static Future<bool> isRoomLocked(String maPhong, {String? excludePhone}) async {
+  static Future<bool> isRoomLocked(
+    String maPhong, {
+    String? excludePhone,
+  }) async {
     final db = Supabase.instance.client;
     final nowUtc = DateTime.now().toUtc();
     try {
@@ -190,7 +207,9 @@ class DepositService {
         final st = pRow['trang_thai']?.toString().trim().toLowerCase() ?? '';
         if (st.isNotEmpty && st != 'trống') {
           // Nếu phòng đang là 'đã cọc' nhưng không có ai cọc thật, hoặc là phiên dở dang của chính khách này
-          if (st == 'đã cọc' && !hasOtherLocked && (hasSelfPending || excludePhone == null)) {
+          if (st == 'đã cọc' &&
+              !hasOtherLocked &&
+              (hasSelfPending || excludePhone == null)) {
             return false;
           }
           return true;
@@ -233,15 +252,16 @@ class DepositService {
       }
 
       // 2. Chuyển phiếu giữ chỗ sang 'DaHuy'
-      await db.from('giu_cho').update({
-        'trang_thai': 'DaHuy',
-        'expires_at': null,
-      }).eq('ma_giu_cho', maGiuCho);
+      await db
+          .from('giu_cho')
+          .update({'trang_thai': 'DaHuy', 'expires_at': null})
+          .eq('ma_giu_cho', maGiuCho);
 
       // 3. Trả phòng về 'Trống' ngay lập tức
-      await db.from('phong').update({
-        'trang_thai': 'Trống',
-      }).eq('ma_phong', maPhong);
+      await db
+          .from('phong')
+          .update({'trang_thai': 'Trống'})
+          .eq('ma_phong', maPhong);
 
       debugPrint(
         '[huyGiuChoKhiThoat] Đã hủy phiên giữ chỗ $maGiuCho, trả phòng $maPhong về Trống.',
@@ -369,23 +389,30 @@ class DepositService {
 
         if (st == 'ChoThanhToan') {
           final expStr = row['expires_at']?.toString();
-          final exp = expStr != null ? DateTime.tryParse(expStr)?.toUtc() : null;
+          final exp = expStr != null
+              ? DateTime.tryParse(expStr)?.toUtc()
+              : null;
           final isStillValid = exp != null && exp.isAfter(nowUtc);
 
           // B.1 NẾU LÀ PHIÊN CỦA CHÍNH KHÁCH NÀY VÀ CÒN HẠN 15 PHÚT: TÁI SỬ DỤNG, KHÔNG TẠO MỚI!
           if (rowMaKhach == maKhach && isStillValid && mgc != null) {
-            debugPrint('[tienHanhDatCoc]: Tái sử dụng phiếu giữ chỗ còn hiệu lực $mgc cho khách $maKhach');
+            debugPrint(
+              '[tienHanhDatCoc]: Tái sử dụng phiếu giữ chỗ còn hiệu lực $mgc cho khách $maKhach',
+            );
             final formattedDate =
                 '${ngayDuKienO.year}-${ngayDuKienO.month.toString().padLeft(2, '0')}-${ngayDuKienO.day.toString().padLeft(2, '0')}';
             final updateNote = ghiChu?.trim().isEmpty == true
                 ? 'Đặt cọc giữ chỗ phòng ${room.maPhong}'
                 : ghiChu?.trim();
 
-            await db.from('giu_cho').update({
-              'ngay_du_kien_o': formattedDate,
-              'so_nguoi_o': soNguoiO,
-              'ghi_chu': updateNote,
-            }).eq('ma_giu_cho', mgc);
+            await db
+                .from('giu_cho')
+                .update({
+                  'ngay_du_kien_o': formattedDate,
+                  'so_nguoi_o': soNguoiO,
+                  'ghi_chu': updateNote,
+                })
+                .eq('ma_giu_cho', mgc);
 
             final reloaded = await db
                 .from('giu_cho')
@@ -400,10 +427,10 @@ class DepositService {
           // B.2 Nếu là phiên cũ của chính khách này nhưng đã hết hạn, hoặc phiên của người khác đã hết hạn: hủy đi
           if (!isStillValid) {
             if (mgc != null) {
-              await db.from('giu_cho').update({
-                'trang_thai': 'DaHuy',
-                'expires_at': null,
-              }).eq('ma_giu_cho', mgc);
+              await db
+                  .from('giu_cho')
+                  .update({'trang_thai': 'DaHuy', 'expires_at': null})
+                  .eq('ma_giu_cho', mgc);
             }
           } else {
             // Là của khách khác đang trong 15 phút
@@ -414,71 +441,72 @@ class DepositService {
         }
       }
 
-    // C. Kiểm tra dòng phòng hiện tại
-    final phongRow = await db
-        .from('phong')
-        .select('ma_phong, trang_thai, ten_hien_thi')
-        .eq('ma_phong', room.maPhong)
-        .maybeSingle();
+      // C. Kiểm tra dòng phòng hiện tại
+      final phongRow = await db
+          .from('phong')
+          .select('ma_phong, trang_thai, ten_hien_thi')
+          .eq('ma_phong', room.maPhong)
+          .maybeSingle();
 
-    if (phongRow == null) {
-      throw Exception('Không tìm thấy thông tin phòng ${room.maPhong}!');
-    }
-
-    final currentStatus = phongRow['trang_thai']?.toString().trim() ?? '';
-    final statusLower = currentStatus.toLowerCase();
-    if (statusLower != 'trống') {
-      final displayName = room.tenHienThi.trim();
-      final cleanRoom = displayName.toLowerCase().startsWith('phòng')
-          ? displayName
-          : 'Phòng $displayName';
-
-      // Nếu phòng là 'đã cọc' nhưng không có cọc thật nào của người khác
-      // thì đây chỉ là tàn dư của phiên ChoThanhToan cũ, cho phép ghi đè tiếp tục
-      if (statusLower == 'đang thuê') {
-        throw Exception(
-          '$cleanRoom hiện đã có cư dân đang thuê. Vui lòng chọn phòng khác bạn nhé!',
-        );
+      if (phongRow == null) {
+        throw Exception('Không tìm thấy thông tin phòng ${room.maPhong}!');
       }
+
+      final currentStatus = phongRow['trang_thai']?.toString().trim() ?? '';
+      final statusLower = currentStatus.toLowerCase();
+      if (statusLower != 'trống') {
+        final displayName = room.tenHienThi.trim();
+        final cleanRoom = displayName.toLowerCase().startsWith('phòng')
+            ? displayName
+            : 'Phòng $displayName';
+
+        // Nếu phòng là 'đã cọc' nhưng không có cọc thật nào của người khác
+        // thì đây chỉ là tàn dư của phiên ChoThanhToan cũ, cho phép ghi đè tiếp tục
+        if (statusLower == 'đang thuê') {
+          throw Exception(
+            '$cleanRoom hiện đã có cư dân đang thuê. Vui lòng chọn phòng khác bạn nhé!',
+          );
+        }
+      }
+
+      // D. Chuyển phòng sang 'Đã cọc'
+      await db
+          .from('phong')
+          .update({'trang_thai': 'Đã cọc'})
+          .eq('ma_phong', room.maPhong);
+
+      // E. Tạo phiếu giữ chỗ lưu trạng thái 'ChoThanhToan' (maGiuCho <= 10 ký tự chuẩn VARCHAR(10))
+      final tsStr = DateTime.now().millisecondsSinceEpoch.toString();
+      final maGiuCho = 'GC${tsStr.substring(tsStr.length - 7)}';
+      final now = DateTime.now().toUtc();
+      final expiresAt = now.add(const Duration(minutes: paymentTimeoutMinutes));
+      final ngayHetHan = now.add(const Duration(days: maxHoldDays));
+
+      final actualDeposit = getDepositAmount(room.giaThue);
+
+      final giuCho = GiuChoModel(
+        maGiuCho: maGiuCho,
+        maPhong: room.maPhong,
+        maKhach: maKhach,
+        soTienTheChan: actualDeposit,
+        thoiGianGiuCho: now,
+        ngayHetHan: ngayHetHan,
+        trangThai: 'ChoThanhToan',
+        expiresAt: expiresAt,
+        soNguoiO: soNguoiO,
+        ngayDuKienO: ngayDuKienO,
+        ghiChu: ghiChu?.trim().isEmpty == true
+            ? 'Đặt cọc giữ chỗ phòng ${room.maPhong}'
+            : ghiChu?.trim(),
+      );
+
+      await db.from('giu_cho').insert(giuCho.toJson());
+
+      return giuCho;
+    } finally {
+      _processingRooms.remove(room.maPhong);
     }
-
-    // D. Chuyển phòng sang 'Đã cọc'
-    await db.from('phong').update({
-      'trang_thai': 'Đã cọc',
-    }).eq('ma_phong', room.maPhong);
-
-    // E. Tạo phiếu giữ chỗ lưu trạng thái 'ChoThanhToan' (maGiuCho <= 10 ký tự chuẩn VARCHAR(10))
-    final tsStr = DateTime.now().millisecondsSinceEpoch.toString();
-    final maGiuCho = 'GC${tsStr.substring(tsStr.length - 7)}';
-    final now = DateTime.now().toUtc();
-    final expiresAt = now.add(const Duration(minutes: paymentTimeoutMinutes));
-    final ngayHetHan = now.add(const Duration(days: maxHoldDays));
-
-    final actualDeposit = getDepositAmount(room.giaThue);
-
-    final giuCho = GiuChoModel(
-      maGiuCho: maGiuCho,
-      maPhong: room.maPhong,
-      maKhach: maKhach,
-      soTienTheChan: actualDeposit,
-      thoiGianGiuCho: now,
-      ngayHetHan: ngayHetHan,
-      trangThai: 'ChoThanhToan',
-      expiresAt: expiresAt,
-      soNguoiO: soNguoiO,
-      ngayDuKienO: ngayDuKienO,
-      ghiChu: ghiChu?.trim().isEmpty == true
-          ? 'Đặt cọc giữ chỗ phòng ${room.maPhong}'
-          : ghiChu?.trim(),
-    );
-
-    await db.from('giu_cho').insert(giuCho.toJson());
-
-    return giuCho;
-  } finally {
-    _processingRooms.remove(room.maPhong);
   }
-}
 
   /// Xác nhận thanh toán tiền thế chân thành công:
   /// Cập nhật giu_cho -> 'Đã thanh toán', xóa expires_at để không bị tính hết hạn, phong -> 'Đã cọc'.
@@ -497,15 +525,16 @@ class DepositService {
     final db = Supabase.instance.client;
 
     // 1. Cập nhật phiếu giữ chỗ giu_cho -> 'Đã thanh toán'
-    await db.from('giu_cho').update({
-      'trang_thai': 'Đã thanh toán',
-      'expires_at': null,
-    }).eq('ma_giu_cho', maGiuCho);
+    await db
+        .from('giu_cho')
+        .update({'trang_thai': 'Đã thanh toán', 'expires_at': null})
+        .eq('ma_giu_cho', maGiuCho);
 
     // 2. Cập nhật trạng thái phòng -> 'Đã cọc'
-    await db.from('phong').update({
-      'trang_thai': 'Đã cọc',
-    }).eq('ma_phong', maPhong);
+    await db
+        .from('phong')
+        .update({'trang_thai': 'Đã cọc'})
+        .eq('ma_phong', maPhong);
   }
 
   /// Xử lý hết hạn 15 phút không thanh toán:
@@ -526,7 +555,9 @@ class DepositService {
 
       if (checkRow != null) {
         final currentSt = checkRow['trang_thai']?.toString() ?? '';
-        if (currentSt == 'Đã thanh toán' || currentSt == 'DangGiu' || currentSt == 'DaDatCoc') {
+        if (currentSt == 'Đã thanh toán' ||
+            currentSt == 'DangGiu' ||
+            currentSt == 'DaDatCoc') {
           debugPrint(
             '[xuLyHetHanGiuCho] Phiếu $maGiuCho đã thanh toán ($currentSt), bỏ qua không hủy.',
           );
@@ -534,13 +565,15 @@ class DepositService {
         }
       }
 
-      await db.from('giu_cho').update({
-        'trang_thai': 'HetHan',
-      }).eq('ma_giu_cho', maGiuCho);
+      await db
+          .from('giu_cho')
+          .update({'trang_thai': 'HetHan'})
+          .eq('ma_giu_cho', maGiuCho);
 
-      await db.from('phong').update({
-        'trang_thai': 'Trống',
-      }).eq('ma_phong', maPhong);
+      await db
+          .from('phong')
+          .update({'trang_thai': 'Trống'})
+          .eq('ma_phong', maPhong);
     } catch (e) {
       debugPrint('Lỗi xuLyHetHanGiuCho: $e');
     }

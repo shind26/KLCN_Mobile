@@ -9,14 +9,13 @@ class ChuKyBenAMacDinhWidget extends StatelessWidget {
   final double height;
   final double? width;
 
-  const ChuKyBenAMacDinhWidget({
-    super.key,
-    this.height = 110,
-    this.width,
-  });
+  const ChuKyBenAMacDinhWidget({super.key, this.height = 110, this.width});
 
   /// Xuất ảnh chữ ký Bên A thành bytes PNG độ phân giải cao cho PDF
-  static Future<Uint8List> toPngBytes({int width = 800, int height = 320}) async {
+  static Future<Uint8List> toPngBytes({
+    int width = 800,
+    int height = 320,
+  }) async {
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(
       recorder,
@@ -25,7 +24,10 @@ class ChuKyBenAMacDinhWidget extends StatelessWidget {
 
     // Vẽ nền trắng
     final bgPaint = Paint()..color = Colors.white;
-    canvas.drawRect(Rect.fromLTWH(0, 0, width.toDouble(), height.toDouble()), bgPaint);
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, width.toDouble(), height.toDouble()),
+      bgPaint,
+    );
 
     // Vẽ chữ ký và mộc đỏ lên canvas
     final painter = _ChuKyBenAPainter();
@@ -178,15 +180,50 @@ class _ChuKyBenAPainter extends CustomPainter {
     _drawStar(canvas, cx + 26, cy - 25, 7, 3, stampColor);
 
     // Text trong con dấu
-    _drawCenteredText(canvas, 'NHÀ TRỌ KIÊU GIANG', const Offset(cx, cy - 54), 13.5, FontWeight.bold, stampColor);
-    _drawCenteredText(canvas, 'CHỨNG THỰC', const Offset(cx, cy - 3), 16.0, FontWeight.w900, stampColor);
-    _drawCenteredText(canvas, 'KÝ SỐ ĐIỆN TỬ', const Offset(cx, cy + 22), 16.0, FontWeight.w900, stampColor);
-    _drawCenteredText(canvas, 'BAN QUẢN LÝ', const Offset(cx, cy + 52), 13.0, FontWeight.bold, stampColor);
+    _drawCenteredText(
+      canvas,
+      'NHÀ TRỌ KIÊU GIANG',
+      const Offset(cx, cy - 54),
+      13.5,
+      FontWeight.bold,
+      stampColor,
+    );
+    _drawCenteredText(
+      canvas,
+      'CHỨNG THỰC',
+      const Offset(cx, cy - 3),
+      16.0,
+      FontWeight.w900,
+      stampColor,
+    );
+    _drawCenteredText(
+      canvas,
+      'KÝ SỐ ĐIỆN TỬ',
+      const Offset(cx, cy + 22),
+      16.0,
+      FontWeight.w900,
+      stampColor,
+    );
+    _drawCenteredText(
+      canvas,
+      'BAN QUẢN LÝ',
+      const Offset(cx, cy + 52),
+      13.0,
+      FontWeight.bold,
+      stampColor,
+    );
 
     canvas.restore();
   }
 
-  void _drawStar(Canvas canvas, double cx, double cy, double rOut, double rIn, Color color) {
+  void _drawStar(
+    Canvas canvas,
+    double cx,
+    double cy,
+    double rOut,
+    double rIn,
+    Color color,
+  ) {
     final path = Path();
     for (int i = 0; i < 10; i++) {
       final double angle = -math.pi / 2 + i * math.pi / 5;
@@ -200,7 +237,12 @@ class _ChuKyBenAPainter extends CustomPainter {
       }
     }
     path.close();
-    canvas.drawPath(path, Paint()..color = color..style = PaintingStyle.fill);
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.fill,
+    );
   }
 
   void _drawCenteredText(
@@ -225,7 +267,10 @@ class _ChuKyBenAPainter extends CustomPainter {
       textDirection: TextDirection.ltr,
     );
     tp.layout();
-    tp.paint(canvas, Offset(center.dx - tp.width / 2, center.dy - tp.height / 2));
+    tp.paint(
+      canvas,
+      Offset(center.dx - tp.width / 2, center.dy - tp.height / 2),
+    );
   }
 
   @override

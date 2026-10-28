@@ -62,7 +62,9 @@ class ThongBaoHelper {
         await init();
       }
       if (_daXemTags.contains(tag)) {
-        debugPrint('[THONG_BAO] Bỏ qua vì người dùng đã bấm Đã hiểu trước đó cho tag=$tag');
+        debugPrint(
+          '[THONG_BAO] Bỏ qua vì người dùng đã bấm Đã hiểu trước đó cho tag=$tag',
+        );
         return;
       }
       // Ghi nhận ngay vào RAM để chặn hiện dialog đúp nếu có nhiều timer/stream cùng kích hoạt
@@ -120,7 +122,10 @@ class ThongBaoHelper {
         return Dialog(
           backgroundColor: Colors.transparent,
           elevation: 0,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 24,
+            vertical: 24,
+          ),
           child: Center(
             child: Container(
               constraints: const BoxConstraints(maxWidth: 390),
@@ -147,28 +152,117 @@ class ThongBaoHelper {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                  // Icon đôi với vòng sáng dịu hiện đại
-                  Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      Container(
-                        width: 74,
-                        height: 74,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: gradientStart.withValues(alpha: 0.12),
+                    // Icon đôi với vòng sáng dịu hiện đại
+                    Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Container(
+                          width: 74,
+                          height: 74,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: gradientStart.withValues(alpha: 0.12),
+                          ),
+                        ),
+                        Container(
+                          width: 54,
+                          height: 54,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: LinearGradient(
+                              colors: [gradientStart, gradientEnd],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: gradientStart.withValues(alpha: 0.35),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Icon(iconData, color: Colors.white, size: 28),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Tag phân loại thông báo
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 3.5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: tagBg,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: gradientStart.withValues(alpha: 0.25),
                         ),
                       ),
-                      Container(
-                        width: 54,
-                        height: 54,
+                      child: Text(
+                        tagLabel,
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.bold,
+                          color: tagColor,
+                          letterSpacing: 0.6,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+
+                    // Tiêu đề
+                    Text(
+                      tieuDe,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 17.5,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0F172A),
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Khung nội dung trang nhã
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Text(
+                        noiDung,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF334155),
+                          height: 1.5,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Nút bấm xác nhận hiện đại với hiệu ứng gradient
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: Container(
                         decoration: BoxDecoration(
-                          shape: BoxShape.circle,
                           gradient: LinearGradient(
                             colors: [gradientStart, gradientEnd],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),
+                          borderRadius: BorderRadius.circular(14),
                           boxShadow: [
                             BoxShadow(
                               color: gradientStart.withValues(alpha: 0.35),
@@ -177,130 +271,49 @@ class ThongBaoHelper {
                             ),
                           ],
                         ),
-                        child: Icon(iconData, color: Colors.white, size: 28),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-
-                  // Tag phân loại thông báo
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3.5),
-                    decoration: BoxDecoration(
-                      color: tagBg,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: gradientStart.withValues(alpha: 0.25)),
-                    ),
-                    child: Text(
-                      tagLabel,
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.bold,
-                        color: tagColor,
-                        letterSpacing: 0.6,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-
-                  // Tiêu đề
-                  Text(
-                    tieuDe,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 17.5,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF0F172A),
-                      letterSpacing: -0.2,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Khung nội dung trang nhã
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
-                    ),
-                    child: Text(
-                      noiDung,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: Color(0xFF334155),
-                        height: 1.5,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Nút bấm xác nhận hiện đại với hiệu ứng gradient
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [gradientStart, gradientEnd],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(14),
-                        boxShadow: [
-                          BoxShadow(
-                            color: gradientStart.withValues(alpha: 0.35),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(14),
-                          onTap: () {
-                            if (tag != null && tag.isNotEmpty) {
-                              danhDauDaXem(tag);
-                            }
-                            Navigator.of(ctx).pop();
-                            if (onConfirm != null) onConfirm();
-                          },
-                          child: Center(
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(
-                                  Icons.check_rounded,
-                                  color: Colors.white,
-                                  size: 18,
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  nutText,
-                                  style: const TextStyle(
-                                    fontSize: 14.5,
-                                    fontWeight: FontWeight.bold,
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(14),
+                            onTap: () {
+                              if (tag != null && tag.isNotEmpty) {
+                                danhDauDaXem(tag);
+                              }
+                              Navigator.of(ctx).pop();
+                              if (onConfirm != null) onConfirm();
+                            },
+                            child: Center(
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(
+                                    Icons.check_rounded,
                                     color: Colors.white,
+                                    size: 18,
                                   ),
-                                ),
-                              ],
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    nutText,
+                                    style: const TextStyle(
+                                      fontSize: 14.5,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-      );
-    },
+        );
+      },
     );
 
     // Khi đóng dialog (dù bấm nút hay bấm ra ngoài), lưu tag vĩnh viễn
@@ -382,7 +395,10 @@ class ThongBaoHelper {
               child: Container(
                 constraints: const BoxConstraints(maxWidth: 340),
                 margin: const EdgeInsets.symmetric(horizontal: 36),
-                padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 22),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 22,
+                  vertical: 22,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(22),
@@ -456,4 +472,3 @@ class ThongBaoHelper {
     );
   }
 }
-

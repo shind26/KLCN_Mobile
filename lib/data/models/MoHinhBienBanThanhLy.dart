@@ -79,10 +79,18 @@ class BienBanThanhLyModel {
       maThanhLy: json['ma_thanh_ly']?.toString() ?? '',
       maHopDong: json['ma_hop_dong']?.toString() ?? '',
       ngayTraPhong: json['ngay_tra_phong']?.toString() ?? '',
-      chiSoDienCuoi: (num.tryParse(json['chi_so_dien_cuoi']?.toString() ?? '') ?? 0).toDouble(),
-      chiSoNuocCuoi: (num.tryParse(json['chi_so_nuoc_cuoi']?.toString() ?? '') ?? 0).toDouble(),
-      tienKhTraThem: (num.tryParse(json['tien_kh_tra_them']?.toString() ?? '') ?? 0).toDouble(),
-      tienCocHoanLai: (num.tryParse(json['tien_coc_hoan_lai']?.toString() ?? '') ?? 0).toDouble(),
+      chiSoDienCuoi:
+          (num.tryParse(json['chi_so_dien_cuoi']?.toString() ?? '') ?? 0)
+              .toDouble(),
+      chiSoNuocCuoi:
+          (num.tryParse(json['chi_so_nuoc_cuoi']?.toString() ?? '') ?? 0)
+              .toDouble(),
+      tienKhTraThem:
+          (num.tryParse(json['tien_kh_tra_them']?.toString() ?? '') ?? 0)
+              .toDouble(),
+      tienCocHoanLai:
+          (num.tryParse(json['tien_coc_hoan_lai']?.toString() ?? '') ?? 0)
+              .toDouble(),
       ghiChu: gc,
       trangThai: tt,
       anhDongHoDien: json['anh_dong_ho_dien']?.toString(),

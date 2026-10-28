@@ -69,7 +69,9 @@ class _ManHinhBienBanBanGiaoTaiSanState
       try {
         final hdRes = await db
             .from('hop_dong')
-            .select('da_xac_nhan_ban_giao, ngay_xac_nhan_ban_giao, ma_khach_dai_dien')
+            .select(
+              'da_xac_nhan_ban_giao, ngay_xac_nhan_ban_giao, ma_khach_dai_dien',
+            )
             .eq('ma_hop_dong', widget.maHopDong)
             .maybeSingle();
 
@@ -110,22 +112,107 @@ class _ManHinhBienBanBanGiaoTaiSanState
             .maybeSingle();
         if (cthd != null && cthd['vai_tro'] != null) {
           final vt = cthd['vai_tro'].toString().toLowerCase();
-          if (vt.contains('đại diện') || vt.contains('daidien') || vt.contains('trưởng phòng')) {
+          if (vt.contains('đại diện') ||
+              vt.contains('daidien') ||
+              vt.contains('trưởng phòng')) {
             _isDaiDien = true;
-          } else if (vt.contains('ở cùng') || vt.contains('ocung') || vt.contains('thành viên')) {
+          } else if (vt.contains('ở cùng') ||
+              vt.contains('ocung') ||
+              vt.contains('thành viên')) {
             _isDaiDien = false;
           }
         }
       } catch (_) {}
 
-      // 2. Tải danh sách thiết bị bàn giao phòng
-      final res = await db
-          .from('tai_san')
-          .select()
-          .eq('ma_phong', widget.maPhong)
-          .order('ma_tai_san');
+      // 2. Tải danh sách thiết bị bàn giao phòng (từ bảng tai_san, tự động fallback sang bảng phong.noi_that_san_co)
+      List<Map<String, dynamic>> list = [];
+      try {
+        final res = await db
+            .from('tai_san')
+            .select()
+            .eq('ma_phong', widget.maPhong)
+            .order('ma_tai_san');
+        list = List<Map<String, dynamic>>.from(res);
+      } catch (eTs) {
+        debugPrint('Lỗi tải từ bảng tai_san: $eTs');
+      }
 
-      final list = List<Map<String, dynamic>>.from(res);
+      // Nếu bảng tai_san chưa có dữ liệu, lấy trực tiếp danh mục từ thông tin phòng
+      if (list.isEmpty) {
+        try {
+          final pRow = await db
+              .from('phong')
+              .select('noi_that_san_co, tien_ich')
+              .eq('ma_phong', widget.maPhong)
+              .maybeSingle();
+
+          if (pRow != null) {
+            final Set<String> itemNames = {};
+            void parseList(dynamic val) {
+              if (val == null) return;
+              if (val is List) {
+                for (final e in val) {
+                  final s = e?.toString().trim() ?? '';
+                  if (s.isNotEmpty) itemNames.add(s);
+                }
+              } else if (val is String) {
+                final cleaned = val
+                    .replaceAll('{', '')
+                    .replaceAll('}', '')
+                    .replaceAll('"', '');
+                for (final s in cleaned.split(',')) {
+                  final t = s.trim();
+                  if (t.isNotEmpty) itemNames.add(t);
+                }
+              }
+            }
+
+            parseList(pRow['noi_that_san_co']);
+            parseList(pRow['tien_ich']);
+
+            if (itemNames.isNotEmpty) {
+              int idx = 1;
+              list = itemNames.map((name) {
+                final itemMap = {
+                  'ma_tai_san': 'TS_${widget.maPhong}_${idx++}',
+                  'ten_tai_san': name,
+                  'so_luong': 1,
+                  'tinh_trang': 'Hoạt động tốt',
+                  'thuong_hieu': '',
+                  'ma_phong': widget.maPhong,
+                };
+                return itemMap;
+              }).toList();
+            }
+          }
+        } catch (ePhong) {
+          debugPrint('Lỗi đọc nội thất từ bảng phong: $ePhong');
+        }
+      }
+
+      // Fallback danh mục trang thiết bị tiêu chuẩn phòng nếu cả 2 nguồn đều trống
+      if (list.isEmpty) {
+        final standardItems = [
+          'Máy lạnh Inverter',
+          'Tủ lạnh riêng 130L',
+          'Bình nóng lạnh Ariston',
+          'Giường gỗ & Nệm cao su',
+          'Kệ bếp nấu ăn & Bồn rửa inox',
+          'Quạt trần / Quạt treo tường',
+        ];
+        int idx = 1;
+        list = standardItems.map((name) {
+          return {
+            'ma_tai_san': 'TS_${widget.maPhong}_${idx++}',
+            'ten_tai_san': name,
+            'so_luong': 1,
+            'tinh_trang': 'Hoạt động tốt',
+            'thuong_hieu': '',
+            'ma_phong': widget.maPhong,
+          };
+        }).toList();
+      }
+
       setState(() {
         _danhSachTaiSan = list;
         _isLoading = false;
@@ -155,10 +242,13 @@ class _ManHinhBienBanBanGiaoTaiSanState
       final nowStr = DateTime.now().toIso8601String();
 
       // 1. CẬP NHẬT BẢNG hop_dong: da_xac_nhan_ban_giao = true
-      await db.from('hop_dong').update({
-        'da_xac_nhan_ban_giao': true,
-        'ngay_xac_nhan_ban_giao': nowStr,
-      }).eq('ma_hop_dong', widget.maHopDong);
+      await db
+          .from('hop_dong')
+          .update({
+            'da_xac_nhan_ban_giao': true,
+            'ngay_xac_nhan_ban_giao': nowStr,
+          })
+          .eq('ma_hop_dong', widget.maHopDong);
 
       // 2. LẤY VAI TRÒ TỪ chi_tiet_hop_dong_khach_thue GÁN XUỐNG tai_khoan
       String vaiTroGan = 'KhachThue';
@@ -189,9 +279,10 @@ class _ManHinhBienBanBanGiaoTaiSanState
       }
 
       // Cập nhật vai trò xuống bảng tai_khoan
-      await db.from('tai_khoan').update({
-        'vai_tro': vaiTroGan,
-      }).eq('ma_tai_khoan', widget.user.maTaiKhoan);
+      await db
+          .from('tai_khoan')
+          .update({'vai_tro': vaiTroGan})
+          .eq('ma_tai_khoan', widget.user.maTaiKhoan);
 
       // Cập nhật session user trong app
       final updatedUser = widget.user.copyWith(vaiTro: vaiTroGan);
@@ -284,7 +375,10 @@ class _ManHinhBienBanBanGiaoTaiSanState
                 ),
                 const SizedBox(height: 14),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFE0F2FE),
                     borderRadius: BorderRadius.circular(12),
@@ -293,7 +387,11 @@ class _ManHinhBienBanBanGiaoTaiSanState
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.person_pin_rounded, size: 18, color: Color(0xFF0369A1)),
+                      Icon(
+                        Icons.person_pin_rounded,
+                        size: 18,
+                        color: Color(0xFF0369A1),
+                      ),
                       SizedBox(width: 8),
                       Text(
                         'Bước tiếp theo: Cập nhật trang cá nhân',
@@ -354,16 +452,21 @@ class _ManHinhBienBanBanGiaoTaiSanState
 
   @override
   Widget build(BuildContext context) {
-    final hoTenKhach = widget.khachThueData['ho_ten_khach']?.toString() ??
+    final hoTenKhach =
+        widget.khachThueData['ho_ten_khach']?.toString() ??
         widget.user.tenHienThi;
-    final soDtKhach = widget.khachThueData['so_dt']?.toString() ??
-        widget.user.tenDangNhap;
+    final soDtKhach =
+        widget.khachThueData['so_dt']?.toString() ?? widget.user.tenDangNhap;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF1F5F9),
       appBar: AppBar(
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF0F172A), size: 19),
+          icon: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: Color(0xFF0F172A),
+            size: 19,
+          ),
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
@@ -381,7 +484,12 @@ class _ManHinhBienBanBanGiaoTaiSanState
       body: Stack(
         children: [
           SingleChildScrollView(
-            padding: EdgeInsets.fromLTRB(16, 14, 16, _daXacNhanBanGiao ? 28 : 90),
+            padding: EdgeInsets.fromLTRB(
+              16,
+              14,
+              16,
+              _daXacNhanBanGiao ? 28 : 90,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -414,7 +522,11 @@ class _ManHinhBienBanBanGiaoTaiSanState
                             color: Color(0xFF16A34A),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.verified_rounded, color: Colors.white, size: 20),
+                          child: const Icon(
+                            Icons.verified_rounded,
+                            color: Colors.white,
+                            size: 20,
+                          ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -434,7 +546,11 @@ class _ManHinhBienBanBanGiaoTaiSanState
                                 _ngayXacNhanBanGiao != null
                                     ? 'Cư dân đã kiểm tra và nhận bàn giao toàn bộ thiết bị phòng ngày ${FormatUtils.formatDate(_ngayXacNhanBanGiao)}.'
                                     : 'Biên bản bàn giao đã được ký nhận thành công và có hiệu lực đầy đủ.',
-                                style: const TextStyle(fontSize: 11.5, color: Color(0xFF166534), height: 1.3),
+                                style: const TextStyle(
+                                  fontSize: 11.5,
+                                  color: Color(0xFF166534),
+                                  height: 1.3,
+                                ),
                               ),
                             ],
                           ),
@@ -509,7 +625,11 @@ class _ManHinhBienBanBanGiaoTaiSanState
                       const Divider(height: 24),
                       Row(
                         children: const [
-                          Icon(Icons.business_rounded, size: 16, color: _primary),
+                          Icon(
+                            Icons.business_rounded,
+                            size: 16,
+                            color: _primary,
+                          ),
                           SizedBox(width: 8),
                           Text(
                             'Bên giao:',
@@ -533,7 +653,11 @@ class _ManHinhBienBanBanGiaoTaiSanState
                       const SizedBox(height: 6),
                       Row(
                         children: [
-                          const Icon(Icons.person_rounded, size: 16, color: _primary),
+                          const Icon(
+                            Icons.person_rounded,
+                            size: 16,
+                            color: _primary,
+                          ),
                           const SizedBox(width: 8),
                           const Text(
                             'Bên nhận:',
@@ -563,7 +687,11 @@ class _ManHinhBienBanBanGiaoTaiSanState
                 // Danh mục tài sản từ bảng tai_san (Đã fix lỗi tràn màn hình)
                 Row(
                   children: [
-                    const Icon(Icons.inventory_2_rounded, color: _primary, size: 20),
+                    const Icon(
+                      Icons.inventory_2_rounded,
+                      color: _primary,
+                      size: 20,
+                    ),
                     const SizedBox(width: 8),
                     const Expanded(
                       child: Text(
@@ -580,7 +708,10 @@ class _ManHinhBienBanBanGiaoTaiSanState
                     if (_danhSachTaiSan.isNotEmpty) ...[
                       const SizedBox(width: 6),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           color: _primary.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(12),
@@ -597,7 +728,10 @@ class _ManHinhBienBanBanGiaoTaiSanState
                     ],
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFEFF6FF),
                         borderRadius: BorderRadius.circular(16),
@@ -606,7 +740,11 @@ class _ManHinhBienBanBanGiaoTaiSanState
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.lock_outline_rounded, size: 11, color: Color(0xFF2563EB)),
+                          Icon(
+                            Icons.lock_outline_rounded,
+                            size: 11,
+                            color: Color(0xFF2563EB),
+                          ),
                           SizedBox(width: 3),
                           Text(
                             'Mặc định phòng',
@@ -642,7 +780,10 @@ class _ManHinhBienBanBanGiaoTaiSanState
                     child: const Center(
                       child: Text(
                         'Phòng hiện chưa có danh mục thiết bị cụ thể.',
-                        style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF64748B),
+                        ),
                       ),
                     ),
                   )
@@ -676,7 +817,11 @@ class _ManHinhBienBanBanGiaoTaiSanState
                     children: [
                       Row(
                         children: const [
-                          Icon(Icons.edit_note_rounded, color: _primary, size: 18),
+                          Icon(
+                            Icons.edit_note_rounded,
+                            color: _primary,
+                            size: 18,
+                          ),
                           SizedBox(width: 6),
                           Text(
                             'Ghi chú / Nhận xét của cư dân khi nhận phòng (Tùy chọn)',
@@ -705,15 +850,22 @@ class _ManHinhBienBanBanGiaoTaiSanState
                           contentPadding: const EdgeInsets.all(12),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                            borderSide: const BorderSide(
+                              color: Color(0xFFCBD5E1),
+                            ),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                            borderSide: const BorderSide(
+                              color: Color(0xFFE2E8F0),
+                            ),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: _primary, width: 1.5),
+                            borderSide: const BorderSide(
+                              color: _primary,
+                              width: 1.5,
+                            ),
                           ),
                         ),
                       ),
@@ -730,11 +882,18 @@ class _ManHinhBienBanBanGiaoTaiSanState
                     decoration: BoxDecoration(
                       color: const Color(0xFFF0FDF4),
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFFA7F3D0), width: 1.2),
+                      border: Border.all(
+                        color: const Color(0xFFA7F3D0),
+                        width: 1.2,
+                      ),
                     ),
                     child: const Row(
                       children: [
-                        Icon(Icons.check_circle_rounded, color: Color(0xFF16A34A), size: 22),
+                        Icon(
+                          Icons.check_circle_rounded,
+                          color: Color(0xFF16A34A),
+                          size: 22,
+                        ),
                         SizedBox(width: 10),
                         Expanded(
                           child: Column(
@@ -773,10 +932,15 @@ class _ManHinhBienBanBanGiaoTaiSanState
                         end: Alignment.bottomRight,
                       ),
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFF86EFAC), width: 1.2),
+                      border: Border.all(
+                        color: const Color(0xFF86EFAC),
+                        width: 1.2,
+                      ),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF16A34A).withValues(alpha: 0.08),
+                          color: const Color(
+                            0xFF16A34A,
+                          ).withValues(alpha: 0.08),
                           blurRadius: 10,
                           offset: const Offset(0, 3),
                         ),
@@ -831,12 +995,19 @@ class _ManHinhBienBanBanGiaoTaiSanState
                     decoration: BoxDecoration(
                       color: const Color(0xFFF8FAFC),
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFFE2E8F0), width: 1.2),
+                      border: Border.all(
+                        color: const Color(0xFFE2E8F0),
+                        width: 1.2,
+                      ),
                     ),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Icons.shield_outlined, color: Color(0xFF09638E), size: 22),
+                        const Icon(
+                          Icons.shield_outlined,
+                          color: Color(0xFF09638E),
+                          size: 22,
+                        ),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Column(
@@ -878,7 +1049,10 @@ class _ManHinhBienBanBanGiaoTaiSanState
               right: 0,
               bottom: 0,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   boxShadow: [
@@ -915,7 +1089,11 @@ class _ManHinhBienBanBanGiaoTaiSanState
                           : const Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.check_circle_rounded, size: 20, color: Colors.white),
+                                Icon(
+                                  Icons.check_circle_rounded,
+                                  size: 20,
+                                  color: Colors.white,
+                                ),
                                 SizedBox(width: 8),
                                 Text(
                                   'Cư Dân Xác Nhận Nhận Bàn Giao ✓',
@@ -939,15 +1117,20 @@ class _ManHinhBienBanBanGiaoTaiSanState
 
   IconData _getIconForTaiSan(String ten) {
     final t = ten.toLowerCase();
-    if (t.contains('lạnh') || t.contains('điều hòa')) return Icons.ac_unit_rounded;
+    if (t.contains('lạnh') || t.contains('điều hòa'))
+      return Icons.ac_unit_rounded;
     if (t.contains('tủ lạnh')) return Icons.kitchen_rounded;
-    if (t.contains('nóng lạnh') || t.contains('nước nóng')) return Icons.water_drop_rounded;
+    if (t.contains('nóng lạnh') || t.contains('nước nóng'))
+      return Icons.water_drop_rounded;
     if (t.contains('giường') || t.contains('nệm')) return Icons.bed_rounded;
-    if (t.contains('tủ') || t.contains('quần áo')) return Icons.checkroom_rounded;
-    if (t.contains('bếp') || t.contains('kệ bếp') || t.contains('nấu')) return Icons.countertops_rounded;
+    if (t.contains('tủ') || t.contains('quần áo'))
+      return Icons.checkroom_rounded;
+    if (t.contains('bếp') || t.contains('kệ bếp') || t.contains('nấu'))
+      return Icons.countertops_rounded;
     if (t.contains('quạt')) return Icons.mode_fan_off_rounded;
     if (t.contains('khóa') || t.contains('chìa')) return Icons.vpn_key_rounded;
-    if (t.contains('bàn') || t.contains('ghế')) return Icons.table_restaurant_rounded;
+    if (t.contains('bàn') || t.contains('ghế'))
+      return Icons.table_restaurant_rounded;
     if (t.contains('giặt')) return Icons.local_laundry_service_rounded;
     if (t.contains('đèn')) return Icons.lightbulb_rounded;
     if (t.contains('wifi') || t.contains('router')) return Icons.wifi_rounded;
@@ -956,11 +1139,15 @@ class _ManHinhBienBanBanGiaoTaiSanState
 
   Color _getColorForTaiSan(String ten) {
     final t = ten.toLowerCase();
-    if (t.contains('lạnh') || t.contains('điều hòa')) return const Color(0xFF0284C7);
+    if (t.contains('lạnh') || t.contains('điều hòa'))
+      return const Color(0xFF0284C7);
     if (t.contains('tủ lạnh')) return const Color(0xFF0D9488);
-    if (t.contains('nóng lạnh') || t.contains('nước nóng')) return const Color(0xFFEA580C);
-    if (t.contains('giường') || t.contains('nệm')) return const Color(0xFF7C3AED);
-    if (t.contains('tủ') || t.contains('quần áo')) return const Color(0xFFD97706);
+    if (t.contains('nóng lạnh') || t.contains('nước nóng'))
+      return const Color(0xFFEA580C);
+    if (t.contains('giường') || t.contains('nệm'))
+      return const Color(0xFF7C3AED);
+    if (t.contains('tủ') || t.contains('quần áo'))
+      return const Color(0xFFD97706);
     if (t.contains('bếp') || t.contains('kệ')) return const Color(0xFFE11D48);
     if (t.contains('quạt')) return const Color(0xFF059669);
     return const Color(0xFF09638E);
@@ -1001,9 +1188,7 @@ class _ManHinhBienBanBanGiaoTaiSanState
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: color.withValues(alpha: 0.22)),
             ),
-            child: Center(
-              child: Icon(icon, color: color, size: 22),
-            ),
+            child: Center(child: Icon(icon, color: color, size: 22)),
           ),
           const SizedBox(width: 12),
 
@@ -1026,7 +1211,10 @@ class _ManHinhBienBanBanGiaoTaiSanState
                     ),
                     // Badge Tình trạng Hoạt động tốt
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 3,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFECFDF5),
                         borderRadius: BorderRadius.circular(8),
@@ -1035,7 +1223,11 @@ class _ManHinhBienBanBanGiaoTaiSanState
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.check_circle_rounded, size: 12, color: Color(0xFF10B981)),
+                          const Icon(
+                            Icons.check_circle_rounded,
+                            size: 12,
+                            color: Color(0xFF10B981),
+                          ),
                           const SizedBox(width: 4),
                           Text(
                             tinhTrang,
@@ -1054,7 +1246,10 @@ class _ManHinhBienBanBanGiaoTaiSanState
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFF1F5F9),
                         borderRadius: BorderRadius.circular(6),
@@ -1071,7 +1266,10 @@ class _ManHinhBienBanBanGiaoTaiSanState
                     if (thuongHieu.isNotEmpty) ...[
                       const SizedBox(width: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           color: const Color(0xFFEFF6FF),
                           borderRadius: BorderRadius.circular(6),
@@ -1079,7 +1277,11 @@ class _ManHinhBienBanBanGiaoTaiSanState
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.verified_rounded, size: 11, color: Color(0xFF2563EB)),
+                            const Icon(
+                              Icons.verified_rounded,
+                              size: 11,
+                              color: Color(0xFF2563EB),
+                            ),
                             const SizedBox(width: 3),
                             Text(
                               thuongHieu,

@@ -68,7 +68,8 @@ class _GuestHomeScreenState extends State<GuestHomeScreen> {
             table: 'giu_cho',
             callback: (payload) {
               final newRecord = payload.newRecord;
-              if (newRecord.isNotEmpty && newRecord['trang_thai'] == 'Đã thanh toán') {
+              if (newRecord.isNotEmpty &&
+                  newRecord['trang_thai'] == 'Đã thanh toán') {
                 if (mounted) {
                   _checkUnnotifiedBookings(phone);
                 }
@@ -377,19 +378,22 @@ class _GuestHomeScreenState extends State<GuestHomeScreen> {
           if (p == null || p.isEmpty) continue;
           if (st == 'Đã thanh toán' || st == 'DangGiu' || st == 'DaDatCoc') {
             lockedRoomCodes.add(p);
-          } else if (st == 'ChoThanhToan' && expStr != null && expStr.isNotEmpty) {
+          } else if (st == 'ChoThanhToan' &&
+              expStr != null &&
+              expStr.isNotEmpty) {
             final exp = DateTime.tryParse(expStr)?.toUtc();
             if (exp != null && exp.isAfter(nowUtc)) {
               lockedRoomCodes.add(p);
             }
           }
         }
-
       } catch (eLock) {
         debugPrint('Lỗi truy vấn locked rooms: $eLock');
       }
 
-      final available = loaded.where((r) => !lockedRoomCodes.contains(r.maPhong)).toList();
+      final available = loaded
+          .where((r) => !lockedRoomCodes.contains(r.maPhong))
+          .toList();
 
       if (mounted) {
         setState(() {
@@ -492,9 +496,7 @@ class _GuestHomeScreenState extends State<GuestHomeScreen> {
                       color: const Color(0xFF09638E),
                       child: SingleChildScrollView(
                         physics: const BouncingScrollPhysics(),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -1799,7 +1801,8 @@ class _GuestHomeScreenState extends State<GuestHomeScreen> {
                     height: 200,
                     width: double.infinity,
                     fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => _buildRoomImagePlaceholder(room),
+                    errorBuilder: (context, error, stackTrace) =>
+                        _buildRoomImagePlaceholder(room),
                   )
                 else
                   _buildRoomImagePlaceholder(room),
@@ -2102,7 +2105,9 @@ class _GuestHomeScreenState extends State<GuestHomeScreen> {
                       Expanded(
                         child: ElevatedButton.icon(
                           onPressed: () async {
-                            final isLocked = await DepositService.isRoomLocked(room.maPhong);
+                            final isLocked = await DepositService.isRoomLocked(
+                              room.maPhong,
+                            );
                             if (isLocked) {
                               if (context.mounted) {
                                 ThongBaoHelper.hienThongBao(
@@ -2450,6 +2455,4 @@ class _GuestHomeScreenState extends State<GuestHomeScreen> {
       ),
     );
   }
-
-
 }

@@ -25,7 +25,8 @@ class ManHinhXacNhanDangKyKhach extends StatefulWidget {
   });
 
   @override
-  State<ManHinhXacNhanDangKyKhach> createState() => _ManHinhXacNhanDangKyKhachState();
+  State<ManHinhXacNhanDangKyKhach> createState() =>
+      _ManHinhXacNhanDangKyKhachState();
 }
 
 class _ManHinhXacNhanDangKyKhachState extends State<ManHinhXacNhanDangKyKhach>
@@ -112,7 +113,8 @@ class _ManHinhXacNhanDangKyKhachState extends State<ManHinhXacNhanDangKyKhach>
                                   shape: BoxShape.circle,
                                   border: Border.all(
                                     color: const Color(0xFF0284C7).withValues(
-                                      alpha: (1.0 - _rippleAnimation.value) * 0.45,
+                                      alpha:
+                                          (1.0 - _rippleAnimation.value) * 0.45,
                                     ),
                                     width: 2.5,
                                   ),
@@ -130,7 +132,9 @@ class _ManHinhXacNhanDangKyKhachState extends State<ManHinhXacNhanDangKyKhach>
                                 shape: BoxShape.circle,
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0xFF0284C7).withValues(alpha: 0.35),
+                                    color: const Color(
+                                      0xFF0284C7,
+                                    ).withValues(alpha: 0.35),
                                     blurRadius: 18,
                                     offset: const Offset(0, 6),
                                   ),
@@ -194,7 +198,11 @@ class _ManHinhXacNhanDangKyKhachState extends State<ManHinhXacNhanDangKyKhach>
                   const Text(
                     'Thông tin đã được chuyển đến Ban Quản Lý để tiến hành thủ tục khai báo tạm trú với cơ quan chức năng.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B), height: 1.4),
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      color: Color(0xFF64748B),
+                      height: 1.4,
+                    ),
                   ),
                   const SizedBox(height: 20),
 
@@ -208,7 +216,9 @@ class _ManHinhXacNhanDangKyKhachState extends State<ManHinhXacNhanDangKyKhach>
                     height: 48,
                     child: ElevatedButton(
                       onPressed: () {
-                        Navigator.of(context).popUntil((route) => route.isFirst);
+                        Navigator.of(
+                          context,
+                        ).popUntil((route) => route.isFirst);
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: _primary,
@@ -225,7 +235,10 @@ class _ManHinhXacNhanDangKyKhachState extends State<ManHinhXacNhanDangKyKhach>
                           SizedBox(width: 8),
                           Text(
                             'Về Trang Chủ',
-                            style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ],
                       ),
@@ -282,7 +295,9 @@ class _ManHinhXacNhanDangKyKhachState extends State<ManHinhXacNhanDangKyKhach>
                 builder: (context, _) {
                   return CustomPaint(
                     size: Size.infinite,
-                    painter: _ConfettiPainter(progress: _confettiController.value),
+                    painter: _ConfettiPainter(
+                      progress: _confettiController.value,
+                    ),
                   );
                 },
               ),
@@ -546,7 +561,11 @@ class _ConfettiPainter extends CustomPainter {
         canvas.drawCircle(Offset.zero, p.size * 0.5, paint);
       } else {
         canvas.drawRect(
-          Rect.fromCenter(center: Offset.zero, width: p.size, height: p.size * 0.6),
+          Rect.fromCenter(
+            center: Offset.zero,
+            width: p.size,
+            height: p.size * 0.6,
+          ),
           paint,
         );
       }
@@ -568,12 +587,12 @@ class _ConfettiParticle {
   final Color color;
 
   _ConfettiParticle({required int seed})
-      : startY = 80 + (seed % 10) * 8.0,
-        vx = (math.sin(seed * 1.7) * 2.2) - 0.2,
-        size = 6.0 + (seed % 5) * 2.0,
-        rotation = seed * 0.8,
-        isCircle = seed % 3 == 0,
-        color = _colors[seed % _colors.length];
+    : startY = 80 + (seed % 10) * 8.0,
+      vx = (math.sin(seed * 1.7) * 2.2) - 0.2,
+      size = 6.0 + (seed % 5) * 2.0,
+      rotation = seed * 0.8,
+      isCircle = seed % 3 == 0,
+      color = _colors[seed % _colors.length];
 
   static const List<Color> _colors = [
     Color(0xFF0284C7),

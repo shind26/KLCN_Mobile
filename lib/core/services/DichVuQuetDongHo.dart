@@ -39,14 +39,20 @@ class DichVuQuetDongHo {
   }) async {
     File? tempFile;
     try {
-      debugPrint('[METER_OCR] Đang nhận diện ảnh đồng hồ ${isDien ? 'Điện' : 'Nước'} (Số cũ: $chiSoCu)...');
+      debugPrint(
+        '[METER_OCR] Đang nhận diện ảnh đồng hồ ${isDien ? 'Điện' : 'Nước'} (Số cũ: $chiSoCu)...',
+      );
 
       final tempDir = await getTemporaryDirectory();
-      tempFile = File('${tempDir.path}/meter_${DateTime.now().millisecondsSinceEpoch}.jpg');
+      tempFile = File(
+        '${tempDir.path}/meter_${DateTime.now().millisecondsSinceEpoch}.jpg',
+      );
       await tempFile.writeAsBytes(bytes);
 
       final inputImage = InputImage.fromFilePath(tempFile.path);
-      final textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
+      final textRecognizer = TextRecognizer(
+        script: TextRecognitionScript.latin,
+      );
       RecognizedText recognizedText;
       try {
         recognizedText = await textRecognizer.processImage(inputImage);
@@ -66,7 +72,8 @@ class DichVuQuetDongHo {
         return KetQuaQuetDongHo(
           chiSo: null,
           thanhCong: false,
-          thongDiep: 'Không nhận diện được nội dung trên ảnh. Vui lòng chụp gần và đủ sáng hơn.',
+          thongDiep:
+              'Không nhận diện được nội dung trên ảnh. Vui lòng chụp gần và đủ sáng hơn.',
         );
       }
 
@@ -78,10 +85,13 @@ class DichVuQuetDongHo {
       );
 
       if (chiSo != null && chiSo > 0) {
-        debugPrint('[METER_OCR] => Đã tìm thấy chỉ số tối ưu: $chiSo ${isDien ? "kWh" : "m³"}');
-        
+        debugPrint(
+          '[METER_OCR] => Đã tìm thấy chỉ số tối ưu: $chiSo ${isDien ? "kWh" : "m³"}',
+        );
+
         // Kiểm tra xem số có biểu hiện bánh xe số đang quay lơ lửng không
-        final isDangQuayDoChung = (chiSo % 1 != 0) || (chiSoCu > 0 && chiSo < chiSoCu);
+        final isDangQuayDoChung =
+            (chiSo % 1 != 0) || (chiSoCu > 0 && chiSo < chiSoCu);
         final msg = isDangQuayDoChung
             ? 'AI quét: $chiSo ${isDien ? 'kWh' : 'm³'} (Nếu số đang quay lơ lửng giữa chừng, bạn có thể chạm để chỉnh)'
             : 'AI quét thành công: $chiSo ${isDien ? 'kWh' : 'm³'}';
@@ -129,23 +139,40 @@ class DichVuQuetDongHo {
   }) {
     if (text.trim().isEmpty) return null;
     final normalized = text.replaceAll('\r', '');
-    final lines = normalized.split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty).toList();
+    final lines = normalized
+        .split('\n')
+        .map((l) => l.trim())
+        .where((l) => l.isNotEmpty)
+        .toList();
 
     // ── TẦNG 1: TÌM SỐ ĐỨNG NGAY TRƯỚC ĐƠN VỊ KWH HOẶC M3 ──
     final unitRegex = isDien
-        ? RegExp(r'([0-9][0-9 \t.,]{0,10}[0-9]|[0-9])[ \t]*(?:kwh|kw\.h|kw/h)\b', caseSensitive: false)
-        : RegExp(r'([0-9][0-9 \t.,]{0,10}[0-9]|[0-9])[ \t]*(?:m3|m³|m\^3|m\s*3|m\s*³|m\b)(?![ \t]*/[ \t]*h)', caseSensitive: false);
+        ? RegExp(
+            r'([0-9][0-9 \t.,]{0,10}[0-9]|[0-9])[ \t]*(?:kwh|kw\.h|kw/h)\b',
+            caseSensitive: false,
+          )
+        : RegExp(
+            r'([0-9][0-9 \t.,]{0,10}[0-9]|[0-9])[ \t]*(?:m3|m³|m\^3|m\s*3|m\s*³|m\b)(?![ \t]*/[ \t]*h)',
+            caseSensitive: false,
+          );
 
     for (final m in unitRegex.allMatches(normalized)) {
       final fullMatch = m.group(0)?.toLowerCase() ?? '';
-      if (fullMatch.contains('rev') || fullMatch.contains('imp') || fullMatch.contains('/kwh') || fullMatch.contains('/h')) {
+      if (fullMatch.contains('rev') ||
+          fullMatch.contains('imp') ||
+          fullMatch.contains('/kwh') ||
+          fullMatch.contains('/h')) {
         continue;
       }
       final rawNum = m.group(1);
       if (rawNum != null) {
         final val = _chuanHoaSo(rawNum);
         if (val != null && !_thongSoKyThuatBoQua.contains(val) && val > 0) {
-          final adjusted = _dieuChinhTheoChiSoCu(val, isDien: isDien, chiSoCu: chiSoCu);
+          final adjusted = _dieuChinhTheoChiSoCu(
+            val,
+            isDien: isDien,
+            chiSoCu: chiSoCu,
+          );
           return adjusted;
         }
       }
@@ -155,11 +182,16 @@ class DichVuQuetDongHo {
     final candidates = <double>[];
 
     // Regex 1: Dãy số 3-6 chữ số (có thể có tiền tố H, No, № hoặc số 0 ở đầu)
-    final odometerRegex = RegExp(r'(?:[HhNn№oO#]?\s*)([0-9]{3,6}(?:[.,][0-9])?)\b');
+    final odometerRegex = RegExp(
+      r'(?:[HhNn№oO#]?\s*)([0-9]{3,6}(?:[.,][0-9])?)\b',
+    );
     for (final line in lines) {
       final lower = line.toLowerCase();
       // Bỏ qua dòng chỉ chứa thông số kỹ thuật
-      if (lower.contains('rev/kwh') || lower.contains('imp/kwh') || lower.contains('50hz') || lower.contains('220v')) {
+      if (lower.contains('rev/kwh') ||
+          lower.contains('imp/kwh') ||
+          lower.contains('50hz') ||
+          lower.contains('220v')) {
         continue;
       }
       for (final m in odometerRegex.allMatches(line)) {
@@ -218,7 +250,11 @@ class DichVuQuetDongHo {
     double bestScore = -999999;
 
     for (final cand in candidates) {
-      final adjusted = _dieuChinhTheoChiSoCu(cand, isDien: isDien, chiSoCu: chiSoCu);
+      final adjusted = _dieuChinhTheoChiSoCu(
+        cand,
+        isDien: isDien,
+        chiSoCu: chiSoCu,
+      );
       double score = 0;
 
       if (chiSoCu > 0) {
@@ -253,7 +289,11 @@ class DichVuQuetDongHo {
   /// Tự động phát hiện và xử lý số đỏ thập phân của công tơ cơ khí:
   /// Ví dụ công tơ điện hiển thị 0516 (đen) + 7 (đỏ) -> OCR đọc 5167.
   /// Nếu số cũ là 210, 5167 là vô lý (tăng 4957 kWh), nhưng 516.7 thì tăng 306.7 kWh (rất hợp lý)!
-  static double _dieuChinhTheoChiSoCu(double val, {required bool isDien, required double chiSoCu}) {
+  static double _dieuChinhTheoChiSoCu(
+    double val, {
+    required bool isDien,
+    required double chiSoCu,
+  }) {
     if (chiSoCu <= 0) return val;
 
     if (isDien) {

@@ -79,7 +79,8 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
     // Mặc định ngày dọn là ngày 01 của tháng tới
     _moveInDate = _tinhNgayDauThangToi();
     _noteController = TextEditingController(
-      text: 'Chuyển sang ${widget.targetRoom["maPhong"] ?? "phòng mới"} cho thuận tiện sinh hoạt.',
+      text:
+          'Chuyển sang ${widget.targetRoom["maPhong"] ?? "phòng mới"} cho thuận tiện sinh hoạt.',
     );
     _checkPendingRequest();
     _taiDanhSachDichVu();
@@ -173,7 +174,8 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
   Future<void> _pickMoveInDate() async {
     final now = DateTime.now();
     final firstAllowed = _tinhNgayDauThangToi();
-    final initialDate = (_moveInDate.day == 1 && !_moveInDate.isBefore(firstAllowed))
+    final initialDate =
+        (_moveInDate.day == 1 && !_moveInDate.isBefore(firstAllowed))
         ? _moveInDate
         : firstAllowed;
 
@@ -204,7 +206,8 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
         ThongBaoHelper.hienThongBao(
           context,
           tieuDe: 'Ngày Không Hợp Lệ',
-          noiDung: 'Lịch chuyển phòng chỉ áp dụng vào ngày đầu tháng (ngày 01).',
+          noiDung:
+              'Lịch chuyển phòng chỉ áp dụng vào ngày đầu tháng (ngày 01).',
           type: ThongBaoType.canhBao,
         );
         return;
@@ -252,7 +255,8 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
 
     try {
       // 1. Lấy thông tin hợp đồng hiện tại và tiền cọc từ Supabase
-      String activeHopDong = widget.maHopDong ?? widget.hopDong?.maHopDong ?? 'HD001';
+      String activeHopDong =
+          widget.maHopDong ?? widget.hopDong?.maHopDong ?? 'HD001';
       String activeRoom = widget.currentRoomNumber;
       num deposit = widget.currentPrice;
 
@@ -317,7 +321,8 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
         ThongBaoHelper.hienThongBao(
           context,
           tieuDe: 'Phòng Không Hợp Lệ',
-          noiDung: 'Phòng mới phải khác phòng bạn đang thuê hiện tại ($activeRoom)!',
+          noiDung:
+              'Phòng mới phải khác phòng bạn đang thuê hiện tại ($activeRoom)!',
           type: ThongBaoType.canhBao,
         );
         return;
@@ -352,8 +357,7 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
         'tien_coc_bao_luu': deposit,
         'thoi_gian_hen': dateHenStr,
         'ly_do_chuyen': fullReason,
-        'trang_thai_tien_do': 'CHO_DUYET',
-        'trang_thai': 'CHO_DUYET',
+        'trang_thai_tien_do': 'Chờ duyệt',
         'tien_dien_nuoc_cu': 0,
         'tien_hu_hai_cu': 0,
         'tien_phat_sinh': 0,
@@ -536,7 +540,9 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const InvoiceHistoryScreen()),
+                  MaterialPageRoute(
+                    builder: (_) => const InvoiceHistoryScreen(),
+                  ),
                 ).then((_) => _kiemTraHoaDonNo());
               },
               style: ElevatedButton.styleFrom(
@@ -716,7 +722,8 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
   // ─── 4. COMPARISON CARD (ĐỐI CHIẾU & THÔNG TIN CỌC THAM KHẢO) ───
   Widget _buildComparisonCard(Map<String, dynamic> target, num diff) {
     final int oldFloor = _extractFloor(widget.currentRoomNumber);
-    final int newFloor = (target['tang'] as num?)?.toInt() ??
+    final int newFloor =
+        (target['tang'] as num?)?.toInt() ??
         _extractFloor(target['maPhong']?.toString() ?? '');
 
     final num targetPrice =
@@ -724,11 +731,14 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
     final bool isCheaper = (targetPrice - widget.currentPrice) < 0;
 
     // Tiền cọc phòng cũ & phòng mới
-    final num oldDeposit = widget.hopDong?.tienDatCoc != null && widget.hopDong!.tienDatCoc > 0
+    final num oldDeposit =
+        widget.hopDong?.tienDatCoc != null && widget.hopDong!.tienDatCoc > 0
         ? widget.hopDong!.tienDatCoc
         : widget.currentPrice;
     final num targetDeposit =
-        (target['tienDatCoc'] as num?) ?? (target['giaThue'] as num?) ?? oldDeposit;
+        (target['tienDatCoc'] as num?) ??
+        (target['giaThue'] as num?) ??
+        oldDeposit;
     final num depositDiff = targetDeposit - oldDeposit;
     final num absDepositDiff = depositDiff.abs();
 
@@ -799,7 +809,10 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
                         ),
                       ),
                       const SizedBox(height: 4),
-                      Text('• Tầng $oldFloor', style: const TextStyle(fontSize: 11.5)),
+                      Text(
+                        '• Tầng $oldFloor',
+                        style: const TextStyle(fontSize: 11.5),
+                      ),
                       Text(
                         '• Giá: ${FormatUtils.currency(widget.currentPrice.toDouble())}',
                         style: const TextStyle(fontSize: 11.5),
@@ -813,10 +826,14 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
                 child: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: isCheaper ? const Color(0xFFF0FDF4) : const Color(0xFFEFF6FF),
+                    color: isCheaper
+                        ? const Color(0xFFF0FDF4)
+                        : const Color(0xFFEFF6FF),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: isCheaper ? const Color(0xFF86EFAC) : const Color(0xFF93C5FD),
+                      color: isCheaper
+                          ? const Color(0xFF86EFAC)
+                          : const Color(0xFF93C5FD),
                     ),
                   ),
                   child: Column(
@@ -840,10 +857,19 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
                         ),
                       ),
                       const SizedBox(height: 4),
-                      Text('• Tầng $newFloor', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                      Text(
+                        '• Tầng $newFloor',
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                       Text(
                         '• Giá: ${FormatUtils.currency(targetPrice.toDouble())}',
-                        style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ],
                   ),
@@ -873,9 +899,15 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                _buildDepositRow('Cọc phòng cũ:', '${FormatUtils.currency(oldDeposit.toDouble())} (Bảo lưu)'),
+                _buildDepositRow(
+                  'Cọc phòng cũ:',
+                  '${FormatUtils.currency(oldDeposit.toDouble())} (Bảo lưu)',
+                ),
                 const SizedBox(height: 4),
-                _buildDepositRow('Cọc phòng mới:', FormatUtils.currency(targetDeposit.toDouble())),
+                _buildDepositRow(
+                  'Cọc phòng mới:',
+                  FormatUtils.currency(targetDeposit.toDouble()),
+                ),
                 const SizedBox(height: 6),
                 const Divider(height: 1, color: Color(0xFFE2E8F0)),
                 const SizedBox(height: 6),
@@ -884,20 +916,22 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
                   depositDiff == 0
                       ? '0đ (Cọc bằng nhau)'
                       : (depositDiff > 0
-                          ? '+${FormatUtils.currency(absDepositDiff.toDouble())} (Bù thêm)'
-                          : '-${FormatUtils.currency(absDepositDiff.toDouble())} (Hoàn trả)'),
+                            ? '+${FormatUtils.currency(absDepositDiff.toDouble())} (Bù thêm)'
+                            : '-${FormatUtils.currency(absDepositDiff.toDouble())} (Hoàn trả)'),
                   isBold: true,
                   valueColor: depositDiff == 0
                       ? const Color(0xFF0284C7)
-                      : (depositDiff > 0 ? const Color(0xFFB45309) : const Color(0xFF15803D)),
+                      : (depositDiff > 0
+                            ? const Color(0xFFB45309)
+                            : const Color(0xFF15803D)),
                 ),
                 const SizedBox(height: 6),
                 Text(
                   depositDiff == 0
                       ? '• Cọc bảo lưu 100%, không phát sinh bù cọc hay hoàn tiền.'
                       : (depositDiff > 0
-                          ? '• Khoản bù thêm (${FormatUtils.currency(absDepositDiff.toDouble())}) sẽ được cộng trực tiếp vào hóa đơn kỳ tới của phòng mới.'
-                          : '• Khoản hoàn trả (${FormatUtils.currency(absDepositDiff.toDouble())}) sẽ được trừ trực tiếp giảm giá vào hóa đơn kỳ tới của phòng mới.'),
+                            ? '• Khoản bù thêm (${FormatUtils.currency(absDepositDiff.toDouble())}) sẽ được cộng trực tiếp vào hóa đơn kỳ tới của phòng mới.'
+                            : '• Khoản hoàn trả (${FormatUtils.currency(absDepositDiff.toDouble())}) sẽ được trừ trực tiếp giảm giá vào hóa đơn kỳ tới của phòng mới.'),
                   style: const TextStyle(
                     fontSize: 11,
                     fontStyle: FontStyle.italic,
@@ -913,7 +947,12 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
     );
   }
 
-  Widget _buildDepositRow(String title, String value, {bool isBold = false, Color? valueColor}) {
+  Widget _buildDepositRow(
+    String title,
+    String value, {
+    bool isBold = false,
+    Color? valueColor,
+  }) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -953,7 +992,11 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
       child: const Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.account_balance_wallet_outlined, color: Color(0xFF15803D), size: 18),
+          Icon(
+            Icons.account_balance_wallet_outlined,
+            color: Color(0xFF15803D),
+            size: 18,
+          ),
           SizedBox(width: 8),
           Expanded(
             child: Column(
@@ -970,7 +1013,11 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
                 SizedBox(height: 3),
                 Text(
                   'Điện nước phòng cũ, chi phí hư hại (nếu có) và bù/trừ tiền cọc sẽ được tổng hợp trực tiếp vào hóa đơn đầu tiên của phòng mới.',
-                  style: TextStyle(fontSize: 11, color: Color(0xFF166534), height: 1.35),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF166534),
+                    height: 1.35,
+                  ),
                 ),
               ],
             ),
@@ -1071,12 +1118,18 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.bold,
+                  ),
                   overflow: TextOverflow.ellipsis,
                 ),
                 Text(
                   sub,
-                  style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+                  style: const TextStyle(
+                    fontSize: 10,
+                    color: Color(0xFF64748B),
+                  ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
@@ -1119,14 +1172,21 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
               const Expanded(
                 child: Text(
                   'Định mức chi phí dịch vụ cố định:',
-                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF334155),
+                  ),
                 ),
               ),
               if (_isLoadingDichVu)
                 const SizedBox(
                   width: 12,
                   height: 12,
-                  child: CircularProgressIndicator(strokeWidth: 1.5, color: _primary),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 1.5,
+                    color: _primary,
+                  ),
                 ),
             ],
           ),
@@ -1134,10 +1194,18 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
           Row(
             children: [
               Expanded(
-                child: Text('⚡ Điện: ${FormatUtils.currency(giaDien)}/kWh', style: const TextStyle(fontSize: 11), overflow: TextOverflow.ellipsis),
+                child: Text(
+                  '⚡ Điện: ${FormatUtils.currency(giaDien)}/kWh',
+                  style: const TextStyle(fontSize: 11),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
               Expanded(
-                child: Text('💧 Nước: ${FormatUtils.currency(giaNuoc)}/m³', style: const TextStyle(fontSize: 11), overflow: TextOverflow.ellipsis),
+                child: Text(
+                  '💧 Nước: ${FormatUtils.currency(giaNuoc)}/m³',
+                  style: const TextStyle(fontSize: 11),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ],
           ),
@@ -1145,10 +1213,18 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
           Row(
             children: [
               Expanded(
-                child: Text('🧹 Rác: ${FormatUtils.currency(giaRac)}/người', style: const TextStyle(fontSize: 11), overflow: TextOverflow.ellipsis),
+                child: Text(
+                  '🧹 Rác: ${FormatUtils.currency(giaRac)}/người',
+                  style: const TextStyle(fontSize: 11),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
               Expanded(
-                child: Text('📶 Wifi: ${FormatUtils.currency(giaWifi)}/phòng', style: const TextStyle(fontSize: 11), overflow: TextOverflow.ellipsis),
+                child: Text(
+                  '📶 Wifi: ${FormatUtils.currency(giaWifi)}/phòng',
+                  style: const TextStyle(fontSize: 11),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ],
           ),
@@ -1199,7 +1275,11 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
           // Date picker
           const Text(
             'Ngày hẹn dọn phòng (bắt buộc ngày 01):',
-            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Color(0xFF334155)),
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF334155),
+            ),
           ),
           const SizedBox(height: 6),
           InkWell(
@@ -1214,16 +1294,27 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.event_available_rounded, color: _primary, size: 18),
+                  const Icon(
+                    Icons.event_available_rounded,
+                    color: _primary,
+                    size: 18,
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       _moveInDateFormatted,
-                      style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: _textDark),
+                      style: const TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.bold,
+                        color: _textDark,
+                      ),
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFF09638E).withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
@@ -1231,9 +1322,20 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text('Đổi ngày', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _primary)),
+                        Text(
+                          'Đổi ngày',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: _primary,
+                          ),
+                        ),
                         SizedBox(width: 3),
-                        Icon(Icons.edit_calendar_rounded, size: 13, color: _primary),
+                        Icon(
+                          Icons.edit_calendar_rounded,
+                          size: 13,
+                          color: _primary,
+                        ),
                       ],
                     ),
                   ),
@@ -1246,7 +1348,11 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
           // Quy định chuyển phòng ngày 01
           const Row(
             children: [
-              Icon(Icons.info_outline_rounded, size: 14, color: Color(0xFFB45309)),
+              Icon(
+                Icons.info_outline_rounded,
+                size: 14,
+                color: Color(0xFFB45309),
+              ),
               SizedBox(width: 6),
               Expanded(
                 child: Text(
@@ -1265,7 +1371,11 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
           // Reason pills
           const Text(
             'Lý do chuyển phòng:',
-            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Color(0xFF334155)),
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF334155),
+            ),
           ),
           const SizedBox(height: 6),
           Wrap(
@@ -1285,7 +1395,9 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
                   color: isSel ? Colors.white : const Color(0xFF334155),
                 ),
                 backgroundColor: const Color(0xFFF1F5F9),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
               );
             }),
           ),
@@ -1294,7 +1406,11 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
           // Notes
           const Text(
             'Ghi chú thêm gửi Ban Quản Lý:',
-            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Color(0xFF334155)),
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF334155),
+            ),
           ),
           const SizedBox(height: 6),
           TextField(
@@ -1302,11 +1418,15 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
             style: const TextStyle(fontSize: 12.5),
             maxLines: 2,
             decoration: InputDecoration(
-              hintText: 'Nhập nội dung ghi chú (ví dụ: mượn xe đẩy, hẹn giờ khảo sát...)',
+              hintText:
+                  'Nhập nội dung ghi chú (ví dụ: mượn xe đẩy, hẹn giờ khảo sát...)',
               hintStyle: TextStyle(fontSize: 12, color: Colors.grey.shade400),
               filled: true,
               fillColor: const Color(0xFFF8FAFC),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 12,
+              ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
@@ -1384,7 +1504,9 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
                   Icon(
                     hasUnpaid
                         ? Icons.warning_rounded
-                        : (hasPending ? Icons.lock_clock_rounded : Icons.send_rounded),
+                        : (hasPending
+                              ? Icons.lock_clock_rounded
+                              : Icons.send_rounded),
                     size: 16,
                   ),
                   const SizedBox(width: 8),
@@ -1393,8 +1515,8 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
                       hasUnpaid
                           ? 'Vui lòng thanh toán hết hóa đơn phòng cũ'
                           : (hasPending
-                              ? 'Đang có đơn chờ duyệt (#${_pendingRequest!["ma_yeu_cau"]})'
-                              : 'Gửi yêu cầu chuyển phòng $targetName'),
+                                ? 'Đang có đơn chờ duyệt (#${_pendingRequest!["ma_yeu_cau"]})'
+                                : 'Gửi yêu cầu chuyển phòng $targetName'),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(

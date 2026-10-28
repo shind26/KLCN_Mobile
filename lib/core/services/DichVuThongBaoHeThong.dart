@@ -14,22 +14,22 @@ class SystemNotificationService {
 
   static const AndroidNotificationChannel _androidChannel =
       AndroidNotificationChannel(
-    'kieugiang_approval_channel',
-    'Thông báo Kiêu Giang House',
-    description:
-        'Kênh thông báo phê duyệt chuyển phòng, hợp đồng, hóa đơn và sự cố',
-    importance: Importance.max,
-    playSound: true,
-    enableVibration: true,
-  );
+        'kieugiang_approval_channel',
+        'Thông báo Kiêu Giang House',
+        description:
+            'Kênh thông báo phê duyệt chuyển phòng, hợp đồng, hóa đơn và sự cố',
+        importance: Importance.max,
+        playSound: true,
+        enableVibration: true,
+      );
 
   // Bộ nhớ đệm chống bắn trùng lặp thông báo (In-memory + SharedPreferences)
   static final Set<String> _sentNotificationTags = {};
   static final Set<String> _readNotificationIds = {};
 
   // Danh sách thông báo hiển thị trên Cái Chuông (Centralized In-App Notification Center)
-  static final ValueNotifier<List<Map<String, dynamic>>> danhSachThongBaoNotifier =
-      ValueNotifier<List<Map<String, dynamic>>>([]);
+  static final ValueNotifier<List<Map<String, dynamic>>>
+  danhSachThongBaoNotifier = ValueNotifier<List<Map<String, dynamic>>>([]);
 
   // Trạng thái bật/tắt nhận thông báo ứng dụng (Người dùng điều khiển ở Tab Cá nhân)
   static bool isNotificationEnabled = true;
@@ -56,10 +56,10 @@ class SystemNotificationService {
           AndroidInitializationSettings('@mipmap/ic_launcher');
       const DarwinInitializationSettings iosSettings =
           DarwinInitializationSettings(
-        requestAlertPermission: true,
-        requestBadgePermission: true,
-        requestSoundPermission: true,
-      );
+            requestAlertPermission: true,
+            requestBadgePermission: true,
+            requestSoundPermission: true,
+          );
 
       const InitializationSettings initSettings = InitializationSettings(
         android: androidSettings,
@@ -69,13 +69,17 @@ class SystemNotificationService {
       await _localNotif.initialize(
         settings: initSettings,
         onDidReceiveNotificationResponse: (NotificationResponse response) {
-          debugPrint('[NOTIF] Người dùng bấm vào thông báo: ${response.payload}');
+          debugPrint(
+            '[NOTIF] Người dùng bấm vào thông báo: ${response.payload}',
+          );
         },
       );
 
       // Tạo notification channel trên Android
-      final androidPlugin = _localNotif.resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin>();
+      final androidPlugin = _localNotif
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >();
       if (androidPlugin != null) {
         await androidPlugin.createNotificationChannel(_androidChannel);
       }
@@ -90,7 +94,8 @@ class SystemNotificationService {
   static Future<void> _loadPersistedStates() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      isNotificationEnabled = prefs.getBool('kieugiang_thong_bao_ung_dung') ?? true;
+      isNotificationEnabled =
+          prefs.getBool('kieugiang_thong_bao_ung_dung') ?? true;
       final sentList = prefs.getStringList('kieugiang_sent_notif_tags') ?? [];
       _sentNotificationTags.addAll(sentList);
 
@@ -116,7 +121,9 @@ class SystemNotificationService {
   /// Đánh dấu một thông báo đã đọc
   static Future<void> markAsRead(String id) async {
     _readNotificationIds.add(id);
-    final current = List<Map<String, dynamic>>.from(danhSachThongBaoNotifier.value);
+    final current = List<Map<String, dynamic>>.from(
+      danhSachThongBaoNotifier.value,
+    );
     for (var item in current) {
       if (item['id'] == id) {
         item['da_doc'] = true;
@@ -125,13 +132,18 @@ class SystemNotificationService {
     danhSachThongBaoNotifier.value = current;
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setStringList('kieugiang_read_notif_ids', _readNotificationIds.toList());
+      await prefs.setStringList(
+        'kieugiang_read_notif_ids',
+        _readNotificationIds.toList(),
+      );
     } catch (_) {}
   }
 
   /// Đánh dấu tất cả thông báo đã đọc
   static Future<void> markAllAsRead() async {
-    final current = List<Map<String, dynamic>>.from(danhSachThongBaoNotifier.value);
+    final current = List<Map<String, dynamic>>.from(
+      danhSachThongBaoNotifier.value,
+    );
     for (var item in current) {
       item['da_doc'] = true;
       final id = item['id']?.toString();
@@ -140,7 +152,10 @@ class SystemNotificationService {
     danhSachThongBaoNotifier.value = current;
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setStringList('kieugiang_read_notif_ids', _readNotificationIds.toList());
+      await prefs.setStringList(
+        'kieugiang_read_notif_ids',
+        _readNotificationIds.toList(),
+      );
     } catch (_) {}
   }
 
@@ -154,7 +169,9 @@ class SystemNotificationService {
     DateTime? thoiGian,
     VoidCallback? onXem,
   }) {
-    final current = List<Map<String, dynamic>>.from(danhSachThongBaoNotifier.value);
+    final current = List<Map<String, dynamic>>.from(
+      danhSachThongBaoNotifier.value,
+    );
     final existingIdx = current.indexWhere((it) => it['id'] == id);
     final bool daDoc = _readNotificationIds.contains(id);
 
@@ -194,8 +211,10 @@ class SystemNotificationService {
     // Trên Android / iOS
     try {
       await init();
-      final androidPlugin = _localNotif.resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin>();
+      final androidPlugin = _localNotif
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >();
       if (androidPlugin != null) {
         await androidPlugin.requestNotificationsPermission();
       }
@@ -237,7 +256,9 @@ class SystemNotificationService {
 
       // Nếu người dùng đã tắt thông báo ứng dụng trong Cài đặt, không bắn cảnh báo ra hệ thống
       if (!isNotificationEnabled) {
-        debugPrint('[NOTIF] Đã tắt thông báo ứng dụng, bỏ qua hiển thị ngoài hệ thống: $title');
+        debugPrint(
+          '[NOTIF] Đã tắt thông báo ứng dụng, bỏ qua hiển thị ngoài hệ thống: $title',
+        );
         return;
       }
 
@@ -253,25 +274,25 @@ class SystemNotificationService {
 
       final AndroidNotificationDetails androidDetails =
           AndroidNotificationDetails(
-        _androidChannel.id,
-        _androidChannel.name,
-        channelDescription: _androidChannel.description,
-        importance: Importance.max,
-        priority: Priority.high,
-        playSound: true,
-        enableVibration: true,
-        icon: '@mipmap/ic_launcher',
-        visibility: NotificationVisibility.public,
-        channelShowBadge: true,
-        showWhen: true,
-        autoCancel: true,
-        category: AndroidNotificationCategory.status,
-        styleInformation: BigTextStyleInformation(
-          body,
-          contentTitle: title,
-          summaryText: 'Kiêu Giang House',
-        ),
-      );
+            _androidChannel.id,
+            _androidChannel.name,
+            channelDescription: _androidChannel.description,
+            importance: Importance.max,
+            priority: Priority.high,
+            playSound: true,
+            enableVibration: true,
+            icon: '@mipmap/ic_launcher',
+            visibility: NotificationVisibility.public,
+            channelShowBadge: true,
+            showWhen: true,
+            autoCancel: true,
+            category: AndroidNotificationCategory.status,
+            styleInformation: BigTextStyleInformation(
+              body,
+              contentTitle: title,
+              summaryText: 'Kiêu Giang House',
+            ),
+          );
 
       const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
         presentAlert: true,
@@ -293,7 +314,9 @@ class SystemNotificationService {
         notificationDetails: notifDetails,
         payload: payload ?? tag,
       );
-      debugPrint('[NOTIF] Đã bắn thông báo điện thoại thiệt thành công (id=$notifId, tag=$tag): $title');
+      debugPrint(
+        '[NOTIF] Đã bắn thông báo điện thoại thiệt thành công (id=$notifId, tag=$tag): $title',
+      );
     } catch (e) {
       debugPrint('[NOTIF] Lỗi showNotification mobile: $e');
     }

@@ -39,7 +39,8 @@ class _RoomTransferSearchScreenState extends State<RoomTransferSearchScreen> {
 
   final TextEditingController _searchController = TextEditingController();
   int _selectedTab = 0; // 0: Tất cả, 1: Cùng tòa
-  int _selectedPriceFilter = 0; // 0: Tất cả, 1: Dưới 3.5tr, 2: 3.5tr - 4.5tr, 3: Có gác
+  int _selectedPriceFilter =
+      0; // 0: Tất cả, 1: Dưới 3.5tr, 2: 3.5tr - 4.5tr, 3: Có gác
   bool _isLoading = true;
   Map<String, dynamic>? _pendingTransfer;
 
@@ -165,7 +166,9 @@ class _RoomTransferSearchScreenState extends State<RoomTransferSearchScreen> {
         return rClean != curClean;
       }).toList();
 
-      final mapped = filteredModels.map((r) => _convertModelToRoomMap(r)).toList();
+      final mapped = filteredModels
+          .map((r) => _convertModelToRoomMap(r))
+          .toList();
 
       // Kiểm tra xem cư dân có đơn nào đang chờ duyệt hay không
       try {
@@ -240,14 +243,15 @@ class _RoomTransferSearchScreenState extends State<RoomTransferSearchScreen> {
     final String diffText = diff == 0
         ? '0đ (Đồng giá)'
         : (diff > 0
-            ? '+${FormatUtils.currency(absDiff)}/tháng'
-            : 'Rẻ hơn ${FormatUtils.currency(absDiff)}/tháng');
+              ? '+${FormatUtils.currency(absDiff)}/tháng'
+              : 'Rẻ hơn ${FormatUtils.currency(absDiff)}/tháng');
     final String highlight = diff == 0
         ? 'Đồng giá phòng cũ • Không bù tiền phòng'
         : (diff > 0
-            ? 'Chênh lệch: +${FormatUtils.currency(absDiff)}/tháng so với ${widget.currentRoomNumber}'
-            : 'Tiết kiệm: ${FormatUtils.currency(absDiff)}/tháng so với ${widget.currentRoomNumber}');
-    final isSame = room.toaNha.toLowerCase().contains('2') ||
+              ? 'Chênh lệch: +${FormatUtils.currency(absDiff)}/tháng so với ${widget.currentRoomNumber}'
+              : 'Tiết kiệm: ${FormatUtils.currency(absDiff)}/tháng so với ${widget.currentRoomNumber}');
+    final isSame =
+        room.toaNha.toLowerCase().contains('2') ||
         room.toaNha.toLowerCase().contains('kiêu giang 2');
 
     return {
@@ -258,7 +262,8 @@ class _RoomTransferSearchScreenState extends State<RoomTransferSearchScreen> {
       'dienTich': room.dienTich,
       'giaThue': room.giaThue,
       'tienDatCoc': room.tienDatCoc > 0 ? room.tienDatCoc : room.giaThue,
-      'dacDiem': '${room.dienTich}m² • ${room.moTaNgan.isNotEmpty ? room.moTaNgan : (room.tang > 0 ? "Tầng ${room.tang}" : "Phòng tiêu chuẩn")}',
+      'dacDiem':
+          '${room.dienTich}m² • ${room.moTaNgan.isNotEmpty ? room.moTaNgan : (room.tang > 0 ? "Tầng ${room.tang}" : "Phòng tiêu chuẩn")}',
       'highlight': highlight,
       'tagTang': 'Tầng ${room.tang} • ${room.toaNha}',
       'hinhAnh': room.hinhAnh.isNotEmpty
@@ -292,8 +297,13 @@ class _RoomTransferSearchScreenState extends State<RoomTransferSearchScreen> {
       }
       if (_selectedPriceFilter == 3) {
         final desc = room['dacDiem'].toString().toLowerCase();
-        final tienIchList = (room['tienIch'] as List?)?.map((e) => e.toString().toLowerCase()).toList() ?? [];
-        final hasGac = desc.contains('gác') || tienIchList.any((t) => t.contains('gác'));
+        final tienIchList =
+            (room['tienIch'] as List?)
+                ?.map((e) => e.toString().toLowerCase())
+                .toList() ??
+            [];
+        final hasGac =
+            desc.contains('gác') || tienIchList.any((t) => t.contains('gác'));
         if (!hasGac) return false;
       }
       // Search
@@ -302,7 +312,11 @@ class _RoomTransferSearchScreenState extends State<RoomTransferSearchScreen> {
         final ma = room['maPhong'].toString().toLowerCase();
         final toa = room['toaNha'].toString().toLowerCase();
         final desc = room['dacDiem'].toString().toLowerCase();
-        final tienIchList = (room['tienIch'] as List?)?.map((e) => e.toString().toLowerCase()).toList() ?? [];
+        final tienIchList =
+            (room['tienIch'] as List?)
+                ?.map((e) => e.toString().toLowerCase())
+                .toList() ??
+            [];
         final tienIchMatch = tienIchList.any((t) => t.contains(query));
         return ma.contains(query) ||
             toa.contains(query) ||
@@ -321,24 +335,35 @@ class _RoomTransferSearchScreenState extends State<RoomTransferSearchScreen> {
 
   /// Mở màn hình Chi Tiết Phòng giống khách vãng lai
   void _openRoomDetail(Map<String, dynamic> roomMap) {
-    final RoomModel model = (roomMap['roomModel'] as RoomModel?) ??
+    final RoomModel model =
+        (roomMap['roomModel'] as RoomModel?) ??
         RoomModel(
-        maPhong: roomMap['maPhong']?.toString() ?? '',
-        maLoaiPhong: '',
-        tenHienThi: 'Phòng ${roomMap["maPhong"]}',
-        toaNha: roomMap['toaNha']?.toString() ?? 'Kiêu Giang 2',
-        tang: (roomMap['tang'] is num) ? (roomMap['tang'] as num).toInt() : 1,
-        dienTich: (roomMap['dienTich'] is num) ? (roomMap['dienTich'] as num) : 20,
-        giaThue: (roomMap['giaThue'] is num) ? (roomMap['giaThue'] as num) : 3200000,
-        tienDatCoc: (roomMap['tienDatCoc'] is num) ? (roomMap['tienDatCoc'] as num) : 3200000,
-        trangThai: 'Trống',
-        hinhAnh: roomMap['hinhAnh']?.toString() ?? '',
-        danhGia: 5.0,
-        soDanhGia: 0,
-        moTaNgan: roomMap['dacDiem']?.toString() ?? '',
-        tienIch: (roomMap['tienIch'] as List?)?.map((e) => e.toString()).toList() ?? [],
-        noiThatSanCo: [],
-      );
+          maPhong: roomMap['maPhong']?.toString() ?? '',
+          maLoaiPhong: '',
+          tenHienThi: 'Phòng ${roomMap["maPhong"]}',
+          toaNha: roomMap['toaNha']?.toString() ?? 'Kiêu Giang 2',
+          tang: (roomMap['tang'] is num) ? (roomMap['tang'] as num).toInt() : 1,
+          dienTich: (roomMap['dienTich'] is num)
+              ? (roomMap['dienTich'] as num)
+              : 20,
+          giaThue: (roomMap['giaThue'] is num)
+              ? (roomMap['giaThue'] as num)
+              : 3200000,
+          tienDatCoc: (roomMap['tienDatCoc'] is num)
+              ? (roomMap['tienDatCoc'] as num)
+              : 3200000,
+          trangThai: 'Trống',
+          hinhAnh: roomMap['hinhAnh']?.toString() ?? '',
+          danhGia: 5.0,
+          soDanhGia: 0,
+          moTaNgan: roomMap['dacDiem']?.toString() ?? '',
+          tienIch:
+              (roomMap['tienIch'] as List?)
+                  ?.map((e) => e.toString())
+                  .toList() ??
+              [],
+          noiThatSanCo: [],
+        );
 
     Navigator.push(
       context,
@@ -362,11 +387,14 @@ class _RoomTransferSearchScreenState extends State<RoomTransferSearchScreen> {
     final user = AuthService.currentUser;
     if (user != null) {
       final role = user.vaiTro.toLowerCase();
-      if (role.contains('thanhvien') || role.contains('banocung') || role.contains('ocung')) {
+      if (role.contains('thanhvien') ||
+          role.contains('banocung') ||
+          role.contains('ocung')) {
         ThongBaoHelper.hienThongBao(
           context,
           tieuDe: 'Không Có Quyền Thực Hiện',
-          noiDung: 'Bạn đang đăng nhập với tư cách Thành viên phòng (Bạn cùng phòng). Thủ tục chuyển phòng chỉ có Người đại diện (Trưởng phòng) mới có thẩm quyền thực hiện!',
+          noiDung:
+              'Bạn đang đăng nhập với tư cách Thành viên phòng (Bạn cùng phòng). Thủ tục chuyển phòng chỉ có Người đại diện (Trưởng phòng) mới có thẩm quyền thực hiện!',
           type: ThongBaoType.canhBao,
         );
         return;
@@ -377,17 +405,20 @@ class _RoomTransferSearchScreenState extends State<RoomTransferSearchScreen> {
       ThongBaoHelper.hienThongBao(
         context,
         tieuDe: 'Không Thể Gửi Thêm Đơn',
-        noiDung: 'Bạn đang có yêu cầu chuyển sang phòng ${_pendingTransfer!["ma_phong_moi"]} (#${_pendingTransfer!["ma_yeu_cau"]}) đang chờ Ban Quản Lý duyệt. Không thể chọn thêm phòng mới!',
+        noiDung:
+            'Bạn đang có yêu cầu chuyển sang phòng ${_pendingTransfer!["ma_phong_moi"]} (#${_pendingTransfer!["ma_yeu_cau"]}) đang chờ Ban Quản Lý duyệt. Không thể chọn thêm phòng mới!',
         type: ThongBaoType.canhBao,
       );
       return;
     }
 
-    if (widget.hopDong != null && !widget.hopDong!.duDieuKienThoiGianChuyenPhong) {
+    if (widget.hopDong != null &&
+        !widget.hopDong!.duDieuKienThoiGianChuyenPhong) {
       ThongBaoHelper.hienThongBao(
         context,
         tieuDe: 'Chưa Đủ Điều Kiện',
-        noiDung: 'Theo quy định, cư dân cần ở tối thiểu 30 ngày (1 tháng) tại phòng hiện tại trước khi chuyển phòng. Bạn mới ở được ${widget.hopDong!.soNgayDaO} ngày (thiếu ${widget.hopDong!.soNgayConThieuChuyenPhong} ngày)!',
+        noiDung:
+            'Theo quy định, cư dân cần ở tối thiểu 30 ngày (1 tháng) tại phòng hiện tại trước khi chuyển phòng. Bạn mới ở được ${widget.hopDong!.soNgayDaO} ngày (thiếu ${widget.hopDong!.soNgayConThieuChuyenPhong} ngày)!',
         type: ThongBaoType.canhBao,
       );
       return;
@@ -457,7 +488,9 @@ class _RoomTransferSearchScreenState extends State<RoomTransferSearchScreen> {
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            _isLoading ? 'Đang đồng bộ...' : 'Tìm thấy ${filtered.length} phòng',
+                            _isLoading
+                                ? 'Đang đồng bộ...'
+                                : 'Tìm thấy ${filtered.length} phòng',
                             style: TextStyle(
                               fontSize: 11,
                               color: Colors.grey.shade600,
@@ -471,7 +504,8 @@ class _RoomTransferSearchScreenState extends State<RoomTransferSearchScreen> {
                         const SizedBox(height: 20),
                         const LoadingMeoMeo(
                           message: 'Đang tìm phòng trống...',
-                          subMessage: 'Đợi mèo con tìm phòng ưng ý cho bạn nha~ 🐾',
+                          subMessage:
+                              'Đợi mèo con tìm phòng ưng ý cho bạn nha~ 🐾',
                         ),
                         const SizedBox(height: 20),
                       ] else if (filtered.isEmpty) ...[
@@ -764,7 +798,11 @@ class _RoomTransferSearchScreenState extends State<RoomTransferSearchScreen> {
           const SizedBox(height: 6),
           Text(
             'Bạn đang xin chuyển sang phòng $targetRoom. Hệ thống khóa quyền tạo đơn thứ 2 để BQL thẩm định.',
-            style: const TextStyle(fontSize: 11.5, color: Color(0xFF78350F), height: 1.35),
+            style: const TextStyle(
+              fontSize: 11.5,
+              color: Color(0xFF78350F),
+              height: 1.35,
+            ),
           ),
           const SizedBox(height: 10),
           Row(
@@ -776,12 +814,20 @@ class _RoomTransferSearchScreenState extends State<RoomTransferSearchScreen> {
                       context: context,
                       builder: (c) => AlertDialog(
                         title: const Text('Hủy yêu cầu?'),
-                        content: Text('Bạn có chắc muốn hủy yêu cầu chuyển sang phòng $targetRoom (#$maYC)?'),
+                        content: Text(
+                          'Bạn có chắc muốn hủy yêu cầu chuyển sang phòng $targetRoom (#$maYC)?',
+                        ),
                         actions: [
-                          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Không')),
+                          TextButton(
+                            onPressed: () => Navigator.pop(c, false),
+                            child: const Text('Không'),
+                          ),
                           ElevatedButton(
                             onPressed: () => Navigator.pop(c, true),
-                            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFDC2626), foregroundColor: Colors.white),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFDC2626),
+                              foregroundColor: Colors.white,
+                            ),
                             child: const Text('Hủy đơn'),
                           ),
                         ],
@@ -807,9 +853,17 @@ class _RoomTransferSearchScreenState extends State<RoomTransferSearchScreen> {
                     foregroundColor: const Color(0xFFDC2626),
                     side: const BorderSide(color: Color(0xFFFCA5A5)),
                     padding: const EdgeInsets.symmetric(vertical: 8),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
-                  child: const Text('Hủy đơn cũ', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                  child: const Text(
+                    'Hủy đơn cũ',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
@@ -826,10 +880,14 @@ class _RoomTransferSearchScreenState extends State<RoomTransferSearchScreen> {
                       if (res != null) phongMoiData = res;
                     } catch (_) {}
 
-                    final giaThueMoi = (phongMoiData?['gia_thue'] as num?) ?? 3500000;
-                    final tienCocMoi = (phongMoiData?['tien_dat_coc'] as num?) ?? giaThueMoi;
-                    final tangMoi = (phongMoiData?['tang'] as num?)?.toInt() ?? 2;
-                    final dienTichMoi = (phongMoiData?['dien_tich'] as num?)?.toInt() ?? 26;
+                    final giaThueMoi =
+                        (phongMoiData?['gia_thue'] as num?) ?? 3500000;
+                    final tienCocMoi =
+                        (phongMoiData?['tien_dat_coc'] as num?) ?? giaThueMoi;
+                    final tangMoi =
+                        (phongMoiData?['tang'] as num?)?.toInt() ?? 2;
+                    final dienTichMoi =
+                        (phongMoiData?['dien_tich'] as num?)?.toInt() ?? 26;
 
                     if (!mounted) return;
                     Navigator.push(
@@ -839,7 +897,9 @@ class _RoomTransferSearchScreenState extends State<RoomTransferSearchScreen> {
                           ticketCode: maYC,
                           targetRoom: {
                             'maPhong': targetRoom,
-                            'toaNha': phongMoiData?['toa_nha']?.toString() ?? 'Kiêu Giang',
+                            'toaNha':
+                                phongMoiData?['toa_nha']?.toString() ??
+                                'Kiêu Giang',
                             'tang': tangMoi,
                             'dienTich': dienTichMoi,
                             'giaThue': giaThueMoi,
@@ -858,9 +918,17 @@ class _RoomTransferSearchScreenState extends State<RoomTransferSearchScreen> {
                     backgroundColor: const Color(0xFF09638E),
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 8),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
-                  child: const Text('Xem tiến độ', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                  child: const Text(
+                    'Xem tiến độ',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -962,100 +1030,100 @@ class _RoomTransferSearchScreenState extends State<RoomTransferSearchScreen> {
             child: Stack(
               children: [
                 ClipRRect(
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(20),
-                ),
-                child: SizedBox(
-                  width: double.infinity,
-                  height: 145,
-                  child: Image.network(
-                    r['hinhAnh'],
-                    fit: BoxFit.cover,
-                    errorBuilder: (ctx, error, stackTrace) => Container(
-                      color: const Color(0xFFF1F5F9),
-                      child: const Center(
-                        child: Icon(
-                          Icons.apartment_rounded,
-                          size: 40,
-                          color: _primary,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(20),
+                  ),
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: 145,
+                    child: Image.network(
+                      r['hinhAnh'],
+                      fit: BoxFit.cover,
+                      errorBuilder: (ctx, error, stackTrace) => Container(
+                        color: const Color(0xFFF1F5F9),
+                        child: const Center(
+                          child: Icon(
+                            Icons.apartment_rounded,
+                            size: 40,
+                            color: _primary,
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
-              ),
-              // Top tag: Cùng tòa / Khác tòa
-              Positioned(
-                top: 10,
-                left: 10,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.65),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        isSame
-                            ? Icons.home_work_rounded
-                            : Icons.location_on_rounded,
-                        color: Colors.white,
-                        size: 12,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        isSame
-                            ? 'Cùng tòa ${r["toaNha"]}'
-                            : 'Cơ sở ${r["toaNha"]}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              // Bottom right tag: Tầng (Đã chống tràn)
-              Positioned(
-                bottom: 8,
-                right: 10,
-                left: 10,
-                child: Align(
-                  alignment: Alignment.bottomRight,
+                // Top tag: Cùng tòa / Khác tòa
+                Positioned(
+                  top: 10,
+                  left: 10,
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: _primaryDark.withValues(alpha: 0.85),
+                      color: Colors.black.withValues(alpha: 0.65),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Text(
-                      r['tagTang'],
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.bold,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          isSame
+                              ? Icons.home_work_rounded
+                              : Icons.location_on_rounded,
+                          color: Colors.white,
+                          size: 12,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          isSame
+                              ? 'Cùng tòa ${r["toaNha"]}'
+                              : 'Cơ sở ${r["toaNha"]}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                // Bottom right tag: Tầng (Đã chống tràn)
+                Positioned(
+                  bottom: 8,
+                  right: 10,
+                  left: 10,
+                  child: Align(
+                    alignment: Alignment.bottomRight,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _primaryDark.withValues(alpha: 0.85),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        r['tagTang'],
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
 
-        Padding(
+          Padding(
             padding: const EdgeInsets.all(14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1300,7 +1368,11 @@ class _RoomTransferSearchScreenState extends State<RoomTransferSearchScreen> {
           const SizedBox(height: 6),
           const Text(
             'Hiện tại không có phòng nào khớp với bộ lọc bạn đã chọn hoặc toàn bộ phòng đang được thuê.',
-            style: TextStyle(fontSize: 12, color: Color(0xFF64748B), height: 1.4),
+            style: TextStyle(
+              fontSize: 12,
+              color: Color(0xFF64748B),
+              height: 1.4,
+            ),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),
@@ -1319,7 +1391,9 @@ class _RoomTransferSearchScreenState extends State<RoomTransferSearchScreen> {
               backgroundColor: _primary,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
           ),
         ],

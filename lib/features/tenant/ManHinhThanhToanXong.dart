@@ -63,7 +63,8 @@ class _PaymentCompletedScreenState extends State<PaymentCompletedScreen>
   late Animation<double> _badgeScale;
   late Animation<double> _rippleAnimation;
 
-  late final String _transactionRef = widget.transactionRef ?? 'FT26278507322143';
+  late final String _transactionRef =
+      widget.transactionRef ?? 'FT26278507322143';
 
   num get _displayAmount {
     if (widget.amountPaid != null && widget.amountPaid! > 0) {
@@ -121,7 +122,9 @@ class _PaymentCompletedScreenState extends State<PaymentCompletedScreen>
           'ngay_thu': DateTime.now().toIso8601String(),
           'trang_thai': 'Đã thanh toán',
         });
-        debugPrint('[PHIEU_THU] Đã ghi nhận phiếu thu bổ sung: $maPT cho $maHD');
+        debugPrint(
+          '[PHIEU_THU] Đã ghi nhận phiếu thu bổ sung: $maPT cho $maHD',
+        );
       }
     } catch (e) {
       debugPrint('[PHIEU_THU] Lỗi đồng bộ phiếu thu: $e');

@@ -1399,7 +1399,9 @@ class _UploadReceiptScreenState extends State<UploadReceiptScreen> {
             label: 'Phòng',
           ),
           BottomNavigationBarItem(
-            icon: (widget.hoaDon.trangThai != 'Đã thanh toán' && widget.hoaDon.tongTien > 0)
+            icon:
+                (widget.hoaDon.trangThai != 'Đã thanh toán' &&
+                    widget.hoaDon.tongTien > 0)
                 ? Stack(
                     clipBehavior: Clip.none,
                     children: [

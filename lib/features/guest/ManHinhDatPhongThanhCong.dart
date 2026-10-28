@@ -71,7 +71,10 @@ class BookingSuccessScreen extends StatelessWidget {
             Expanded(
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 16,
+                ),
                 child: Column(
                   children: [
                     // ====== SUCCESS HEADER ICON ======
@@ -83,7 +86,9 @@ class BookingSuccessScreen extends StatelessWidget {
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF22C55E).withValues(alpha: 0.25),
+                            color: const Color(
+                              0xFF22C55E,
+                            ).withValues(alpha: 0.25),
                             blurRadius: 18,
                             spreadRadius: 4,
                           ),
@@ -112,7 +117,10 @@ class BookingSuccessScreen extends StatelessWidget {
                     GestureDetector(
                       onTap: () => _copyToClipboard(context),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
                           color: const Color(0xFFEBF5FA),
                           borderRadius: BorderRadius.circular(20),
@@ -172,7 +180,9 @@ class BookingSuccessScreen extends StatelessWidget {
                             padding: const EdgeInsets.all(14),
                             decoration: const BoxDecoration(
                               color: Color(0xFFF8FAFC),
-                              borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+                              borderRadius: BorderRadius.vertical(
+                                top: Radius.circular(18),
+                              ),
                             ),
                             child: Row(
                               children: [
@@ -187,14 +197,18 @@ class BookingSuccessScreen extends StatelessWidget {
                                       width: 68,
                                       height: 60,
                                       color: const Color(0xFFCBD5E1),
-                                      child: const Icon(Icons.meeting_room_rounded, color: Colors.white),
+                                      child: const Icon(
+                                        Icons.meeting_room_rounded,
+                                        color: Colors.white,
+                                      ),
                                     ),
                                   ),
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         room.tenHienThi,
@@ -285,7 +299,8 @@ class BookingSuccessScreen extends StatelessWidget {
                                   icon: Icons.verified_user_rounded,
                                   iconColor: const Color(0xFF16A34A),
                                   label: 'Tiền thế chân',
-                                  value: '$theChanStr (10% tiền phòng - Đã thanh toán)',
+                                  value:
+                                      '$theChanStr (10% tiền phòng - Đã thanh toán)',
                                 ),
                                 const SizedBox(height: 12),
                                 _buildDetailRow(
@@ -316,7 +331,11 @@ class BookingSuccessScreen extends StatelessWidget {
                         children: [
                           Row(
                             children: const [
-                              Icon(Icons.info_outline_rounded, size: 18, color: Color(0xFF09638E)),
+                              Icon(
+                                Icons.info_outline_rounded,
+                                size: 18,
+                                color: Color(0xFF09638E),
+                              ),
                               SizedBox(width: 8),
                               Text(
                                 'Quy trình tiếp theo',
@@ -332,19 +351,22 @@ class BookingSuccessScreen extends StatelessWidget {
                           _buildStepItem(
                             step: '1',
                             title: 'Thanh toán giữ chỗ thành công',
-                            desc: 'Tiền thế chân $theChanStr (10% giá thuê phòng) đã thanh toán thành công. Phòng đã được chốt giữ chỗ cho bạn trên hệ thống.',
+                            desc:
+                                'Tiền thế chân $theChanStr (10% giá thuê phòng) đã thanh toán thành công. Phòng đã được chốt giữ chỗ cho bạn trên hệ thống.',
                           ),
                           const SizedBox(height: 12),
                           _buildStepItem(
                             step: '2',
                             title: 'Thời hạn giữ phòng 5 ngày',
-                            desc: 'Phòng được giữ độc quyền cho bạn trong vòng 5 ngày để bạn sắp xếp đến nhận phòng hoặc làm thủ tục thuê.',
+                            desc:
+                                'Phòng được giữ độc quyền cho bạn trong vòng 5 ngày để bạn sắp xếp đến nhận phòng hoặc làm thủ tục thuê.',
                           ),
                           const SizedBox(height: 12),
                           _buildStepItem(
                             step: '3',
                             title: 'Đón tiếp tại nhà trọ',
-                            desc: 'Đến đúng giờ hẹn, quản lý sẽ trực tiếp đón tiếp và dẫn bạn xem phòng thực tế.',
+                            desc:
+                                'Đến đúng giờ hẹn, quản lý sẽ trực tiếp đón tiếp và dẫn bạn xem phòng thực tế.',
                           ),
                         ],
                       ),
@@ -378,11 +400,17 @@ class BookingSuccessScreen extends StatelessWidget {
                       onPressed: () {
                         Navigator.pushAndRemoveUntil(
                           context,
-                          MaterialPageRoute(builder: (_) => const GuestHomeScreen()),
+                          MaterialPageRoute(
+                            builder: (_) => const GuestHomeScreen(),
+                          ),
                           (route) => false,
                         );
                       },
-                      icon: const Icon(Icons.home_rounded, size: 18, color: Colors.white),
+                      icon: const Icon(
+                        Icons.home_rounded,
+                        size: 18,
+                        color: Colors.white,
+                      ),
                       label: const Text(
                         'Về Trang Chủ Khám Phá',
                         style: TextStyle(
@@ -409,11 +437,17 @@ class BookingSuccessScreen extends StatelessWidget {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => BookingHistoryScreen(initialPhone: customerPhone),
+                            builder: (_) => BookingHistoryScreen(
+                              initialPhone: customerPhone,
+                            ),
                           ),
                         );
                       },
-                      icon: const Icon(Icons.history_rounded, size: 18, color: Color(0xFF09638E)),
+                      icon: const Icon(
+                        Icons.history_rounded,
+                        size: 18,
+                        color: Color(0xFF09638E),
+                      ),
                       label: const Text(
                         'Xem Danh Sách Lịch Hẹn Của Tôi',
                         style: TextStyle(
@@ -435,7 +469,11 @@ class BookingSuccessScreen extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: const [
-                      Icon(Icons.phone_in_talk_rounded, size: 14, color: Color(0xFF64748B)),
+                      Icon(
+                        Icons.phone_in_talk_rounded,
+                        size: 14,
+                        color: Color(0xFF64748B),
+                      ),
                       SizedBox(width: 6),
                       Flexible(
                         child: Text(

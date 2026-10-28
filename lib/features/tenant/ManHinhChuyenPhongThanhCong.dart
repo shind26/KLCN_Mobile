@@ -103,7 +103,11 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
   Future<void> _taiThongTinPhongMoi([String? explicitMaPhong]) async {
     try {
       final client = Supabase.instance.client;
-      final maPhongMoi = explicitMaPhong ?? _maPhongMoiFromDb ?? widget.targetRoom['maPhong']?.toString() ?? '';
+      final maPhongMoi =
+          explicitMaPhong ??
+          _maPhongMoiFromDb ??
+          widget.targetRoom['maPhong']?.toString() ??
+          '';
       if (maPhongMoi.isNotEmpty) {
         final res = await client
             .from('phong')
@@ -143,11 +147,18 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
     final lowerName = name.toLowerCase();
     if (lowerName.contains('remote') || lowerName.contains('điều khiển')) {
       return Icons.settings_remote_rounded;
-    } else if (lowerName.contains('tủ lạnh') || lowerName.contains('aqua') || lowerName.contains('sharp')) {
+    } else if (lowerName.contains('tủ lạnh') ||
+        lowerName.contains('aqua') ||
+        lowerName.contains('sharp')) {
       return Icons.kitchen_rounded;
-    } else if (lowerName.contains('máy lạnh') || lowerName.contains('điều hòa') || lowerName.contains('daikin') || lowerName.contains('casper')) {
+    } else if (lowerName.contains('máy lạnh') ||
+        lowerName.contains('điều hòa') ||
+        lowerName.contains('daikin') ||
+        lowerName.contains('casper')) {
       return Icons.ac_unit_rounded;
-    } else if (lowerName.contains('nóng') || lowerName.contains('nước') || lowerName.contains('ariston')) {
+    } else if (lowerName.contains('nóng') ||
+        lowerName.contains('nước') ||
+        lowerName.contains('ariston')) {
       return Icons.water_drop_rounded;
     } else if (lowerName.contains('giường') || lowerName.contains('nệm')) {
       return Icons.bed_rounded;
@@ -159,24 +170,44 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
     final List<Map<String, dynamic>> sourceAssets = _roomAssets.isNotEmpty
         ? _roomAssets
         : [
-            {'ten_tai_san': 'Máy lạnh Inverter Daikin 1.5 HP', 'tinh_trang': 'Hoạt động tốt'},
-            {'ten_tai_san': 'Tủ lạnh Aqua 140L Inverter', 'tinh_trang': 'Hoạt động tốt'},
-            {'ten_tai_san': 'Bình nóng lạnh Ariston 20L', 'tinh_trang': 'Hoạt động tốt'},
-            {'ten_tai_san': 'Giường gỗ sồi & Nệm cao su', 'tinh_trang': 'Bình thường'},
-            {'ten_tai_san': 'Điều khiển (Remote) máy lạnh', 'tinh_trang': 'Hư hỏng nhẹ (Nứt màn hình)'},
+            {
+              'ten_tai_san': 'Máy lạnh Inverter Daikin 1.5 HP',
+              'tinh_trang': 'Hoạt động tốt',
+            },
+            {
+              'ten_tai_san': 'Tủ lạnh Aqua 140L Inverter',
+              'tinh_trang': 'Hoạt động tốt',
+            },
+            {
+              'ten_tai_san': 'Bình nóng lạnh Ariston 20L',
+              'tinh_trang': 'Hoạt động tốt',
+            },
+            {
+              'ten_tai_san': 'Giường gỗ sồi & Nệm cao su',
+              'tinh_trang': 'Bình thường',
+            },
+            {
+              'ten_tai_san': 'Điều khiển (Remote) máy lạnh',
+              'tinh_trang': 'Hư hỏng nhẹ (Nứt màn hình)',
+            },
           ];
 
     // 1. Trường hợp bình thường (không có hư hại hoặc chưa nghiệm thu)
     if (!_isInspectionDone || !_hasDamage || _damageFee <= 0) {
       return sourceAssets.map((ts) {
-        final name = ts['ten_tai_san']?.toString() ?? ts['ten']?.toString() ?? 'Trang thiết bị';
+        final name =
+            ts['ten_tai_san']?.toString() ??
+            ts['ten']?.toString() ??
+            'Trang thiết bị';
         return {
           'ten': name,
           'icon': _getIconForAsset(name),
           'tinhTrang': _isInspectionDone ? 'Hoạt động tốt' : 'Bàn giao ban đầu',
           'isGood': true,
           'chiPhi': 0,
-          'ghiChu': _isInspectionDone ? 'Đạt chuẩn bàn giao' : 'Chờ BQL kiểm tra',
+          'ghiChu': _isInspectionDone
+              ? 'Đạt chuẩn bàn giao'
+              : 'Chờ BQL kiểm tra',
         };
       }).toList();
     }
@@ -188,7 +219,8 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
     // Ưu tiên 1: Khớp chính xác nhất theo ghi chú hư hại từ BQL
     if (note.isNotEmpty) {
       for (int i = 0; i < sourceAssets.length; i++) {
-        final name = (sourceAssets[i]['ten_tai_san']?.toString() ?? '').toLowerCase();
+        final name = (sourceAssets[i]['ten_tai_san']?.toString() ?? '')
+            .toLowerCase();
         if (note.contains('remote') || note.contains('điều khiển')) {
           if (name.contains('remote') || name.contains('điều khiển')) {
             damagedIndex = i;
@@ -199,13 +231,18 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
             damagedIndex = i;
             break;
           }
-        } else if (note.contains('bình nóng') || note.contains('nước nóng') || note.contains('ariston')) {
-          if (name.contains('bình nóng') || name.contains('nước nóng') || name.contains('ariston')) {
+        } else if (note.contains('bình nóng') ||
+            note.contains('nước nóng') ||
+            note.contains('ariston')) {
+          if (name.contains('bình nóng') ||
+              name.contains('nước nóng') ||
+              name.contains('ariston')) {
             damagedIndex = i;
             break;
           }
         } else if (note.contains('máy lạnh') || note.contains('điều hòa')) {
-          if ((name.contains('máy lạnh') || name.contains('điều hòa')) && !name.contains('remote')) {
+          if ((name.contains('máy lạnh') || name.contains('điều hòa')) &&
+              !name.contains('remote')) {
             damagedIndex = i;
             break;
           }
@@ -221,8 +258,12 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
     // Ưu tiên 2: Nếu ghi chú không chỉ đích danh, tìm thiết bị có tình trạng lỗi trong CSDL
     if (damagedIndex == -1) {
       for (int i = 0; i < sourceAssets.length; i++) {
-        final dbStatus = (sourceAssets[i]['tinh_trang']?.toString() ?? '').toLowerCase();
-        if (dbStatus.contains('hư') || dbStatus.contains('hỏng') || dbStatus.contains('nứt') || dbStatus.contains('vỡ')) {
+        final dbStatus = (sourceAssets[i]['tinh_trang']?.toString() ?? '')
+            .toLowerCase();
+        if (dbStatus.contains('hư') ||
+            dbStatus.contains('hỏng') ||
+            dbStatus.contains('nứt') ||
+            dbStatus.contains('vỡ')) {
           damagedIndex = i;
           break;
         }
@@ -242,7 +283,10 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
     final List<Map<String, dynamic>> result = [];
     for (int i = 0; i < sourceAssets.length; i++) {
       final ts = sourceAssets[i];
-      final name = ts['ten_tai_san']?.toString() ?? ts['ten']?.toString() ?? 'Trang thiết bị';
+      final name =
+          ts['ten_tai_san']?.toString() ??
+          ts['ten']?.toString() ??
+          'Trang thiết bị';
       final dbStatus = ts['tinh_trang']?.toString() ?? 'Bình thường';
       final isThisItemDamaged = (i == damagedIndex);
 
@@ -250,9 +294,12 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
         result.add({
           'ten': name,
           'icon': _getIconForAsset(name),
-          'tinhTrang': (dbStatus != 'Bình thường' && dbStatus != 'Hoạt động tốt')
+          'tinhTrang':
+              (dbStatus != 'Bình thường' && dbStatus != 'Hoạt động tốt')
               ? dbStatus
-              : (_damageNote != null && _damageNote!.isNotEmpty ? _damageNote! : 'Có hư hại'),
+              : (_damageNote != null && _damageNote!.isNotEmpty
+                    ? _damageNote!
+                    : 'Có hư hại'),
           'isGood': false,
           'chiPhi': _damageFee.toInt(),
           'ghiChu': (_damageNote != null && _damageNote!.isNotEmpty)
@@ -277,37 +324,42 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
   void _batDauLangNgheYccp() {
     try {
       final client = Supabase.instance.client;
-      _yccpRtChannel = client.channel('public:yccp_realtime_${DateTime.now().millisecondsSinceEpoch}')
-        ..onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'yeu_cau_chuyen_phong',
-          callback: (payload) {
-            _xuLyThayDoiRecord(payload.newRecord);
-          },
-        )
-        ..onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'phu_luc_hop_dong',
-          callback: (payload) {
-            _xuLyThayDoiRecord(payload.newRecord);
-          },
-        )
-        ..onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'bien_ban_kiem_tra_phong',
-          callback: (payload) {
-            _xuLyThayDoiBienBan(payload.newRecord);
-          },
-        )
-        ..subscribe();
+      _yccpRtChannel =
+          client.channel(
+              'public:yccp_realtime_${DateTime.now().millisecondsSinceEpoch}',
+            )
+            ..onPostgresChanges(
+              event: PostgresChangeEvent.all,
+              schema: 'public',
+              table: 'yeu_cau_chuyen_phong',
+              callback: (payload) {
+                _xuLyThayDoiRecord(payload.newRecord);
+              },
+            )
+            ..onPostgresChanges(
+              event: PostgresChangeEvent.all,
+              schema: 'public',
+              table: 'phu_luc_hop_dong',
+              callback: (payload) {
+                _xuLyThayDoiRecord(payload.newRecord);
+              },
+            )
+            ..onPostgresChanges(
+              event: PostgresChangeEvent.all,
+              schema: 'public',
+              table: 'bien_ban_kiem_tra_phong',
+              callback: (payload) {
+                _xuLyThayDoiBienBan(payload.newRecord);
+              },
+            )
+            ..subscribe();
     } catch (e) {
       debugPrint('[CHUYEN_PHONG] Lỗi subscribe Realtime: $e');
     }
 
-    _yccpPollTimer = Timer.periodic(const Duration(milliseconds: 2000), (_) async {
+    _yccpPollTimer = Timer.periodic(const Duration(milliseconds: 2000), (
+      _,
+    ) async {
       try {
         final client = Supabase.instance.client;
         // Lọc đúng theo mã yêu cầu của khách đang xem (nếu có)
@@ -361,11 +413,15 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
 
   void _xuLyThayDoiRecord(Map<String, dynamic> record) {
     if (record.isEmpty || !mounted) return;
-    final st = (record['trang_thai_tien_do'] ?? record['trang_thai'])?.toString() ?? '';
+    final st =
+        (record['trang_thai_tien_do'] ?? record['trang_thai'])?.toString() ??
+        '';
     final huHai = (record['tien_hu_hai_cu'] as num?)?.toDouble() ?? 0.0;
     final dienNuoc = (record['tien_dien_nuoc_cu'] as num?)?.toDouble() ?? 0.0;
     final bql = record['nguoi_don_bql']?.toString();
-    final ghiChuHuHai = record['ghi_chu_hu_hai']?.toString() ?? record['chi_tiet_hu_hai']?.toString();
+    final ghiChuHuHai =
+        record['ghi_chu_hu_hai']?.toString() ??
+        record['chi_tiet_hu_hai']?.toString();
     final lyDoDb = record['ly_do_chuyen']?.toString();
     if (lyDoDb != null && lyDoDb.trim().isNotEmpty) {
       _lyDoChuyen = lyDoDb.trim();
@@ -382,10 +438,14 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
     if (tienCocBaoLuu != null && _tienCocBaoLuu != tienCocBaoLuu) {
       _tienCocBaoLuu = tienCocBaoLuu;
     }
-    if (thoiGianHen != null && thoiGianHen.isNotEmpty && _thoiGianHen != thoiGianHen) {
+    if (thoiGianHen != null &&
+        thoiGianHen.isNotEmpty &&
+        _thoiGianHen != thoiGianHen) {
       _thoiGianHen = thoiGianHen;
     }
-    if (phongMoi != null && phongMoi.isNotEmpty && _maPhongMoiFromDb != phongMoi) {
+    if (phongMoi != null &&
+        phongMoi.isNotEmpty &&
+        _maPhongMoiFromDb != phongMoi) {
       _maPhongMoiFromDb = phongMoi;
       _taiThongTinPhongMoi(phongMoi);
     }
@@ -418,14 +478,17 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
           _inspectorName = bql;
         }
       });
-      final maYeuCau = record["ma_yeu_cau"]?.toString() ?? widget.ticketCode ?? "";
+      final maYeuCau =
+          record["ma_yeu_cau"]?.toString() ?? widget.ticketCode ?? "";
       final approvalKey = 'yccp_${maYeuCau}_$st';
       if (!_hasNotified && !ThongBaoHelper.daXem(approvalKey)) {
         _hasNotified = true;
         ThongBaoHelper.danhDauDaXem(approvalKey);
         SystemNotificationService.show(
-          title: '📋 BQL đã kiểm tra thiết bị phòng ${widget.currentRoomNumber}',
-          body: 'Biên bản nghiệm thu phòng cũ đã sẵn sàng. Vui lòng kiểm tra và bấm xác nhận!',
+          title:
+              '📋 BQL đã kiểm tra thiết bị phòng ${widget.currentRoomNumber}',
+          body:
+              'Biên bản nghiệm thu phòng cũ đã sẵn sàng. Vui lòng kiểm tra và bấm xác nhận!',
           tag: approvalKey,
           loai: 'chuyen_phong',
         );
@@ -466,14 +529,16 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
           }
         });
         _dongBoDuyetChuyenPhongTuDong(record);
-        final maYeuCau = record["ma_yeu_cau"]?.toString() ?? widget.ticketCode ?? "";
+        final maYeuCau =
+            record["ma_yeu_cau"]?.toString() ?? widget.ticketCode ?? "";
         final approvalKey = 'yccp_${maYeuCau}_$st';
         if (!_hasNotified && !ThongBaoHelper.daXem(approvalKey)) {
           _hasNotified = true;
           ThongBaoHelper.danhDauDaXem(approvalKey);
           SystemNotificationService.show(
             title: '🎉 Yêu cầu chuyển phòng đã được duyệt!',
-            body: 'Ban Quản Lý đã phê duyệt yêu cầu chuyển sang phòng ${widget.targetRoom["maPhong"]}.',
+            body:
+                'Ban Quản Lý đã phê duyệt yêu cầu chuyển sang phòng ${widget.targetRoom["maPhong"]}.',
             tag: approvalKey,
             loai: 'chuyen_phong',
           );
@@ -491,14 +556,18 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
     } else if (st == 'Từ chối' || st == 'Đã hủy') {
       if (_currentStatus != st) {
         setState(() => _currentStatus = st);
-        final maYeuCau = record["ma_yeu_cau"]?.toString() ?? widget.ticketCode ?? "";
+        final maYeuCau =
+            record["ma_yeu_cau"]?.toString() ?? widget.ticketCode ?? "";
         final approvalKey = 'yccp_${maYeuCau}_$st';
-        if (!_hasNotified && st == 'Từ chối' && !ThongBaoHelper.daXem(approvalKey)) {
+        if (!_hasNotified &&
+            st == 'Từ chối' &&
+            !ThongBaoHelper.daXem(approvalKey)) {
           _hasNotified = true;
           ThongBaoHelper.danhDauDaXem(approvalKey);
           SystemNotificationService.show(
             title: '⚠️ Yêu cầu chuyển phòng bị từ chối',
-            body: 'Ban Quản Lý chưa thể phê duyệt yêu cầu chuyển sang phòng ${widget.targetRoom["maPhong"]}.',
+            body:
+                'Ban Quản Lý chưa thể phê duyệt yêu cầu chuyển sang phòng ${widget.targetRoom["maPhong"]}.',
             tag: approvalKey,
             loai: 'chuyen_phong',
             isError: true,
@@ -517,16 +586,25 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
     }
   }
 
-  Future<void> _dongBoDuyetChuyenPhongTuDong(Map<String, dynamic> record) async {
+  Future<void> _dongBoDuyetChuyenPhongTuDong(
+    Map<String, dynamic> record,
+  ) async {
     try {
       final db = Supabase.instance.client;
-      final maYeuCau = record['ma_yeu_cau']?.toString() ?? widget.ticketCode ?? '';
+      final maYeuCau =
+          record['ma_yeu_cau']?.toString() ?? widget.ticketCode ?? '';
       final recMaHD = record['ma_hop_dong_ht']?.toString() ?? '';
-      final maPhongCu = record['ma_phong_cu']?.toString() ?? widget.currentRoomNumber;
-      final maPhongMoi = record['ma_phong_moi']?.toString() ?? (widget.targetRoom["maPhong"]?.toString() ?? '');
+      final maPhongCu =
+          record['ma_phong_cu']?.toString() ?? widget.currentRoomNumber;
+      final maPhongMoi =
+          record['ma_phong_moi']?.toString() ??
+          (widget.targetRoom["maPhong"]?.toString() ?? '');
       if (recMaHD.isEmpty || maPhongMoi.isEmpty) return;
 
-      final giaPhongMoi = (widget.targetRoom['giaThue'] as num?) ?? (widget.targetRoom['tienDatCoc'] as num?) ?? 0;
+      final giaPhongMoi =
+          (widget.targetRoom['giaThue'] as num?) ??
+          (widget.targetRoom['tienDatCoc'] as num?) ??
+          0;
       final diffDeposit = record['tien_phat_sinh'] ?? 0;
 
       final now = DateTime.now();
@@ -551,11 +629,20 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
         'trang_thai': 'Đã duyệt',
       });
 
-      await db.from('hop_dong').update({'ma_phong': maPhongMoi}).eq('ma_hop_dong', recMaHD);
+      await db
+          .from('hop_dong')
+          .update({'ma_phong': maPhongMoi})
+          .eq('ma_hop_dong', recMaHD);
       if (maPhongCu.isNotEmpty) {
-        await db.from('phong').update({'trang_thai': 'Trống'}).eq('ma_phong', maPhongCu);
+        await db
+            .from('phong')
+            .update({'trang_thai': 'Trống'})
+            .eq('ma_phong', maPhongCu);
       }
-      await db.from('phong').update({'trang_thai': 'Đang thuê'}).eq('ma_phong', maPhongMoi);
+      await db
+          .from('phong')
+          .update({'trang_thai': 'Đang thuê'})
+          .eq('ma_phong', maPhongMoi);
 
       try {
         await db
@@ -566,7 +653,9 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
 
       // Không tự sinh hoặc thay đổi hóa đơn tiền phòng khi chuyển phòng trong tháng.
       // Tiền phòng mới sẽ được BQL lập và gửi khi đến kỳ tính phí định kỳ tiếp theo.
-      debugPrint('[CHUYEN_PHONG] Đã hoàn tất chuyển phòng, không can thiệp hóa đơn kỳ hiện tại.');
+      debugPrint(
+        '[CHUYEN_PHONG] Đã hoàn tất chuyển phòng, không can thiệp hóa đơn kỳ hiện tại.',
+      );
     } catch (_) {}
   }
 
@@ -746,10 +835,7 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
           // Status pills for all 4 states
           if (_currentStatus == 'Đã duyệt') ...[
             Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 6,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
               decoration: BoxDecoration(
                 color: const Color(0xFFDCFCE7),
                 borderRadius: BorderRadius.circular(20),
@@ -758,7 +844,11 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.check_circle_rounded, size: 15, color: Color(0xFF16A34A)),
+                  Icon(
+                    Icons.check_circle_rounded,
+                    size: 15,
+                    color: Color(0xFF16A34A),
+                  ),
                   SizedBox(width: 6),
                   Flexible(
                     child: Text(
@@ -773,12 +863,10 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
                 ],
               ),
             ),
-          ] else if (_currentStatus == 'Chờ khách xác nhận' || _currentStatus == 'Đã kiểm tra') ...[
+          ] else if (_currentStatus == 'Chờ khách xác nhận' ||
+              _currentStatus == 'Đã kiểm tra') ...[
             Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 6,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
               decoration: BoxDecoration(
                 color: const Color(0xFFFEF3C7),
                 borderRadius: BorderRadius.circular(20),
@@ -787,7 +875,11 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.assignment_turned_in_rounded, size: 15, color: Color(0xFFD97706)),
+                  Icon(
+                    Icons.assignment_turned_in_rounded,
+                    size: 15,
+                    color: Color(0xFFD97706),
+                  ),
                   SizedBox(width: 6),
                   Flexible(
                     child: Text(
@@ -802,12 +894,10 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
                 ],
               ),
             ),
-          ] else if (_currentStatus == 'Chờ chủ duyệt' || _currentStatus == 'Khách đã xác nhận') ...[
+          ] else if (_currentStatus == 'Chờ chủ duyệt' ||
+              _currentStatus == 'Khách đã xác nhận') ...[
             Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 6,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
               decoration: BoxDecoration(
                 color: const Color(0xFFE0F2FE),
                 borderRadius: BorderRadius.circular(20),
@@ -816,7 +906,11 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.hourglass_top_rounded, size: 15, color: Color(0xFF0284C7)),
+                  Icon(
+                    Icons.hourglass_top_rounded,
+                    size: 15,
+                    color: Color(0xFF0284C7),
+                  ),
                   SizedBox(width: 6),
                   Flexible(
                     child: Text(
@@ -831,12 +925,10 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
                 ],
               ),
             ),
-          ] else if (_currentStatus == 'Từ chối' || _currentStatus == 'Đã hủy') ...[
+          ] else if (_currentStatus == 'Từ chối' ||
+              _currentStatus == 'Đã hủy') ...[
             Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 6,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
               decoration: BoxDecoration(
                 color: const Color(0xFFFEE2E2),
                 borderRadius: BorderRadius.circular(20),
@@ -845,11 +937,17 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.cancel_rounded, size: 15, color: Color(0xFFDC2626)),
+                  const Icon(
+                    Icons.cancel_rounded,
+                    size: 15,
+                    color: Color(0xFFDC2626),
+                  ),
                   const SizedBox(width: 6),
                   Flexible(
                     child: Text(
-                      _currentStatus == 'Đã hủy' ? 'YÊU CẦU ĐÃ ĐƯỢC HỦY' : 'YÊU CẦU BỊ TỪ CHỐI',
+                      _currentStatus == 'Đã hủy'
+                          ? 'YÊU CẦU ĐÃ ĐƯỢC HỦY'
+                          : 'YÊU CẦU BỊ TỪ CHỐI',
                       style: const TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
@@ -916,10 +1014,10 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
             _currentStatus == 'Đã duyệt'
                 ? 'Chuyển Phòng Thành Công'
                 : (_currentStatus == 'Chờ khách xác nhận'
-                    ? 'Chờ Xác Nhận Biên Bản'
-                    : (_currentStatus == 'Chờ chủ duyệt'
-                        ? 'Chờ Chủ Trọ Duyệt'
-                        : 'Yêu Cầu Đã Gửi Thành Công')),
+                      ? 'Chờ Xác Nhận Biên Bản'
+                      : (_currentStatus == 'Chờ chủ duyệt'
+                            ? 'Chờ Chủ Trọ Duyệt'
+                            : 'Yêu Cầu Đã Gửi Thành Công')),
             style: const TextStyle(
               fontSize: 16.5,
               fontWeight: FontWeight.w900,
@@ -945,7 +1043,8 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
   Widget _buildInspectionReportCard() {
     final double curDeposit = widget.currentPrice.toDouble();
     final double actualDeduction = _hasDamage ? _damageFee.toDouble() : 0.0;
-    final double finalDeposit = curDeposit - actualDeduction - _utilityFee.toDouble();
+    final double finalDeposit =
+        curDeposit - actualDeduction - _utilityFee.toDouble();
 
     // ── KỊCH BẢN 1: BQL CHƯA ĐẾN KIỂM TRA PHÒNG (MẶC ĐỊNH KHI MỚI GỬI YÊU CẦU) ──
     if (!_isInspectionDone) {
@@ -954,10 +1053,7 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: const Color(0xFFFDE68A),
-            width: 1.2,
-          ),
+          border: Border.all(color: const Color(0xFFFDE68A), width: 1.2),
           boxShadow: [
             BoxShadow(
               color: const Color(0xFF0F172A).withValues(alpha: 0.04),
@@ -1008,7 +1104,10 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFFFFBEB),
                     borderRadius: BorderRadius.circular(8),
@@ -1195,31 +1294,31 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
                   color: _currentStatus == 'Đã duyệt'
                       ? const Color(0xFFF0FDF4)
                       : (_hasAcceptedInspection
-                          ? const Color(0xFFEFF6FF)
-                          : const Color(0xFFFFFBEB)),
+                            ? const Color(0xFFEFF6FF)
+                            : const Color(0xFFFFFBEB)),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
                     color: _currentStatus == 'Đã duyệt'
                         ? const Color(0xFF86EFAC)
                         : (_hasAcceptedInspection
-                            ? const Color(0xFF93C5FD)
-                            : const Color(0xFFFCD34D)),
+                              ? const Color(0xFF93C5FD)
+                              : const Color(0xFFFCD34D)),
                   ),
                 ),
                 child: Text(
                   _currentStatus == 'Đã duyệt'
                       ? 'CHỦ TRỌ ĐÃ DUYỆT'
                       : (_hasAcceptedInspection
-                          ? 'CHỜ CHỦ TRỌ DUYỆT'
-                          : 'CHỜ BẠN XÁC NHẬN'),
+                            ? 'CHỜ CHỦ TRỌ DUYỆT'
+                            : 'CHỜ BẠN XÁC NHẬN'),
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
                     color: _currentStatus == 'Đã duyệt'
                         ? const Color(0xFF15803D)
                         : (_hasAcceptedInspection
-                            ? const Color(0xFF1D4ED8)
-                            : const Color(0xFFB45309)),
+                              ? const Color(0xFF1D4ED8)
+                              : const Color(0xFFB45309)),
                   ),
                 ),
               ),
@@ -1251,23 +1350,27 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
                         ),
                       ),
                       const SizedBox(height: 3),
-                      Builder(builder: (context) {
-                        final equipmentList = _getEquipmentItems();
-                        final damagedCount = equipmentList.where((it) => it['isGood'] == false).length;
-                        final totalCount = equipmentList.length;
-                        return Text(
-                          _hasDamage
-                              ? '${totalCount - damagedCount} đạt • $damagedCount hư hỏng (-${FormatUtils.currency(_damageFee.toDouble())}đ)'
-                              : '$totalCount/$totalCount thiết bị đạt chuẩn (0đ)',
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.bold,
-                            color: _hasDamage
-                                ? const Color(0xFFD97706)
-                                : const Color(0xFF16A34A),
-                          ),
-                        );
-                      }),
+                      Builder(
+                        builder: (context) {
+                          final equipmentList = _getEquipmentItems();
+                          final damagedCount = equipmentList
+                              .where((it) => it['isGood'] == false)
+                              .length;
+                          final totalCount = equipmentList.length;
+                          return Text(
+                            _hasDamage
+                                ? '${totalCount - damagedCount} đạt • $damagedCount hư hỏng (-${FormatUtils.currency(_damageFee.toDouble())}đ)'
+                                : '$totalCount/$totalCount thiết bị đạt chuẩn (0đ)',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.bold,
+                              color: _hasDamage
+                                  ? const Color(0xFFD97706)
+                                  : const Color(0xFF16A34A),
+                            ),
+                          );
+                        },
+                      ),
                     ],
                   ),
                 ),
@@ -1306,7 +1409,9 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
               ),
             ],
           ),
-          if (_hasDamage && _damageNote != null && _damageNote!.trim().isNotEmpty) ...[
+          if (_hasDamage &&
+              _damageNote != null &&
+              _damageNote!.trim().isNotEmpty) ...[
             const SizedBox(height: 10),
             Container(
               width: double.infinity,
@@ -1319,7 +1424,11 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.report_problem_rounded, size: 15, color: Color(0xFFDC2626)),
+                  const Icon(
+                    Icons.report_problem_rounded,
+                    size: 15,
+                    color: Color(0xFFDC2626),
+                  ),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
@@ -1344,8 +1453,8 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
               color: _currentStatus == 'Đã duyệt'
                   ? const Color(0xFFF0FDF4)
                   : (_hasAcceptedInspection
-                      ? const Color(0xFFEFF6FF)
-                      : const Color(0xFFFFFBEB)),
+                        ? const Color(0xFFEFF6FF)
+                        : const Color(0xFFFFFBEB)),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
@@ -1354,14 +1463,14 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
                   _currentStatus == 'Đã duyệt'
                       ? Icons.verified_rounded
                       : (_hasAcceptedInspection
-                          ? Icons.check_circle_rounded
-                          : Icons.info_outline_rounded),
+                            ? Icons.check_circle_rounded
+                            : Icons.info_outline_rounded),
                   size: 14,
                   color: _currentStatus == 'Đã duyệt'
                       ? const Color(0xFF16A34A)
                       : (_hasAcceptedInspection
-                          ? const Color(0xFF2563EB)
-                          : const Color(0xFFD97706)),
+                            ? const Color(0xFF2563EB)
+                            : const Color(0xFFD97706)),
                 ),
                 const SizedBox(width: 6),
                 Expanded(
@@ -1369,16 +1478,16 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
                     _currentStatus == 'Đã duyệt'
                         ? 'Chủ trọ đã phê duyệt yêu cầu chuyển phòng thành công.'
                         : (_hasAcceptedInspection
-                            ? 'Bạn đã xác nhận biên bản. Đang chờ chủ trọ duyệt chuyển phòng.'
-                            : 'BQL đã kiểm tra thiết bị. Vui lòng xác nhận biên bản để gửi lên chủ trọ.'),
+                              ? 'Bạn đã xác nhận biên bản. Đang chờ chủ trọ duyệt chuyển phòng.'
+                              : 'BQL đã kiểm tra thiết bị. Vui lòng xác nhận biên bản để gửi lên chủ trọ.'),
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w500,
                       color: _currentStatus == 'Đã duyệt'
                           ? const Color(0xFF15803D)
                           : (_hasAcceptedInspection
-                              ? const Color(0xFF1D4ED8)
-                              : const Color(0xFFB45309)),
+                                ? const Color(0xFF1D4ED8)
+                                : const Color(0xFFB45309)),
                     ),
                   ),
                 ),
@@ -1405,9 +1514,12 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
                 _currentStatus == 'Đã duyệt'
                     ? 'Xem Biên Bản Nghiệm Thu Đã Duyệt'
                     : (_hasAcceptedInspection
-                        ? 'Xem Lại Biên Bản Đã Gửi Chủ Trọ'
-                        : 'Xem & Xác Nhận Biên Bản Nghiệm Thu'),
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                          ? 'Xem Lại Biên Bản Đã Gửi Chủ Trọ'
+                          : 'Xem & Xác Nhận Biên Bản Nghiệm Thu'),
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ),
@@ -1422,12 +1534,15 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
     final cleanHd = effectiveHd.replaceAll(' ', '');
     final maPl = 'PLCP_$cleanHd';
     final targetMaPhong = widget.targetRoom['maPhong']?.toString() ?? '';
-    final targetName = _targetRoomData?['ten_hien_thi']?.toString() ??
+    final targetName =
+        _targetRoomData?['ten_hien_thi']?.toString() ??
         widget.targetRoom['tenHienThi']?.toString() ??
         'Phòng $targetMaPhong';
-    final double giaThueMoi = (_targetRoomData?['gia_thue'] as num?)?.toDouble() ??
+    final double giaThueMoi =
+        (_targetRoomData?['gia_thue'] as num?)?.toDouble() ??
         ((widget.targetRoom['giaThue'] as num?)?.toDouble() ?? 2600000.0);
-    final double targetDeposit = (_targetRoomData?['tien_dat_coc'] as num?)?.toDouble() ?? giaThueMoi;
+    final double targetDeposit =
+        (_targetRoomData?['tien_dat_coc'] as num?)?.toDouble() ?? giaThueMoi;
     final double curDeposit = widget.currentPrice.toDouble();
     final double dienNuoc = _utilityFee.toDouble();
     final double huHai = _hasDamage ? _damageFee.toDouble() : 0.0;
@@ -1435,7 +1550,8 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
     final double chenhLechCoc = curDeposit - targetDeposit;
     final double quyetToanCuoiCung = chenhLechCoc - tongChiPhiPhongCu;
     final now = DateTime.now();
-    final ngayLapStr = '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}';
+    final ngayLapStr =
+        '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}';
 
     String formatNgay(String raw) {
       try {
@@ -1511,7 +1627,10 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFDCFCE7),
                         borderRadius: BorderRadius.circular(8),
@@ -1528,7 +1647,11 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
                     ),
                     const SizedBox(width: 6),
                     IconButton(
-                      icon: const Icon(Icons.close_rounded, color: Color(0xFF64748B), size: 22),
+                      icon: const Icon(
+                        Icons.close_rounded,
+                        color: Color(0xFF64748B),
+                        size: 22,
+                      ),
                       onPressed: () => Navigator.pop(ctx),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
@@ -1548,7 +1671,10 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
                     decoration: BoxDecoration(
                       color: const Color(0xFFFCFDFE),
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFFCBD5E1), width: 1.2),
+                      border: Border.all(
+                        color: const Color(0xFFCBD5E1),
+                        width: 1.2,
+                      ),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withValues(alpha: 0.03),
@@ -1584,7 +1710,10 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
                         const SizedBox(height: 4),
                         const Text(
                           '-------o0o-------',
-                          style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF94A3B8),
+                          ),
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 16),
@@ -1636,17 +1765,29 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
                             children: [
                               Text(
                                 '• Căn cứ Hợp đồng thuê phòng số $effectiveHd đã ký kết giữa Bên A và Bên B.',
-                                style: const TextStyle(fontSize: 11.5, color: Color(0xFF475569), height: 1.4),
+                                style: const TextStyle(
+                                  fontSize: 11.5,
+                                  color: Color(0xFF475569),
+                                  height: 1.4,
+                                ),
                               ),
                               const SizedBox(height: 4),
                               Text(
                                 '• Căn cứ Phiếu yêu cầu chuyển phòng #${widget.ticketCode ?? ""} đã được phê duyệt.',
-                                style: const TextStyle(fontSize: 11.5, color: Color(0xFF475569), height: 1.4),
+                                style: const TextStyle(
+                                  fontSize: 11.5,
+                                  color: Color(0xFF475569),
+                                  height: 1.4,
+                                ),
                               ),
                               const SizedBox(height: 4),
                               Text(
                                 '• Căn cứ Biên bản nghiệm thu & chốt chỉ số điện nước phòng cũ ${widget.currentRoomNumber}.',
-                                style: const TextStyle(fontSize: 11.5, color: Color(0xFF475569), height: 1.4),
+                                style: const TextStyle(
+                                  fontSize: 11.5,
+                                  color: Color(0xFF475569),
+                                  height: 1.4,
+                                ),
                               ),
                             ],
                           ),
@@ -1669,23 +1810,55 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
 
                         // ĐIỀU 1
                         _buildPlSectionHeader('ĐIỀU 1: ĐIỀU CHỈNH PHÒNG THUÊ'),
-                        _buildPlItemRow('Phòng cũ chấm dứt thuê', 'Phòng ${widget.currentRoomNumber}'),
-                        _buildPlItemRow('Phòng mới nhận bàn giao', '$targetName ($targetMaPhong)'),
-                        _buildPlItemRow('Thời điểm bàn giao', formatNgay(widget.moveInDateFormatted)),
-                        _buildPlItemRow('Hiện trạng bàn giao', 'Đã nghiệm thu đạt chuẩn theo biên bản'),
+                        _buildPlItemRow(
+                          'Phòng cũ chấm dứt thuê',
+                          'Phòng ${widget.currentRoomNumber}',
+                        ),
+                        _buildPlItemRow(
+                          'Phòng mới nhận bàn giao',
+                          '$targetName ($targetMaPhong)',
+                        ),
+                        _buildPlItemRow(
+                          'Thời điểm bàn giao',
+                          formatNgay(widget.moveInDateFormatted),
+                        ),
+                        _buildPlItemRow(
+                          'Hiện trạng bàn giao',
+                          'Đã nghiệm thu đạt chuẩn theo biên bản',
+                        ),
                         const SizedBox(height: 12),
 
                         // ĐIỀU 2
-                        _buildPlSectionHeader('ĐIỀU 2: ĐIỀU CHỈNH GIÁ THUÊ & QUYẾT TOÁN CỌC'),
-                        _buildPlItemRow('Giá thuê phòng mới', '${TienIchDinhDang.formatCurrency(giaThueMoi)} / tháng'),
-                        _buildPlItemRow('Tiền đặt cọc phòng mới', '${TienIchDinhDang.formatCurrency(targetDeposit)} (kết chuyển từ cọc cũ sang)'),
-                        _buildPlItemRow('Tiền cọc phòng cũ đã đóng', '${TienIchDinhDang.formatCurrency(curDeposit)}'),
+                        _buildPlSectionHeader(
+                          'ĐIỀU 2: ĐIỀU CHỈNH GIÁ THUÊ & QUYẾT TOÁN CỌC',
+                        ),
+                        _buildPlItemRow(
+                          'Giá thuê phòng mới',
+                          '${TienIchDinhDang.formatCurrency(giaThueMoi)} / tháng',
+                        ),
+                        _buildPlItemRow(
+                          'Tiền đặt cọc phòng mới',
+                          '${TienIchDinhDang.formatCurrency(targetDeposit)} (kết chuyển từ cọc cũ sang)',
+                        ),
+                        _buildPlItemRow(
+                          'Tiền cọc phòng cũ đã đóng',
+                          '${TienIchDinhDang.formatCurrency(curDeposit)}',
+                        ),
                         if (chenhLechCoc > 0)
-                          _buildPlItemRow('  ↳ Cọc cũ còn dư', '+${TienIchDinhDang.formatCurrency(chenhLechCoc)} (cọc cũ > cọc mới)'),
+                          _buildPlItemRow(
+                            '  ↳ Cọc cũ còn dư',
+                            '+${TienIchDinhDang.formatCurrency(chenhLechCoc)} (cọc cũ > cọc mới)',
+                          ),
                         if (dienNuoc > 0)
-                          _buildPlItemRow('Điện nước chốt phòng cũ', '-${TienIchDinhDang.formatCurrency(dienNuoc)} (khấu trừ)'),
+                          _buildPlItemRow(
+                            'Điện nước chốt phòng cũ',
+                            '-${TienIchDinhDang.formatCurrency(dienNuoc)} (khấu trừ)',
+                          ),
                         if (huHai > 0)
-                          _buildPlItemRow('Khấu trừ hao mòn/hư hại', '-${TienIchDinhDang.formatCurrency(huHai)}${_damageNote != null && _damageNote!.isNotEmpty ? " ($_damageNote)" : ""}'),
+                          _buildPlItemRow(
+                            'Khấu trừ hao mòn/hư hại',
+                            '-${TienIchDinhDang.formatCurrency(huHai)}${_damageNote != null && _damageNote!.isNotEmpty ? " ($_damageNote)" : ""}',
+                          ),
                         if (quyetToanCuoiCung > 0)
                           _buildPlItemRow(
                             'Quyết toán bù trừ cọc',
@@ -1715,7 +1888,11 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
                             '1. Phụ lục này là bộ phận không thể tách rời của Hợp đồng thuê phòng số nêu trên.\n'
                             '2. Mọi quyền, nghĩa vụ và trách nhiệm được quy định trong Hợp đồng gốc tiếp tục có giá trị thi hành đối với phòng thuê mới.\n'
                             '3. Phụ lục được lập và xác nhận bằng phương thức điện tử có giá trị pháp lý ràng buộc cả hai bên.',
-                            style: TextStyle(fontSize: 11.5, color: Color(0xFF334155), height: 1.45),
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: Color(0xFF334155),
+                              height: 1.45,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 20),
@@ -1731,7 +1908,9 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
                                 decoration: BoxDecoration(
                                   color: const Color(0xFFF0FDF4),
                                   borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(color: const Color(0xFF86EFAC)),
+                                  border: Border.all(
+                                    color: const Color(0xFF86EFAC),
+                                  ),
                                 ),
                                 child: Column(
                                   children: [
@@ -1745,7 +1924,11 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
                                       ),
                                     ),
                                     const SizedBox(height: 8),
-                                    const Icon(Icons.verified_rounded, color: Color(0xFF16A34A), size: 28),
+                                    const Icon(
+                                      Icons.verified_rounded,
+                                      color: Color(0xFF16A34A),
+                                      size: 28,
+                                    ),
                                     const SizedBox(height: 4),
                                     const Text(
                                       'KIỀU GIANG HOUSE',
@@ -1781,7 +1964,9 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
                                 decoration: BoxDecoration(
                                   color: const Color(0xFFEFF6FF),
                                   borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(color: const Color(0xFFBFDBFE)),
+                                  border: Border.all(
+                                    color: const Color(0xFFBFDBFE),
+                                  ),
                                 ),
                                 child: Column(
                                   children: [
@@ -1795,7 +1980,11 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
                                       ),
                                     ),
                                     const SizedBox(height: 8),
-                                    const Icon(Icons.check_circle_rounded, color: Color(0xFF2563EB), size: 28),
+                                    const Icon(
+                                      Icons.check_circle_rounded,
+                                      color: Color(0xFF2563EB),
+                                      size: 28,
+                                    ),
                                     const SizedBox(height: 4),
                                     const Text(
                                       'KHÁCH THUÊ',
@@ -1843,19 +2032,30 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => ContractDetailScreen(maHopDong: effectiveHd),
+                              builder: (_) =>
+                                  ContractDetailScreen(maHopDong: effectiveHd),
                             ),
                           );
                         },
-                        icon: const Icon(Icons.source_rounded, size: 16, color: _primary),
+                        icon: const Icon(
+                          Icons.source_rounded,
+                          size: 16,
+                          color: _primary,
+                        ),
                         label: const Text(
                           'Xem Hợp Đồng Gốc',
-                          style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: _primary),
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.bold,
+                            color: _primary,
+                          ),
                         ),
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           side: const BorderSide(color: Color(0xFFBAE6FD)),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
                       ),
                     ),
@@ -1867,11 +2067,16 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
                           backgroundColor: _primary,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
                         child: const Text(
                           'Đóng',
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ),
@@ -1905,7 +2110,13 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
     );
   }
 
-  Widget _buildPlItemRow(String label, String value, {bool isBold = false, bool isHighlight = false, Color? color}) {
+  Widget _buildPlItemRow(
+    String label,
+    String value, {
+    bool isBold = false,
+    bool isHighlight = false,
+    Color? color,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2.5),
       child: Row(
@@ -1923,8 +2134,14 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
               value,
               style: TextStyle(
                 fontSize: 11.5,
-                fontWeight: (isBold || isHighlight) ? FontWeight.w900 : FontWeight.bold,
-                color: color ?? (isHighlight ? const Color(0xFF0284C7) : const Color(0xFF0F172A)),
+                fontWeight: (isBold || isHighlight)
+                    ? FontWeight.w900
+                    : FontWeight.bold,
+                color:
+                    color ??
+                    (isHighlight
+                        ? const Color(0xFF0284C7)
+                        : const Color(0xFF0F172A)),
               ),
             ),
           ),
@@ -1939,10 +2156,11 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
     final cleanHd = effectiveHd.replaceAll(' ', '');
     final maPl = 'PLCP_$cleanHd';
     final targetMaPhong = widget.targetRoom['maPhong']?.toString() ?? '';
-    final double giaThueMoi = ((widget.targetRoom['giaThue'] as num?) ??
-            (widget.targetRoom['tienDatCoc'] as num?) ??
-            3200000)
-        .toDouble();
+    final double giaThueMoi =
+        ((widget.targetRoom['giaThue'] as num?) ??
+                (widget.targetRoom['tienDatCoc'] as num?) ??
+                3200000)
+            .toDouble();
     final double curDeposit = widget.currentPrice.toDouble();
 
     return Container(
@@ -1991,10 +2209,7 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
                     ),
                     Text(
                       'Đã tự động xác thực & có hiệu lực pháp lý',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Color(0xFF64748B),
-                      ),
+                      style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
                     ),
                   ],
                 ),
@@ -2032,11 +2247,21 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
                 const SizedBox(height: 6),
                 _buildLegalSummaryRow('Hợp đồng gốc', effectiveHd),
                 const SizedBox(height: 6),
-                _buildLegalSummaryRow('Phòng chuyển đến', '$targetName ($targetMaPhong)', isHighlight: true),
+                _buildLegalSummaryRow(
+                  'Phòng chuyển đến',
+                  '$targetName ($targetMaPhong)',
+                  isHighlight: true,
+                ),
                 const SizedBox(height: 6),
-                _buildLegalSummaryRow('Giá thuê mới', '${TienIchDinhDang.formatCurrency(giaThueMoi)} / tháng'),
+                _buildLegalSummaryRow(
+                  'Giá thuê mới',
+                  '${TienIchDinhDang.formatCurrency(giaThueMoi)} / tháng',
+                ),
                 const SizedBox(height: 6),
-                _buildLegalSummaryRow('Bảo lưu tiền cọc', TienIchDinhDang.formatCurrency(curDeposit)),
+                _buildLegalSummaryRow(
+                  'Bảo lưu tiền cọc',
+                  TienIchDinhDang.formatCurrency(curDeposit),
+                ),
               ],
             ),
           ),
@@ -2067,7 +2292,12 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
     );
   }
 
-  Widget _buildLegalSummaryRow(String label, String value, {bool isBold = false, bool isHighlight = false}) {
+  Widget _buildLegalSummaryRow(
+    String label,
+    String value, {
+    bool isBold = false,
+    bool isHighlight = false,
+  }) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2082,7 +2312,9 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
             textAlign: TextAlign.right,
             style: TextStyle(
               fontSize: 11.5,
-              fontWeight: (isBold || isHighlight) ? FontWeight.bold : FontWeight.w600,
+              fontWeight: (isBold || isHighlight)
+                  ? FontWeight.bold
+                  : FontWeight.w600,
               color: isHighlight ? const Color(0xFF0284C7) : _textDark,
             ),
           ),
@@ -2100,10 +2332,15 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
         return StatefulBuilder(
           builder: (modalContext, setModalState) {
             final double curDeposit = widget.currentPrice.toDouble();
-            final double actualDeduction = _hasDamage ? _damageFee.toDouble() : 0.0;
-            final double finalDeposit = curDeposit - actualDeduction - _utilityFee.toDouble();
-            final double targetPrice = (_targetRoomData?['gia_thue'] as num?)?.toDouble() ??
-                ((widget.targetRoom['giaThue'] as num?)?.toDouble() ?? 2600000.0);
+            final double actualDeduction = _hasDamage
+                ? _damageFee.toDouble()
+                : 0.0;
+            final double finalDeposit =
+                curDeposit - actualDeduction - _utilityFee.toDouble();
+            final double targetPrice =
+                (_targetRoomData?['gia_thue'] as num?)?.toDouble() ??
+                ((widget.targetRoom['giaThue'] as num?)?.toDouble() ??
+                    2600000.0);
             final double diffWithNewRoom = finalDeposit - targetPrice;
 
             final List<Map<String, dynamic>> items = _getEquipmentItems();
@@ -2202,17 +2439,27 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
                               decoration: BoxDecoration(
                                 color: const Color(0xFFFFFBEB),
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: const Color(0xFFFDE68A)),
+                                border: Border.all(
+                                  color: const Color(0xFFFDE68A),
+                                ),
                               ),
                               child: const Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Icon(Icons.info_outline_rounded, size: 16, color: Color(0xFFD97706)),
+                                  Icon(
+                                    Icons.info_outline_rounded,
+                                    size: 16,
+                                    color: Color(0xFFD97706),
+                                  ),
                                   SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
                                       'Đây là danh mục thiết bị ban đầu được bàn giao cho phòng của bạn. Trước ngày chuyển phòng, BQL sẽ xếp lịch đến kiểm tra hiện trạng từng món đồ và chốt số điện nước.',
-                                      style: TextStyle(fontSize: 11.5, height: 1.35, color: Color(0xFF92400E)),
+                                      style: TextStyle(
+                                        fontSize: 11.5,
+                                        height: 1.35,
+                                        color: Color(0xFF92400E),
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -2223,7 +2470,11 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
                             // Danh sách thiết bị chờ bàn giao
                             const Row(
                               children: [
-                                Icon(Icons.checklist_rounded, size: 18, color: _primary),
+                                Icon(
+                                  Icons.checklist_rounded,
+                                  size: 18,
+                                  color: _primary,
+                                ),
                                 SizedBox(width: 6),
                                 Text(
                                   'Danh Sách Thiết Bị Cần Bàn Giao',
@@ -2245,15 +2496,28 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
                               decoration: BoxDecoration(
                                 color: const Color(0xFFF8FAFC),
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: const Color(0xFFE2E8F0)),
+                                border: Border.all(
+                                  color: const Color(0xFFE2E8F0),
+                                ),
                               ),
                               child: Column(
                                 children: [
-                                  _buildModalInfoRow('Tiền cọc phòng cũ (${widget.currentRoomNumber}):', '${FormatUtils.currency(curDeposit)}đ'),
+                                  _buildModalInfoRow(
+                                    'Tiền cọc phòng cũ (${widget.currentRoomNumber}):',
+                                    '${FormatUtils.currency(curDeposit)}đ',
+                                  ),
                                   const SizedBox(height: 6),
-                                  _buildModalInfoRow('Tình trạng cọc:', 'Đang bảo lưu để chuyển sang phòng mới', isHighlight: true, highlightColor: _primary),
+                                  _buildModalInfoRow(
+                                    'Tình trạng cọc:',
+                                    'Đang bảo lưu để chuyển sang phòng mới',
+                                    isHighlight: true,
+                                    highlightColor: _primary,
+                                  ),
                                   const SizedBox(height: 6),
-                                  _buildModalInfoRow('Khấu trừ hư hỏng:', 'Chưa phát sinh (Chờ BQL kiểm tra)'),
+                                  _buildModalInfoRow(
+                                    'Khấu trừ hư hỏng:',
+                                    'Chưa phát sinh (Chờ BQL kiểm tra)',
+                                  ),
                                 ],
                               ),
                             ),
@@ -2261,19 +2525,29 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
 
                             // Ghi chú thực tế
                             Container(
-                              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 10,
+                                horizontal: 12,
+                              ),
                               decoration: BoxDecoration(
                                 color: const Color(0xFFF1F5F9),
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: const Row(
                                 children: [
-                                  Icon(Icons.schedule_rounded, size: 16, color: Color(0xFF64748B)),
+                                  Icon(
+                                    Icons.schedule_rounded,
+                                    size: 16,
+                                    color: Color(0xFF64748B),
+                                  ),
                                   SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
                                       'BQL sẽ liên hệ và cùng bạn trực tiếp kiểm tra tình trạng các thiết bị trên khi đến khảo sát phòng.',
-                                      style: TextStyle(fontSize: 11, color: Color(0xFF475569)),
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Color(0xFF475569),
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -2288,42 +2562,62 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
                               decoration: BoxDecoration(
                                 color: const Color(0xFFF8FAFC),
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: const Color(0xFFE2E8F0)),
+                                border: Border.all(
+                                  color: const Color(0xFFE2E8F0),
+                                ),
                               ),
                               child: Column(
                                 children: [
-                                  _buildModalInfoRow('Phòng kiểm tra:', widget.currentRoomNumber),
+                                  _buildModalInfoRow(
+                                    'Phòng kiểm tra:',
+                                    widget.currentRoomNumber,
+                                  ),
                                   const SizedBox(height: 6),
-                                  _buildModalInfoRow('Thời gian khảo sát:', 'Hôm nay - ${widget.moveInDateFormatted}'),
+                                  _buildModalInfoRow(
+                                    'Thời gian khảo sát:',
+                                    'Hôm nay - ${widget.moveInDateFormatted}',
+                                  ),
                                   const SizedBox(height: 6),
                                   _buildModalInfoRow(
                                     'Kết luận nghiệm thu:',
-                                    _hasDamage ? 'Có 1 thiết bị hư hại cần khấu trừ' : '100% đạt chuẩn bàn giao',
+                                    _hasDamage
+                                        ? 'Có 1 thiết bị hư hại cần khấu trừ'
+                                        : '100% đạt chuẩn bàn giao',
                                     isHighlight: true,
-                                    highlightColor: _hasDamage ? const Color(0xFFD97706) : const Color(0xFF16A34A),
+                                    highlightColor: _hasDamage
+                                        ? const Color(0xFFD97706)
+                                        : const Color(0xFF16A34A),
                                   ),
                                 ],
                               ),
                             ),
                             const SizedBox(height: 16),
 
-                            if (_damageNote != null && _damageNote!.trim().isNotEmpty) ...[
+                            if (_damageNote != null &&
+                                _damageNote!.trim().isNotEmpty) ...[
                               Container(
                                 width: double.infinity,
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
                                   color: const Color(0xFFFEF2F2),
                                   borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: const Color(0xFFFECACA)),
+                                  border: Border.all(
+                                    color: const Color(0xFFFECACA),
+                                  ),
                                 ),
                                 child: Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Icon(Icons.report_problem_rounded, size: 18, color: Color(0xFFDC2626)),
+                                    const Icon(
+                                      Icons.report_problem_rounded,
+                                      size: 18,
+                                      color: Color(0xFFDC2626),
+                                    ),
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           const Text(
                                             'Chi tiết hư hại từ Ban Quản Lý:',
@@ -2355,7 +2649,11 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
                             // Tiêu đề danh sách thiết bị
                             const Row(
                               children: [
-                                Icon(Icons.checklist_rounded, size: 18, color: _primary),
+                                Icon(
+                                  Icons.checklist_rounded,
+                                  size: 18,
+                                  color: _primary,
+                                ),
                                 SizedBox(width: 6),
                                 Text(
                                   'Chi Tiết Kiểm Tra Từng Thiết Bị',
@@ -2374,16 +2672,18 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
 
                             const SizedBox(height: 16),
 
-
-
                             // Bảng quyết toán tiền cọc bảo lưu
                             Container(
                               padding: const EdgeInsets.all(14),
                               decoration: BoxDecoration(
-                                color: _hasDamage ? const Color(0xFFFFFBEB) : const Color(0xFFF0FDF4),
+                                color: _hasDamage
+                                    ? const Color(0xFFFFFBEB)
+                                    : const Color(0xFFF0FDF4),
                                 borderRadius: BorderRadius.circular(14),
                                 border: Border.all(
-                                  color: _hasDamage ? const Color(0xFFFDE68A) : const Color(0xFFBBF7D0),
+                                  color: _hasDamage
+                                      ? const Color(0xFFFDE68A)
+                                      : const Color(0xFFBBF7D0),
                                 ),
                               ),
                               child: Column(
@@ -2394,7 +2694,9 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
                                       Icon(
                                         Icons.account_balance_wallet_rounded,
                                         size: 16,
-                                        color: _hasDamage ? const Color(0xFFD97706) : const Color(0xFF16A34A),
+                                        color: _hasDamage
+                                            ? const Color(0xFFD97706)
+                                            : const Color(0xFF16A34A),
                                       ),
                                       const SizedBox(width: 6),
                                       Text(
@@ -2402,7 +2704,9 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
                                         style: TextStyle(
                                           fontSize: 12.5,
                                           fontWeight: FontWeight.bold,
-                                          color: _hasDamage ? const Color(0xFFB45309) : const Color(0xFF15803D),
+                                          color: _hasDamage
+                                              ? const Color(0xFFB45309)
+                                              : const Color(0xFF15803D),
                                         ),
                                       ),
                                     ],
@@ -2424,7 +2728,10 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
                                     '-${FormatUtils.currency(_utilityFee.toDouble())}đ',
                                     highlightColor: const Color(0xFFDC2626),
                                   ),
-                                  const Divider(height: 14, color: Color(0x33000000)),
+                                  const Divider(
+                                    height: 14,
+                                    color: Color(0x33000000),
+                                  ),
                                   _buildModalInfoRow(
                                     'CỌC THỰC TẾ CHUYỂN SANG PHÒNG MỚI:',
                                     '${FormatUtils.currency(finalDeposit)}đ',
@@ -2451,16 +2758,25 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
                             if (_hasAcceptedInspection) ...[
                               Container(
                                 width: double.infinity,
-                                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                  horizontal: 14,
+                                ),
                                 decoration: BoxDecoration(
                                   color: const Color(0xFFDCFCE7),
                                   borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: const Color(0xFF86EFAC)),
+                                  border: Border.all(
+                                    color: const Color(0xFF86EFAC),
+                                  ),
                                 ),
                                 child: const Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    Icon(Icons.check_circle_rounded, color: Color(0xFF16A34A), size: 18),
+                                    Icon(
+                                      Icons.check_circle_rounded,
+                                      color: Color(0xFF16A34A),
+                                      size: 18,
+                                    ),
                                     SizedBox(width: 8),
                                     Text(
                                       'Bạn đã xác nhận biên bản này (Chờ chủ trọ duyệt)',
@@ -2478,7 +2794,9 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
                                 width: double.infinity,
                                 child: ElevatedButton.icon(
                                   onPressed: () {
-                                    setModalState(() => _hasAcceptedInspection = true);
+                                    setModalState(
+                                      () => _hasAcceptedInspection = true,
+                                    );
                                     setState(() {
                                       _hasAcceptedInspection = true;
                                       _currentStatus = 'Chờ chủ duyệt';
@@ -2488,23 +2806,29 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
                                       Supabase.instance.client
                                           .from('yeu_cau_chuyen_phong')
                                           .update({
-                                            'trang_thai_tien_do': 'Khách đã xác nhận',
+                                            'trang_thai_tien_do':
+                                                'Khách đã xác nhận',
                                           })
                                           .eq('ma_yeu_cau', ticket)
                                           .then((_) {})
                                           .catchError((e) {
-                                        debugPrint('[YCCP] Lỗi cập nhật trạng thái: $e');
-                                      });
+                                            debugPrint(
+                                              '[YCCP] Lỗi cập nhật trạng thái: $e',
+                                            );
+                                          });
                                     }
-                                    if (_maBienBan != null && _maBienBan!.isNotEmpty) {
+                                    if (_maBienBan != null &&
+                                        _maBienBan!.isNotEmpty) {
                                       Supabase.instance.client
                                           .from('bien_ban_kiem_tra_phong')
                                           .update({'trang_thai': 'Đã xác nhận'})
                                           .eq('ma_bien_ban', _maBienBan!)
                                           .then((_) {})
                                           .catchError((e) {
-                                        debugPrint('[BIEN_BAN] Lỗi cập nhật trạng thái: $e');
-                                      });
+                                            debugPrint(
+                                              '[BIEN_BAN] Lỗi cập nhật trạng thái: $e',
+                                            );
+                                          });
                                     }
                                     Navigator.pop(ctx);
                                     ThongBaoHelper.hienThongBao(
@@ -2518,13 +2842,18 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: const Color(0xFF16A34A),
                                     foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 12,
+                                    ),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                     elevation: 0,
                                   ),
-                                  icon: const Icon(Icons.send_rounded, size: 18),
+                                  icon: const Icon(
+                                    Icons.send_rounded,
+                                    size: 18,
+                                  ),
                                   label: const Text(
                                     'Xác Nhận Biên Bản & Gửi Lên Chủ Trọ',
                                     style: TextStyle(
@@ -2550,10 +2879,17 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
                                   type: ThongBaoType.thongTin,
                                 );
                               },
-                              icon: const Icon(Icons.support_agent_rounded, size: 16, color: Color(0xFF64748B)),
+                              icon: const Icon(
+                                Icons.support_agent_rounded,
+                                size: 16,
+                                color: Color(0xFF64748B),
+                              ),
                               label: const Text(
                                 'Có thắc mắc hoặc cần khiếu nại? Bấm vào đây',
-                                style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  color: Color(0xFF64748B),
+                                ),
                               ),
                             ),
                           ),
@@ -2589,7 +2925,11 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
         children: [
           Row(
             children: [
-              Icon(it['icon'] as IconData, size: 18, color: isGood ? _primary : const Color(0xFFD97706)),
+              Icon(
+                it['icon'] as IconData,
+                size: 18,
+                color: isGood ? _primary : const Color(0xFFD97706),
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -2604,15 +2944,21 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                 decoration: BoxDecoration(
-                  color: isGood ? const Color(0xFFDCFCE7) : const Color(0xFFFEE2E2),
+                  color: isGood
+                      ? const Color(0xFFDCFCE7)
+                      : const Color(0xFFFEE2E2),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
-                  isGood ? 'ĐẠT (0đ)' : '-${FormatUtils.currency(fee.toDouble())}đ',
+                  isGood
+                      ? 'ĐẠT (0đ)'
+                      : '-${FormatUtils.currency(fee.toDouble())}đ',
                   style: TextStyle(
                     fontSize: 10.5,
                     fontWeight: FontWeight.bold,
-                    color: isGood ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
+                    color: isGood
+                        ? const Color(0xFF16A34A)
+                        : const Color(0xFFDC2626),
                   ),
                 ),
               ),
@@ -2627,9 +2973,13 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
           Row(
             children: [
               Icon(
-                isGood ? Icons.check_circle_outline_rounded : Icons.info_outline_rounded,
+                isGood
+                    ? Icons.check_circle_outline_rounded
+                    : Icons.info_outline_rounded,
                 size: 13,
-                color: isGood ? const Color(0xFF16A34A) : const Color(0xFFD97706),
+                color: isGood
+                    ? const Color(0xFF16A34A)
+                    : const Color(0xFFD97706),
               ),
               const SizedBox(width: 4),
               Expanded(
@@ -2638,7 +2988,9 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
                   style: TextStyle(
                     fontSize: 10.5,
                     fontStyle: FontStyle.italic,
-                    color: isGood ? const Color(0xFF16A34A) : const Color(0xFFB45309),
+                    color: isGood
+                        ? const Color(0xFF16A34A)
+                        : const Color(0xFFB45309),
                   ),
                 ),
               ),
@@ -2683,50 +3035,67 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
 
   // ─── 3. TICKET SUMMARY CARD ───
   Widget _buildTicketSummaryCard(String targetName) {
-    final effectiveTargetName = _targetRoomData?['ma_phong']?.toString() ??
+    final effectiveTargetName =
+        _targetRoomData?['ma_phong']?.toString() ??
         _maPhongMoiFromDb ??
         widget.targetRoom['maPhong']?.toString() ??
         targetName;
     final int tangCu = _layTangTuMaPhong(widget.currentRoomNumber);
-    final String toaNhaCu = widget.targetRoom['toaNha']?.toString() ?? 'Kiều Giang';
-    final int tangMoi = (_targetRoomData?['tang'] as num?)?.toInt() ??
+    final String toaNhaCu =
+        widget.targetRoom['toaNha']?.toString() ?? 'Kiều Giang';
+    final int tangMoi =
+        (_targetRoomData?['tang'] as num?)?.toInt() ??
         (widget.targetRoom['tang'] as num?)?.toInt() ??
         _layTangTuMaPhong(effectiveTargetName);
-    final int dienTichMoi = (_targetRoomData?['dien_tich'] as num?)?.toInt() ??
+    final int dienTichMoi =
+        (_targetRoomData?['dien_tich'] as num?)?.toInt() ??
         (widget.targetRoom['dienTich'] as num?)?.toInt() ??
         26;
-    final double giaThueMoi = ((_targetRoomData?['gia_thue'] as num?) ??
-            (widget.targetRoom['giaThue'] as num?) ??
-            3500000)
-        .toDouble();
+    final double giaThueMoi =
+        ((_targetRoomData?['gia_thue'] as num?) ??
+                (widget.targetRoom['giaThue'] as num?) ??
+                3500000)
+            .toDouble();
     final double giaThueCu = widget.currentPrice.toDouble();
     final double diffPrice = giaThueMoi - giaThueCu;
-    final double tienCocBanDau = _tienCocBaoLuu?.toDouble() ?? widget.currentPrice.toDouble();
+    final double tienCocBanDau =
+        _tienCocBaoLuu?.toDouble() ?? widget.currentPrice.toDouble();
 
     // Chi phí phòng cũ chốt khi nghiệm thu bàn giao
     final double dienNuocCu = _utilityFee.toDouble();
     final double huHaiCu = _hasDamage ? _damageFee.toDouble() : 0.0;
-    final double tongChiPhiPhongCu = _isInspectionDone ? (dienNuocCu + huHaiCu) : 0.0;
+    final double tongChiPhiPhongCu = _isInspectionDone
+        ? (dienNuocCu + huHaiCu)
+        : 0.0;
 
     // Tiền cọc phòng cũ còn lại sau khi trừ chi phí phòng cũ (Phương án 1)
-    final double tienCocConLai = (tienCocBanDau - tongChiPhiPhongCu).clamp(0.0, double.infinity);
+    final double tienCocConLai = (tienCocBanDau - tongChiPhiPhongCu).clamp(
+      0.0,
+      double.infinity,
+    );
 
-    final double targetDeposit = ((_targetRoomData?['tien_dat_coc'] as num?) ??
-            (widget.targetRoom['tienDatCoc'] as num?) ??
-            giaThueMoi)
-        .toDouble();
+    final double targetDeposit =
+        ((_targetRoomData?['tien_dat_coc'] as num?) ??
+                (widget.targetRoom['tienDatCoc'] as num?) ??
+                giaThueMoi)
+            .toDouble();
 
     // Chênh lệch cọc thực tế: Cọc phòng mới - Cọc cũ còn lại
     final double diffDeposit = targetDeposit - tienCocConLai;
-    final String ngayDon = _formatDateString(_thoiGianHen ?? widget.moveInDateFormatted);
+    final String ngayDon = _formatDateString(
+      _thoiGianHen ?? widget.moveInDateFormatted,
+    );
 
-    final String displayReason = (_lyDoChuyen != null && _lyDoChuyen!.trim().isNotEmpty)
+    final String displayReason =
+        (_lyDoChuyen != null && _lyDoChuyen!.trim().isNotEmpty)
         ? _lyDoChuyen!
         : (widget.reason.isNotEmpty
-            ? (widget.note.isNotEmpty && widget.note != widget.reason
-                ? ' - '
-                : widget.reason)
-            : (widget.note.isNotEmpty ? widget.note : 'Nhu cầu đổi không gian sinh hoạt'));
+              ? (widget.note.isNotEmpty && widget.note != widget.reason
+                    ? ' - '
+                    : widget.reason)
+              : (widget.note.isNotEmpty
+                    ? widget.note
+                    : 'Nhu cầu đổi không gian sinh hoạt'));
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -2883,7 +3252,11 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
             Row(
               children: [
                 const SizedBox(width: 4),
-                const Icon(Icons.subdirectory_arrow_right_rounded, size: 14, color: Color(0xFF64748B)),
+                const Icon(
+                  Icons.subdirectory_arrow_right_rounded,
+                  size: 14,
+                  color: Color(0xFF64748B),
+                ),
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(
@@ -2942,8 +3315,8 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
                   diffPrice == 0
                       ? '0đ (Đồng giá thuê)'
                       : (diffPrice < 0
-                          ? '${FormatUtils.currency(diffPrice.abs())}đ/tháng (Tiết kiệm)'
-                          : '${FormatUtils.currency(diffPrice)}đ/tháng'),
+                            ? '${FormatUtils.currency(diffPrice.abs())}đ/tháng (Tiết kiệm)'
+                            : '${FormatUtils.currency(diffPrice)}đ/tháng'),
                   textAlign: TextAlign.right,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -2971,10 +3344,10 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
                   diffDeposit == 0
                       ? '0đ (Bảo lưu 100%)'
                       : (diffDeposit < 0
-                          ? '${FormatUtils.currency(diffDeposit.abs())}đ (Dư cọc - cấn trừ kỳ tới)'
-                          : (_isInspectionDone && tongChiPhiPhongCu > 0
-                              ? '${FormatUtils.currency(diffDeposit)}đ (Thiếu cọc - cần bù sau trừ chi phí)'
-                              : '${FormatUtils.currency(diffDeposit)}đ (Thiếu cọc - cần bù thêm)')),
+                            ? '${FormatUtils.currency(diffDeposit.abs())}đ (Dư cọc - cấn trừ kỳ tới)'
+                            : (_isInspectionDone && tongChiPhiPhongCu > 0
+                                  ? '${FormatUtils.currency(diffDeposit)}đ (Thiếu cọc - cần bù sau trừ chi phí)'
+                                  : '${FormatUtils.currency(diffDeposit)}đ (Thiếu cọc - cần bù thêm)')),
                   textAlign: TextAlign.right,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -2983,7 +3356,9 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
                     fontWeight: FontWeight.bold,
                     color: diffDeposit < 0
                         ? const Color(0xFF15803D)
-                        : (diffDeposit > 0 ? const Color(0xFFDC2626) : _textDark),
+                        : (diffDeposit > 0
+                              ? const Color(0xFFDC2626)
+                              : _textDark),
                   ),
                 ),
               ),
@@ -3108,7 +3483,11 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
                         child: const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.receipt_long_rounded, size: 14, color: _primary),
+                            Icon(
+                              Icons.receipt_long_rounded,
+                              size: 14,
+                              color: _primary,
+                            ),
                             SizedBox(width: 5),
                             Text(
                               'Xem biên bản thiết bị',
@@ -3134,15 +3513,19 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
             status: _hasAcceptedInspection
                 ? 'Đã xác nhận'
                 : (_currentStatus == 'Chờ khách xác nhận'
-                    ? 'Cần xác nhận'
-                    : 'Chờ sau bước 2'),
+                      ? 'Cần xác nhận'
+                      : 'Chờ sau bước 2'),
             desc: _hasAcceptedInspection
                 ? 'Đã xác nhận biên bản và đối soát cọc.'
                 : (_currentStatus == 'Chờ khách xác nhận'
-                    ? 'Vui lòng kiểm tra và bấm xác nhận biên bản.'
-                    : 'Xác nhận sau khi BQL kiểm tra xong.'),
-            isActive: _hasAcceptedInspection || _currentStatus == 'Chờ khách xác nhận',
-            extraWidget: (_currentStatus == 'Chờ khách xác nhận' && !_hasAcceptedInspection)
+                      ? 'Vui lòng kiểm tra và bấm xác nhận biên bản.'
+                      : 'Xác nhận sau khi BQL kiểm tra xong.'),
+            isActive:
+                _hasAcceptedInspection ||
+                _currentStatus == 'Chờ khách xác nhận',
+            extraWidget:
+                (_currentStatus == 'Chờ khách xác nhận' &&
+                    !_hasAcceptedInspection)
                 ? Padding(
                     padding: const EdgeInsets.only(top: 6),
                     child: InkWell(
@@ -3161,7 +3544,11 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
                         child: const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.touch_app_rounded, size: 14, color: Color(0xFFD97706)),
+                            Icon(
+                              Icons.touch_app_rounded,
+                              size: 14,
+                              color: Color(0xFFD97706),
+                            ),
                             SizedBox(width: 5),
                             Text(
                               'Bấm xem & xác nhận biên bản',
@@ -3186,7 +3573,9 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
             title: 'Phê duyệt & Nhận phòng',
             status: _currentStatus == 'Đã duyệt'
                 ? 'Đã duyệt'
-                : (_currentStatus == 'Chờ chủ duyệt' ? 'Chờ phê duyệt' : 'Chờ các bước trước'),
+                : (_currentStatus == 'Chờ chủ duyệt'
+                      ? 'Chờ phê duyệt'
+                      : 'Chờ các bước trước'),
             desc: _currentStatus == 'Đã duyệt'
                 ? 'Hợp đồng mới đã có hiệu lực.'
                 : 'BQL phê duyệt và bàn giao phòng đúng hẹn.',
@@ -3210,7 +3599,11 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
                         child: const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.description_rounded, size: 14, color: _primary),
+                            Icon(
+                              Icons.description_rounded,
+                              size: 14,
+                              color: _primary,
+                            ),
                             SizedBox(width: 5),
                             Text(
                               'Xem phụ lục hợp đồng',
@@ -3318,28 +3711,40 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
 
   // ─── 4B. DỰ TOÁN HÓA ĐƠN KỲ TỚI SAU KHI CHUYỂN PHÒNG ───
   Widget _buildNextBillEstimateCard(String targetName) {
-    final effectiveTargetName = _targetRoomData?['ma_phong']?.toString() ??
+    final effectiveTargetName =
+        _targetRoomData?['ma_phong']?.toString() ??
         _maPhongMoiFromDb ??
         widget.targetRoom['maPhong']?.toString() ??
         targetName;
-    final double giaThueMoi = ((_targetRoomData?['gia_thue'] as num?) ??
-            (widget.targetRoom['giaThue'] as num?) ??
-            3500000)
-        .toDouble();
+    final double giaThueMoi =
+        ((_targetRoomData?['gia_thue'] as num?) ??
+                (widget.targetRoom['giaThue'] as num?) ??
+                3500000)
+            .toDouble();
     final double dienNuocCu = _utilityFee.toDouble();
     final double huHaiCu = _hasDamage ? _damageFee.toDouble() : 0.0;
-    final double curDeposit = _tienCocBaoLuu?.toDouble() ?? widget.currentPrice.toDouble();
-    final double tongChiPhiPhongCu = _isInspectionDone ? (dienNuocCu + huHaiCu) : 0.0;
-    final double tienCocConLai = (curDeposit - tongChiPhiPhongCu).clamp(0.0, double.infinity);
-    final double targetDeposit = ((_targetRoomData?['tien_dat_coc'] as num?) ??
-            (widget.targetRoom['tienDatCoc'] as num?) ??
-            giaThueMoi)
-        .toDouble();
+    final double curDeposit =
+        _tienCocBaoLuu?.toDouble() ?? widget.currentPrice.toDouble();
+    final double tongChiPhiPhongCu = _isInspectionDone
+        ? (dienNuocCu + huHaiCu)
+        : 0.0;
+    final double tienCocConLai = (curDeposit - tongChiPhiPhongCu).clamp(
+      0.0,
+      double.infinity,
+    );
+    final double targetDeposit =
+        ((_targetRoomData?['tien_dat_coc'] as num?) ??
+                (widget.targetRoom['tienDatCoc'] as num?) ??
+                giaThueMoi)
+            .toDouble();
     final double diffDeposit = targetDeposit - tienCocConLai;
     final double chenhLechCoc = diffDeposit > 0 ? diffDeposit : 0.0;
     final double duCocCu = diffDeposit < 0 ? diffDeposit.abs() : 0.0;
     // Tổng hóa đơn dự kiến kỳ tới = tiền phòng mới + bù cọc (sau khi trừ chi phí phòng cũ) - dư cọc (nếu có)
-    final double tongHoaDonDuKien = (giaThueMoi + chenhLechCoc - duCocCu).clamp(0.0, double.infinity);
+    final double tongHoaDonDuKien = (giaThueMoi + chenhLechCoc - duCocCu).clamp(
+      0.0,
+      double.infinity,
+    );
 
     final bool isApproved = _currentStatus == 'Đã duyệt';
 
@@ -3354,7 +3759,9 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
         ),
         boxShadow: [
           BoxShadow(
-            color: (isApproved ? const Color(0xFF16A34A) : _primary).withValues(alpha: 0.06),
+            color: (isApproved ? const Color(0xFF16A34A) : _primary).withValues(
+              alpha: 0.06,
+            ),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -3368,7 +3775,9 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
               Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: isApproved ? const Color(0xFFDCFCE7) : const Color(0xFFE0F2FE),
+                  color: isApproved
+                      ? const Color(0xFFDCFCE7)
+                      : const Color(0xFFE0F2FE),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
@@ -3403,10 +3812,14 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: isApproved ? const Color(0xFFDCFCE7) : const Color(0xFFEFF6FF),
+                  color: isApproved
+                      ? const Color(0xFFDCFCE7)
+                      : const Color(0xFFEFF6FF),
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
-                    color: isApproved ? const Color(0xFF86EFAC) : const Color(0xFFBFDBFE),
+                    color: isApproved
+                        ? const Color(0xFF86EFAC)
+                        : const Color(0xFFBFDBFE),
                   ),
                 ),
                 child: Text(
@@ -3434,7 +3847,9 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
           // 2. Điện nước phòng cũ
           _buildBillRow(
             'Điện nước chốt phòng cũ (${widget.currentRoomNumber})',
-            dienNuocCu > 0 ? '${TienIchDinhDang.formatCurrency(dienNuocCu)} (Đã cấn trừ vào cọc)' : '0đ (Chờ BQL chốt số)',
+            dienNuocCu > 0
+                ? '${TienIchDinhDang.formatCurrency(dienNuocCu)} (Đã cấn trừ vào cọc)'
+                : '0đ (Chờ BQL chốt số)',
             icon: Icons.electric_bolt_rounded,
             iconColor: const Color(0xFFD97706),
           ),
@@ -3511,7 +3926,11 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
           const SizedBox(height: 10),
           const Row(
             children: [
-              Icon(Icons.info_outline_rounded, size: 13, color: Color(0xFF64748B)),
+              Icon(
+                Icons.info_outline_rounded,
+                size: 13,
+                color: Color(0xFF64748B),
+              ),
               SizedBox(width: 6),
               Expanded(
                 child: Text(
@@ -3534,17 +3953,29 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
                 onPressed: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const InvoiceHistoryScreen()),
+                    MaterialPageRoute(
+                      builder: (_) => const InvoiceHistoryScreen(),
+                    ),
                   );
                 },
-                icon: const Icon(Icons.receipt_rounded, size: 16, color: _primary),
+                icon: const Icon(
+                  Icons.receipt_rounded,
+                  size: 16,
+                  color: _primary,
+                ),
                 label: const Text(
                   'Xem Hóa Đơn Kỳ Tới Của Bạn',
-                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: _primary),
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.bold,
+                    color: _primary,
+                  ),
                 ),
                 style: OutlinedButton.styleFrom(
                   side: const BorderSide(color: Color(0xFFBAE6FD)),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                   padding: const EdgeInsets.symmetric(vertical: 8),
                 ),
               ),
@@ -3642,7 +4073,8 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
           SizedBox(
             width: double.infinity,
             child: OutlinedButton(
-              onPressed: () => Navigator.popUntil(context, (route) => route.isFirst),
+              onPressed: () =>
+                  Navigator.popUntil(context, (route) => route.isFirst),
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(
@@ -3651,7 +4083,10 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
               ),
               child: const Text(
                 'Về Trang Chủ',
-                style: TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: Color(0xFF64748B),
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ),
@@ -3663,11 +4098,15 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: () => Navigator.popUntil(context, (route) => route.isFirst),
+              onPressed: () =>
+                  Navigator.popUntil(context, (route) => route.isFirst),
               icon: const Icon(Icons.vpn_key_rounded, size: 20),
               label: Text(
                 'XEM PHÒNG MỚI (${_targetRoomData?["ma_phong"] ?? _maPhongMoiFromDb ?? widget.targetRoom["maPhong"]})',
-                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: _primary,
@@ -3685,7 +4124,11 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
             width: double.infinity,
             child: OutlinedButton.icon(
               onPressed: _showPhuLucDetailModal,
-              icon: const Icon(Icons.description_rounded, size: 18, color: Color(0xFF0284C7)),
+              icon: const Icon(
+                Icons.description_rounded,
+                size: 18,
+                color: Color(0xFF0284C7),
+              ),
               label: const Text(
                 'XEM PHỤ LỤC HỢP ĐỒNG (PLCP)',
                 style: TextStyle(
@@ -3708,10 +4151,14 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
           SizedBox(
             width: double.infinity,
             child: TextButton(
-              onPressed: () => Navigator.popUntil(context, (route) => route.isFirst),
+              onPressed: () =>
+                  Navigator.popUntil(context, (route) => route.isFirst),
               child: const Text(
                 'Về Trang Chủ',
-                style: TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: Color(0xFF64748B),
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ),

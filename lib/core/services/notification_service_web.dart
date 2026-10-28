@@ -4,7 +4,11 @@ import 'dart:js_interop' as js;
 external void _jsRequestPermission();
 
 @js.JS('showSystemNotification')
-external void _jsShowNotification(js.JSString title, js.JSString body, js.JSString tag);
+external void _jsShowNotification(
+  js.JSString title,
+  js.JSString body,
+  js.JSString tag,
+);
 
 void requestNotificationPermissionPlatform() {
   _jsRequestPermission();

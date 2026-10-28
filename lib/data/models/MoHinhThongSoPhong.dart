@@ -16,11 +16,11 @@ class ThongSoPhongModel {
 
   factory ThongSoPhongModel.fromJson(Map<String, dynamic> json) {
     return ThongSoPhongModel(
-      maThongSo:  json['ma_thong_so']?.toString() ?? '',
-      maPhong:    json['ma_phong']?.toString() ?? '',
+      maThongSo: json['ma_thong_so']?.toString() ?? '',
+      maPhong: json['ma_phong']?.toString() ?? '',
       tenThongSo: json['ten_thong_so']?.toString() ?? '',
-      giaTri:     json['gia_tri']?.toString() ?? '',
-      ghiChuPhu:  json['ghi_chu_phu']?.toString(),
+      giaTri: json['gia_tri']?.toString() ?? '',
+      ghiChuPhu: json['ghi_chu_phu']?.toString(),
     );
   }
 }

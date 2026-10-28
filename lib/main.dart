@@ -31,7 +31,6 @@ Future<void> main() async {
 // Biến gọi tắt dùng để truy vấn database từ bất kỳ màn hình nào
 SupabaseClient get supabase => Supabase.instance.client;
 
-
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -48,9 +47,7 @@ class MyApp extends StatelessWidget {
       builder: (context, child) {
         final mediaQuery = MediaQuery.of(context);
         return MediaQuery(
-          data: mediaQuery.copyWith(
-            textScaler: const TextScaler.linear(1.0),
-          ),
+          data: mediaQuery.copyWith(textScaler: const TextScaler.linear(1.0)),
           child: child ?? const SizedBox(),
         );
       },

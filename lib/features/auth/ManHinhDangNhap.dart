@@ -1,4 +1,4 @@
-﻿import 'dart:math';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:nhatro_kieugiang/core/services/DichVuSms.dart';
 import 'package:nhatro_kieugiang/core/services/DichVuXacThuc.dart';
@@ -44,7 +44,8 @@ class _LoginScreenState extends State<LoginScreen>
   void initState() {
     super.initState();
 
-    if (widget.accountLockedMessage != null && widget.accountLockedMessage!.isNotEmpty) {
+    if (widget.accountLockedMessage != null &&
+        widget.accountLockedMessage!.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         _hienThiThongBaoKhoaTaiKhoan(widget.accountLockedMessage!);
@@ -266,7 +267,8 @@ class _LoginScreenState extends State<LoginScreen>
           _errorMessage = err;
           _isLoading = false;
         });
-        if (err.toLowerCase().contains('khóa') || err.toLowerCase().contains('tamkhoa')) {
+        if (err.toLowerCase().contains('khóa') ||
+            err.toLowerCase().contains('tamkhoa')) {
           _hienThiThongBaoKhoaTaiKhoan(err);
         } else {
           ThongBaoHelper.hienToast(
@@ -313,7 +315,8 @@ class _LoginScreenState extends State<LoginScreen>
           ThongBaoHelper.hienToast(
             context,
             tieuDe: 'Yêu cầu đổi mật khẩu',
-            noiDung: 'Bạn bắt buộc phải đổi mật khẩu lần đầu để tiếp tục sử dụng ứng dụng!',
+            noiDung:
+                'Bạn bắt buộc phải đổi mật khẩu lần đầu để tiếp tục sử dụng ứng dụng!',
             type: ThongBaoType.canhBao,
           );
           return;
@@ -339,7 +342,8 @@ class _LoginScreenState extends State<LoginScreen>
           .eq('ma_tai_khoan', user.maTaiKhoan)
           .maybeSingle();
       final st = accRes?['trang_thai']?.toString() ?? '';
-      if (st.toLowerCase() == 'tamkhoa' || (accRes != null && st.toLowerCase() != 'hoatdong')) {
+      if (st.toLowerCase() == 'tamkhoa' ||
+          (accRes != null && st.toLowerCase() != 'hoatdong')) {
         await AuthService.logout();
         if (!mounted) return;
         setState(() => _isLoading = false);
@@ -422,7 +426,9 @@ class _LoginScreenState extends State<LoginScreen>
 
               if (hdRow != null) {
                 final match = cthdList.firstWhere(
-                  (c) => c['ma_hop_dong']?.toString() == hdRow!['ma_hop_dong']?.toString(),
+                  (c) =>
+                      c['ma_hop_dong']?.toString() ==
+                      hdRow!['ma_hop_dong']?.toString(),
                   orElse: () => <String, dynamic>{},
                 );
                 vaiTroFromCthd = match['vai_tro']?.toString();
@@ -457,8 +463,10 @@ class _LoginScreenState extends State<LoginScreen>
         if (hdRow != null) {
           final daBanGiao = hdRow['da_xac_nhan_ban_giao'] == true;
           final cccd = ktRes['cccd']?.toString();
-          final thieuCccd = (cccd == null || cccd.trim().isEmpty || cccd.trim().length != 12);
-          final thieuThongTin = (ktRes['ngay_sinh'] == null ||
+          final thieuCccd =
+              (cccd == null || cccd.trim().isEmpty || cccd.trim().length != 12);
+          final thieuThongTin =
+              (ktRes['ngay_sinh'] == null ||
               ktRes['dia_chi_thuong_tru'] == null ||
               ktRes['dia_chi_thuong_tru'].toString().trim().isEmpty ||
               ktRes['noi_cap_cccd'] == null ||
@@ -469,20 +477,27 @@ class _LoginScreenState extends State<LoginScreen>
           // Xác định vai trò: Người đại diện hợp đồng vs Khách ở cùng
           bool isDaiDien = false;
           final maDaiDien = hdRow['ma_khach_dai_dien']?.toString();
-          if (maDaiDien != null && maDaiDien.isNotEmpty && maDaiDien == maKhach) {
+          if (maDaiDien != null &&
+              maDaiDien.isNotEmpty &&
+              maDaiDien == maKhach) {
             isDaiDien = true;
           }
 
           if (!isDaiDien && vaiTroFromCthd != null) {
             final vt = vaiTroFromCthd.toLowerCase();
-            if (vt.contains('đại diện') || vt.contains('daidien') || vt.contains('trưởng phòng') || vt.contains('truongphong')) {
+            if (vt.contains('đại diện') ||
+                vt.contains('daidien') ||
+                vt.contains('trưởng phòng') ||
+                vt.contains('truongphong')) {
               isDaiDien = true;
             }
           }
 
           if (!isDaiDien) {
             final uRole = user.vaiTro.toLowerCase();
-            if (uRole.contains('truongphong') || uRole.contains('daidien') || uRole.contains('đại diện')) {
+            if (uRole.contains('truongphong') ||
+                uRole.contains('daidien') ||
+                uRole.contains('đại diện')) {
               isDaiDien = true;
             }
           }
@@ -526,9 +541,7 @@ class _LoginScreenState extends State<LoginScreen>
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(
-        builder: (_) => TenantHomeScreen(
-          tenantName: user.tenHienThi,
-        ),
+        builder: (_) => TenantHomeScreen(tenantName: user.tenHienThi),
       ),
       (route) => false,
     );
@@ -638,11 +651,15 @@ class _LoginScreenState extends State<LoginScreen>
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                              color: const Color(0xFFCBD5E1).withValues(alpha: 0.6),
+                              color: const Color(
+                                0xFFCBD5E1,
+                              ).withValues(alpha: 0.6),
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFF09638E).withValues(alpha: 0.06),
+                                color: const Color(
+                                  0xFF09638E,
+                                ).withValues(alpha: 0.06),
                                 blurRadius: 8,
                                 offset: const Offset(0, 2),
                               ),
@@ -671,7 +688,8 @@ class _LoginScreenState extends State<LoginScreen>
                 Expanded(
                   child: SingleChildScrollView(
                     physics: const BouncingScrollPhysics(),
-                    keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
                     padding: const EdgeInsets.symmetric(horizontal: 22),
                     child: AnimatedBuilder(
                       animation: _cardController,
@@ -690,7 +708,9 @@ class _LoginScreenState extends State<LoginScreen>
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: const Color(0xFFBAE6FD)),
+                              border: Border.all(
+                                color: const Color(0xFFBAE6FD),
+                              ),
                               boxShadow: [
                                 BoxShadow(
                                   color: const Color(
@@ -741,11 +761,15 @@ class _LoginScreenState extends State<LoginScreen>
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(26),
                               border: Border.all(
-                                color: const Color(0xFFE2E8F0).withValues(alpha: 0.8),
+                                color: const Color(
+                                  0xFFE2E8F0,
+                                ).withValues(alpha: 0.8),
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(0xFF09638E).withValues(alpha: 0.08),
+                                  color: const Color(
+                                    0xFF09638E,
+                                  ).withValues(alpha: 0.08),
                                   blurRadius: 32,
                                   offset: const Offset(0, 12),
                                 ),
@@ -923,26 +947,26 @@ class _LoginScreenState extends State<LoginScreen>
                                       const Spacer(),
                                       GestureDetector(
                                         onTap: _showForgotDialog,
-                                          child: const Text(
-                                            'Quên mật khẩu?',
-                                            style: TextStyle(
-                                              fontSize: 12.5,
-                                              fontWeight: FontWeight.bold,
-                                              color: Color(0xFF09638E),
-                                            ),
+                                        child: const Text(
+                                          'Quên mật khẩu?',
+                                          style: TextStyle(
+                                            fontSize: 12.5,
+                                            fontWeight: FontWeight.bold,
+                                            color: Color(0xFF09638E),
                                           ),
                                         ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 22),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 22),
 
-                                    // Submit Button
-                                    _buildSubmitButton(),
-                                  ],
-                                ),
+                                  // Submit Button
+                                  _buildSubmitButton(),
+                                ],
                               ),
                             ),
-                            const SizedBox(height: 18),
+                          ),
+                          const SizedBox(height: 18),
 
                           // ====== GUEST EXPLORE SHORTCUT ======
                           GestureDetector(
@@ -960,7 +984,9 @@ class _LoginScreenState extends State<LoginScreen>
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0xFF09638E).withValues(alpha: 0.06),
+                                    color: const Color(
+                                      0xFF09638E,
+                                    ).withValues(alpha: 0.06),
                                     blurRadius: 12,
                                     offset: const Offset(0, 3),
                                   ),
@@ -1285,9 +1311,7 @@ class _LoginScreenState extends State<LoginScreen>
       context: context,
       barrierDismissible: false,
       builder: (ctx) => Dialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(22),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
         elevation: 12,
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -1346,7 +1370,10 @@ class _LoginScreenState extends State<LoginScreen>
               // Thẻ tóm tắt tài khoản
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 11,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFF8FAFC),
                   borderRadius: BorderRadius.circular(12),
@@ -1354,11 +1381,18 @@ class _LoginScreenState extends State<LoginScreen>
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.person_rounded, size: 18, color: Color(0xFF09638E)),
+                    const Icon(
+                      Icons.person_rounded,
+                      size: 18,
+                      color: Color(0xFF09638E),
+                    ),
                     const SizedBox(width: 8),
                     const Text(
                       'Tài khoản:',
-                      style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: Color(0xFF64748B),
+                      ),
                     ),
                     const Spacer(),
                     Text(
@@ -1539,7 +1573,8 @@ class _ForgotPasswordSheetState extends State<_ForgotPasswordSheet> {
         _errorMsg = null;
         _isTestOtp = result.isTestOtp;
         if (result.isTestOtp) {
-          _otpCtrl.text = _otpCode; // Tự động điền mã OTP để kiểm thử nhanh trên Web
+          _otpCtrl.text =
+              _otpCode; // Tự động điền mã OTP để kiểm thử nhanh trên Web
         }
       });
     } catch (e) {
@@ -1578,6 +1613,7 @@ class _ForgotPasswordSheetState extends State<_ForgotPasswordSheet> {
     if (phone.isEmpty || pass.isEmpty) return true;
     return pass != phone;
   }
+
   bool get _isMatch =>
       _passCtrl.text.isNotEmpty && _passCtrl.text == _confirmCtrl.text;
 
@@ -1658,147 +1694,147 @@ class _ForgotPasswordSheetState extends State<_ForgotPasswordSheet> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-            // Handle bar
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE2E8F0),
-                  borderRadius: BorderRadius.circular(2),
+              // Handle bar
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE2E8F0),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
               ),
-            ),
 
-            // Header
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(9),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF09638E), Color(0xFF0EA5E9)],
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    _step == 0
-                        ? Icons.phone_android_rounded
-                        : _step == 1
-                            ? Icons.sms_rounded
-                            : Icons.lock_reset_rounded,
-                    color: Colors.white,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _step == 0
-                            ? 'Quên mật khẩu'
-                            : _step == 1
-                                ? 'Xác nhận OTP'
-                                : 'Đặt mật khẩu mới',
-                        style: const TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF0F172A),
-                        ),
+              // Header
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(9),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF09638E), Color(0xFF0EA5E9)],
                       ),
-                      Text(
-                        _step == 0
-                            ? 'Nhập số điện thoại đã đăng ký'
-                            : _step == 1
-                                ? 'Nhập mã 6 số vừa gửi đến điện thoại'
-                                : 'Tạo mật khẩu mới cho tài khoản',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF64748B),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      _step == 0
+                          ? Icons.phone_android_rounded
+                          : _step == 1
+                          ? Icons.sms_rounded
+                          : Icons.lock_reset_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _step == 0
+                              ? 'Quên mật khẩu'
+                              : _step == 1
+                              ? 'Xác nhận OTP'
+                              : 'Đặt mật khẩu mới',
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF0F172A),
+                          ),
+                        ),
+                        Text(
+                          _step == 0
+                              ? 'Nhập số điện thoại đã đăng ký'
+                              : _step == 1
+                              ? 'Nhập mã 6 số vừa gửi đến điện thoại'
+                              : 'Tạo mật khẩu mới cho tài khoản',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF64748B),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: widget.onCancel,
+                    child: const Icon(
+                      Icons.close_rounded,
+                      color: Color(0xFF94A3B8),
+                      size: 22,
+                    ),
+                  ),
+                ],
+              ),
+
+              // Step indicator
+              const SizedBox(height: 18),
+              Row(
+                children: List.generate(3, (i) {
+                  final active = i <= _step;
+                  return Expanded(
+                    child: Container(
+                      margin: EdgeInsets.only(right: i < 2 ? 6 : 0),
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: active ? _primary : const Color(0xFFE2E8F0),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  );
+                }),
+              ),
+              const SizedBox(height: 20),
+
+              // Error banner
+              if (_errorMsg != null) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF1F2),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: const Color(0xFFFB7185).withValues(alpha: 0.5),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.error_outline_rounded,
+                        color: Color(0xFFE11D48),
+                        size: 16,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _errorMsg!,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFFBE123C),
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
-                GestureDetector(
-                  onTap: widget.onCancel,
-                  child: const Icon(
-                    Icons.close_rounded,
-                    color: Color(0xFF94A3B8),
-                    size: 22,
-                  ),
-                ),
+                const SizedBox(height: 14),
               ],
-            ),
 
-            // Step indicator
-            const SizedBox(height: 18),
-            Row(
-              children: List.generate(3, (i) {
-                final active = i <= _step;
-                return Expanded(
-                  child: Container(
-                    margin: EdgeInsets.only(right: i < 2 ? 6 : 0),
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: active ? _primary : const Color(0xFFE2E8F0),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                );
-              }),
-            ),
-            const SizedBox(height: 20),
+              // Nội dung theo bước
+              if (_step == 0) _buildStepPhone(),
+              if (_step == 1) _buildStepOtp(),
+              if (_step == 2) _buildStepNewPassword(),
 
-            // Error banner
-            if (_errorMsg != null) ...[
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFF1F2),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: const Color(0xFFFB7185).withValues(alpha: 0.5),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.error_outline_rounded,
-                      color: Color(0xFFE11D48),
-                      size: 16,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        _errorMsg!,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFFBE123C),
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 8),
             ],
-
-            // Nội dung theo bước
-            if (_step == 0) _buildStepPhone(),
-            if (_step == 1) _buildStepOtp(),
-            if (_step == 2) _buildStepNewPassword(),
-
-            const SizedBox(height: 8),
-          ],
-        ),
+          ),
         ),
       ),
     );
@@ -1904,7 +1940,11 @@ class _ForgotPasswordSheetState extends State<_ForgotPasswordSheet> {
         const SizedBox(height: 8),
         const Text(
           'Nhập đúng SĐT bạn đã dùng khi ký hợp đồng / được BQL cấp tài khoản.',
-          style: TextStyle(fontSize: 11.5, color: Color(0xFF94A3B8), height: 1.4),
+          style: TextStyle(
+            fontSize: 11.5,
+            color: Color(0xFF94A3B8),
+            height: 1.4,
+          ),
         ),
         const SizedBox(height: 18),
         SizedBox(
@@ -2037,7 +2077,11 @@ class _ForgotPasswordSheetState extends State<_ForgotPasswordSheet> {
                 ],
               ),
               const SizedBox(height: 10),
-              const Divider(height: 1, thickness: 0.8, color: Color(0xFFBBF7D0)),
+              const Divider(
+                height: 1,
+                thickness: 0.8,
+                color: Color(0xFFBBF7D0),
+              ),
               const SizedBox(height: 10),
               RichText(
                 text: TextSpan(
@@ -2047,7 +2091,9 @@ class _ForgotPasswordSheetState extends State<_ForgotPasswordSheet> {
                     height: 1.4,
                   ),
                   children: [
-                    const TextSpan(text: 'Nha tro Kieu Giang: Ma OTP cua ban la '),
+                    const TextSpan(
+                      text: 'Nha tro Kieu Giang: Ma OTP cua ban la ',
+                    ),
                     TextSpan(
                       text: _otpCode,
                       style: const TextStyle(
@@ -2057,9 +2103,7 @@ class _ForgotPasswordSheetState extends State<_ForgotPasswordSheet> {
                         letterSpacing: 1.2,
                       ),
                     ),
-                    const TextSpan(
-                      text: '. Mã có hiệu lực trong 5 phút.',
-                    ),
+                    const TextSpan(text: '. Mã có hiệu lực trong 5 phút.'),
                   ],
                 ),
               ),
@@ -2102,7 +2146,10 @@ class _ForgotPasswordSheetState extends State<_ForgotPasswordSheet> {
                 letterSpacing: 6,
               ),
               border: InputBorder.none,
-              contentPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 14),
+              contentPadding: EdgeInsets.symmetric(
+                vertical: 16,
+                horizontal: 14,
+              ),
             ),
           ),
         ),

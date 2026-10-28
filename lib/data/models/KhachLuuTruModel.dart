@@ -32,7 +32,7 @@ class KhachLuuTruModel {
   factory KhachLuuTruModel.fromSupabase(Map<String, dynamic> map) {
     final tuNgay = map['tu_ngay']?.toString() ?? '';
     final denNgay = map['den_ngay']?.toString() ?? '';
-    
+
     // Tính số đêm
     int dem = 1;
     try {
@@ -45,7 +45,8 @@ class KhachLuuTruModel {
     } catch (_) {}
 
     final phi = dem * 50000;
-    final phiFormat = '${phi.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')} đ';
+    final phiFormat =
+        '${phi.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')} đ';
 
     return KhachLuuTruModel(
       id: map['ma_dang_ky']?.toString() ?? '',

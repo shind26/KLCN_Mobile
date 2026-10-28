@@ -63,7 +63,8 @@ class _ManHinhMatKhauPinState extends State<ManHinhMatKhauPin> {
       RegExp(r'[A-Z]').hasMatch(_newPass) &&
       RegExp(r'[a-z]').hasMatch(_newPass) &&
       RegExp(r'[0-9]').hasMatch(_newPass);
-  bool get _reqSpecial => RegExp(r'[@#$%^&*()_+\-=\[\]{};:"\\|,.<>/?!~`]').hasMatch(_newPass);
+  bool get _reqSpecial =>
+      RegExp(r'[@#$%^&*()_+\-=\[\]{};:"\\|,.<>/?!~`]').hasMatch(_newPass);
   bool get _reqMatch => _confirmPass.isNotEmpty && _newPass == _confirmPass;
 
   int get _passwordStrengthScore {
@@ -156,7 +157,8 @@ class _ManHinhMatKhauPinState extends State<ManHinhMatKhauPin> {
       ThongBaoHelper.hienThongBao(
         context,
         tieuDe: 'Thiếu Ký Tự Đặc Biệt',
-        noiDung: 'Mật khẩu cần ít nhất 1 ký tự đặc biệt (ví dụ: @, #, !, %, ...).',
+        noiDung:
+            'Mật khẩu cần ít nhất 1 ký tự đặc biệt (ví dụ: @, #, !, %, ...).',
         type: ThongBaoType.canhBao,
       );
       return;
@@ -166,7 +168,8 @@ class _ManHinhMatKhauPinState extends State<ManHinhMatKhauPin> {
       ThongBaoHelper.hienThongBao(
         context,
         tieuDe: 'Xác Nhận Không Khớp',
-        noiDung: 'Mật khẩu xác nhận không trùng khớp với mật khẩu mới. Vui lòng kiểm tra lại.',
+        noiDung:
+            'Mật khẩu xác nhận không trùng khớp với mật khẩu mới. Vui lòng kiểm tra lại.',
         type: ThongBaoType.canhBao,
       );
       return;
@@ -200,7 +203,9 @@ class _ManHinhMatKhauPinState extends State<ManHinhMatKhauPin> {
           .maybeSingle();
 
       if (accountData == null) {
-        throw Exception('Không tìm thấy tài khoản người dùng trong cơ sở dữ liệu.');
+        throw Exception(
+          'Không tìm thấy tài khoản người dùng trong cơ sở dữ liệu.',
+        );
       }
 
       final dbPassword = accountData['mat_khau']?.toString() ?? '';
@@ -210,7 +215,8 @@ class _ManHinhMatKhauPinState extends State<ManHinhMatKhauPin> {
         ThongBaoHelper.hienThongBao(
           context,
           tieuDe: 'Mật Khẩu Cũ Không Đúng',
-          noiDung: 'Mật khẩu hiện tại bạn vừa nhập không chính xác. Vui lòng kiểm tra lại!',
+          noiDung:
+              'Mật khẩu hiện tại bạn vừa nhập không chính xác. Vui lòng kiểm tra lại!',
           type: ThongBaoType.thatBai,
         );
         return;
@@ -219,9 +225,10 @@ class _ManHinhMatKhauPinState extends State<ManHinhMatKhauPin> {
       final hashedNewPass = AuthService.hashPassword(newPass);
 
       // 2. Cập nhật mật khẩu mới trên Supabase
-      await db.from('tai_khoan').update({
-        'mat_khau': hashedNewPass,
-      }).eq('ma_tai_khoan', user.maTaiKhoan);
+      await db
+          .from('tai_khoan')
+          .update({'mat_khau': hashedNewPass})
+          .eq('ma_tai_khoan', user.maTaiKhoan);
 
       // Cập nhật lại AuthService & SharedPreferences
       final updatedUser = UserModel(
@@ -237,7 +244,10 @@ class _ManHinhMatKhauPinState extends State<ManHinhMatKhauPin> {
       AuthService.currentUserNotifier.value = updatedUser;
       try {
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('auth_current_user_json', jsonEncode(updatedUser.toJson()));
+        await prefs.setString(
+          'auth_current_user_json',
+          jsonEncode(updatedUser.toJson()),
+        );
       } catch (_) {}
 
       if (!mounted) return;
@@ -251,14 +261,16 @@ class _ManHinhMatKhauPinState extends State<ManHinhMatKhauPin> {
       // Bắn thông báo chuông hệ thống
       SystemNotificationService.show(
         title: '🔒 Đổi mật khẩu thành công',
-        body: 'Mật khẩu tài khoản ${user.tenDangNhap} đã được cập nhật an toàn vào hệ thống Kiêu Giang.',
+        body:
+            'Mật khẩu tài khoản ${user.tenDangNhap} đã được cập nhật an toàn vào hệ thống Kiêu Giang.',
         tag: 'pwd_update_${DateTime.now().millisecondsSinceEpoch}',
       );
 
       await ThongBaoHelper.hienThongBao(
         context,
         tieuDe: 'Đổi Mật Khẩu Thành Công!',
-        noiDung: 'Mật khẩu mới đã được cập nhật thành công vào hệ thống. Bạn có thể sử dụng mật khẩu mới này cho những lần đăng nhập tiếp theo.',
+        noiDung:
+            'Mật khẩu mới đã được cập nhật thành công vào hệ thống. Bạn có thể sử dụng mật khẩu mới này cho những lần đăng nhập tiếp theo.',
         type: ThongBaoType.thanhCong,
         nutText: 'Đã hiểu',
       );
@@ -283,7 +295,10 @@ class _ManHinhMatKhauPinState extends State<ManHinhMatKhauPin> {
           children: const [
             Icon(Icons.help_outline_rounded, color: _primary),
             SizedBox(width: 8),
-            Text('Quy Định Bảo Mật', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            Text(
+              'Quy Định Bảo Mật',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
           ],
         ),
         content: const Text(
@@ -291,7 +306,11 @@ class _ManHinhMatKhauPinState extends State<ManHinhMatKhauPin> {
           '• Mật khẩu nên gồm ít nhất 8 ký tự, bao gồm chữ hoa, chữ thường, số và ký tự đặc biệt.\n'
           '• Không dùng mật khẩu trùng với số điện thoại hoặc ngày sinh.\n'
           '• Thay đổi mật khẩu định kỳ 3-6 tháng một lần để đảm bảo an toàn tối đa.',
-          style: TextStyle(fontSize: 13, height: 1.45, color: Color(0xFF334155)),
+          style: TextStyle(
+            fontSize: 13,
+            height: 1.45,
+            color: Color(0xFF334155),
+          ),
         ),
         actions: [
           ElevatedButton(
@@ -299,9 +318,14 @@ class _ManHinhMatKhauPinState extends State<ManHinhMatKhauPin> {
             style: ElevatedButton.styleFrom(
               backgroundColor: _primary,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
-            child: const Text('Đã hiểu', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: const Text(
+              'Đã hiểu',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),
@@ -317,12 +341,19 @@ class _ManHinhMatKhauPinState extends State<ManHinhMatKhauPin> {
           children: const [
             Icon(Icons.support_agent_rounded, color: _primary),
             SizedBox(width: 8),
-            Text('Quên Mật Khẩu?', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            Text(
+              'Quên Mật Khẩu?',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
           ],
         ),
         content: const Text(
           'Nếu bạn quên mật khẩu hiện tại, vui lòng liên hệ trực tiếp với Ban Quản Lý tòa nhà Kiêu Giang để được cấp mã OTP khôi phục.',
-          style: TextStyle(fontSize: 13, height: 1.45, color: Color(0xFF334155)),
+          style: TextStyle(
+            fontSize: 13,
+            height: 1.45,
+            color: Color(0xFF334155),
+          ),
         ),
         actions: [
           TextButton(
@@ -335,16 +366,22 @@ class _ManHinhMatKhauPinState extends State<ManHinhMatKhauPin> {
               ThongBaoHelper.hienThongBao(
                 context,
                 tieuDe: 'Hỗ Trợ Ban Quản Lý',
-                noiDung: 'Đang kết nối tới Ban Quản Lý Kiêu Giang House để hỗ trợ cấp lại mật khẩu ngay lập tức!',
+                noiDung:
+                    'Đang kết nối tới Ban Quản Lý Kiêu Giang House để hỗ trợ cấp lại mật khẩu ngay lập tức!',
                 type: ThongBaoType.thongTin,
               );
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: _primary,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
-            child: const Text('Liên hệ BQL', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: const Text(
+              'Liên hệ BQL',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),
@@ -362,7 +399,10 @@ class _ManHinhMatKhauPinState extends State<ManHinhMatKhauPin> {
             Expanded(
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -431,7 +471,11 @@ class _ManHinhMatKhauPinState extends State<ManHinhMatKhauPin> {
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
-                    const Icon(Icons.notifications_none_rounded, color: Color(0xFF334155), size: 22),
+                    const Icon(
+                      Icons.notifications_none_rounded,
+                      color: Color(0xFF334155),
+                      size: 22,
+                    ),
                     Positioned(
                       top: 8,
                       right: 9,
@@ -462,7 +506,14 @@ class _ManHinhMatKhauPinState extends State<ManHinhMatKhauPin> {
                     'assets/images/logo.png',
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) => const Center(
-                      child: Text('KG', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _primary)),
+                      child: Text(
+                        'KG',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: _primary,
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -488,7 +539,11 @@ class _ManHinhMatKhauPinState extends State<ManHinhMatKhauPin> {
               color: const Color(0xFFE0F2FE),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(Icons.arrow_back_ios_new_rounded, color: _primary, size: 18),
+            child: const Icon(
+              Icons.arrow_back_ios_new_rounded,
+              color: _primary,
+              size: 18,
+            ),
           ),
         ),
         const SizedBox(width: 12),
@@ -534,7 +589,11 @@ class _ManHinhMatKhauPinState extends State<ManHinhMatKhauPin> {
               border: Border.all(color: const Color(0xFFCBD5E1)),
               color: Colors.white,
             ),
-            child: const Icon(Icons.question_mark_rounded, size: 16, color: Color(0xFF64748B)),
+            child: const Icon(
+              Icons.question_mark_rounded,
+              size: 16,
+              color: Color(0xFF64748B),
+            ),
           ),
         ),
       ],
@@ -603,7 +662,11 @@ class _ManHinhMatKhauPinState extends State<ManHinhMatKhauPin> {
           // 2. Mật khẩu mới
           Row(
             children: const [
-              Icon(Icons.lock_outline_rounded, size: 16, color: Color(0xFF475569)),
+              Icon(
+                Icons.lock_outline_rounded,
+                size: 16,
+                color: Color(0xFF475569),
+              ),
               SizedBox(width: 6),
               Text(
                 'Mật khẩu mới',
@@ -645,7 +708,9 @@ class _ManHinhMatKhauPinState extends State<ManHinhMatKhauPin> {
                         height: 5,
                         margin: const EdgeInsets.symmetric(horizontal: 2),
                         decoration: BoxDecoration(
-                          color: isFilled ? _strengthColor : const Color(0xFFE2E8F0),
+                          color: isFilled
+                              ? _strengthColor
+                              : const Color(0xFFE2E8F0),
                           borderRadius: BorderRadius.circular(4),
                         ),
                       ),
@@ -669,7 +734,11 @@ class _ManHinhMatKhauPinState extends State<ManHinhMatKhauPin> {
           // 3. Xác nhận mật khẩu mới
           Row(
             children: const [
-              Icon(Icons.check_circle_outline_rounded, size: 16, color: Color(0xFF475569)),
+              Icon(
+                Icons.check_circle_outline_rounded,
+                size: 16,
+                color: Color(0xFF475569),
+              ),
               SizedBox(width: 6),
               Text(
                 'Xác nhận mật khẩu mới',
@@ -708,15 +777,28 @@ class _ManHinhMatKhauPinState extends State<ManHinhMatKhauPin> {
       child: TextField(
         controller: controller,
         obscureText: obscure,
-        style: const TextStyle(fontSize: 14, color: _textDark, fontWeight: FontWeight.w600),
+        style: const TextStyle(
+          fontSize: 14,
+          color: _textDark,
+          fontWeight: FontWeight.w600,
+        ),
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8), fontWeight: FontWeight.normal),
+          hintStyle: const TextStyle(
+            fontSize: 13,
+            color: Color(0xFF94A3B8),
+            fontWeight: FontWeight.normal,
+          ),
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 14,
+          ),
           suffixIcon: IconButton(
             icon: Icon(
-              obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+              obscure
+                  ? Icons.visibility_off_outlined
+                  : Icons.visibility_outlined,
               size: 20,
               color: const Color(0xFF64748B),
             ),
@@ -750,9 +832,15 @@ class _ManHinhMatKhauPinState extends State<ManHinhMatKhauPin> {
           const SizedBox(height: 10),
           _buildChecklistItem('Tối thiểu 8 ký tự an toàn', _reqLength),
           const SizedBox(height: 8),
-          _buildChecklistItem('Gồm chữ hoa, chữ thường & số', _reqUpperLowerNumber),
+          _buildChecklistItem(
+            'Gồm chữ hoa, chữ thường & số',
+            _reqUpperLowerNumber,
+          ),
           const SizedBox(height: 8),
-          _buildChecklistItem('Có ít nhất 1 ký tự đặc biệt (@, #, !)', _reqSpecial),
+          _buildChecklistItem(
+            'Có ít nhất 1 ký tự đặc biệt (@, #, !)',
+            _reqSpecial,
+          ),
           const SizedBox(height: 8),
           _buildChecklistItem('Khớp chính xác với mật khẩu mới', _reqMatch),
         ],
@@ -767,7 +855,9 @@ class _ManHinhMatKhauPinState extends State<ManHinhMatKhauPin> {
           width: 20,
           height: 20,
           decoration: BoxDecoration(
-            color: isSatisfied ? const Color(0xFF09638E) : const Color(0xFFE2E8F0),
+            color: isSatisfied
+                ? const Color(0xFF09638E)
+                : const Color(0xFFE2E8F0),
             shape: BoxShape.circle,
           ),
           child: Icon(
@@ -783,7 +873,9 @@ class _ManHinhMatKhauPinState extends State<ManHinhMatKhauPin> {
             style: TextStyle(
               fontSize: 12.5,
               fontWeight: isSatisfied ? FontWeight.w600 : FontWeight.w500,
-              color: isSatisfied ? const Color(0xFF0F172A) : const Color(0xFF64748B),
+              color: isSatisfied
+                  ? const Color(0xFF0F172A)
+                  : const Color(0xFF64748B),
             ),
           ),
         ),
@@ -810,7 +902,10 @@ class _ManHinhMatKhauPinState extends State<ManHinhMatKhauPin> {
             ? const SizedBox(
                 width: 22,
                 height: 22,
-                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2,
+                ),
               )
             : Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -865,7 +960,9 @@ class _ManHinhMatKhauPinState extends State<ManHinhMatKhauPin> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        border: const Border(top: BorderSide(color: Color(0xFFE2E8F0), width: 0.8)),
+        border: const Border(
+          top: BorderSide(color: Color(0xFFE2E8F0), width: 0.8),
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -884,8 +981,14 @@ class _ManHinhMatKhauPinState extends State<ManHinhMatKhauPin> {
         backgroundColor: Colors.white,
         selectedItemColor: _primary,
         unselectedItemColor: const Color(0xFF94A3B8),
-        selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
-        unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 11),
+        selectedLabelStyle: const TextStyle(
+          fontWeight: FontWeight.bold,
+          fontSize: 11,
+        ),
+        unselectedLabelStyle: const TextStyle(
+          fontWeight: FontWeight.w500,
+          fontSize: 11,
+        ),
         elevation: 0,
         items: const [
           BottomNavigationBarItem(

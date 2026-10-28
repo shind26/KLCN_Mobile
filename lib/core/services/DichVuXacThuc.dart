@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 
 import 'package:bcrypt/bcrypt.dart';
 import 'package:flutter/foundation.dart';
@@ -15,7 +15,10 @@ class AuthService {
       ValueNotifier<UserModel?>(null);
 
   /// Kiểm tra mật khẩu (hỗ trợ cả chuẩn BCrypt $2a$, $2b$, $2y$ lẫn mật khẩu thường)
-  static bool verifyPassword(String plainPassword, String storedHashOrPassword) {
+  static bool verifyPassword(
+    String plainPassword,
+    String storedHashOrPassword,
+  ) {
     if (storedHashOrPassword.isEmpty) return false;
 
     // Nếu mật khẩu trong DB được mã hóa bằng BCrypt ($2a$, $2b$, $2y$)
@@ -68,7 +71,9 @@ class AuthService {
         // Nếu không tick 'Ghi nhớ đăng nhập', xóa session cũ để người dùng vào với tư cách Khách vãng lai
         await prefs.remove(_keyCurrentUser);
         currentUserNotifier.value = null;
-        debugPrint('>>> [AuthService.init] rememberMe = false -> Chế độ Khách vãng lai (Chưa đăng nhập)');
+        debugPrint(
+          '>>> [AuthService.init] rememberMe = false -> Chế độ Khách vãng lai (Chưa đăng nhập)',
+        );
         return;
       }
       final userJsonStr = prefs.getString(_keyCurrentUser);
@@ -87,8 +92,11 @@ class AuthService {
               .eq('ma_tai_khoan', localUser.maTaiKhoan)
               .maybeSingle();
           if (res != null) {
-            final latestUser = UserModel.fromJson(Map<String, dynamic>.from(res));
-            final dbStatus = res['trang_thai']?.toString() ?? latestUser.trangThai;
+            final latestUser = UserModel.fromJson(
+              Map<String, dynamic>.from(res),
+            );
+            final dbStatus =
+                res['trang_thai']?.toString() ?? latestUser.trangThai;
             if (dbStatus.toLowerCase() == 'tamkhoa' || !latestUser.isActive) {
               debugPrint(
                 '>>> [AuthService.init] Tài khoản ${latestUser.maTaiKhoan} có trạng thái $dbStatus trên Supabase -> Tự động đăng xuất!',
@@ -162,7 +170,8 @@ class AuthService {
       if (dbStatus.toLowerCase() == 'tamkhoa' || !user.isActive) {
         return (
           success: false,
-          error: 'Tài khoản của bạn đã bị TẠM KHÓA do hóa đơn quá hạn từ 10 ngày trở lên. Vui lòng liên hệ Ban Quản Lý (0328.004.663) để được hỗ trợ mở lại!',
+          error:
+              'Tài khoản của bạn đã bị TẠM KHÓA do hóa đơn quá hạn từ 10 ngày trở lên. Vui lòng liên hệ Ban Quản Lý (0328.004.663) để được hỗ trợ mở lại!',
           user: null,
         );
       }
@@ -211,7 +220,8 @@ class AuthService {
         if (dbStatus.toLowerCase() == 'tamkhoa' || !user.isActive) {
           return (
             success: false,
-            error: 'Tài khoản của bạn đã bị TẠM KHÓA do hóa đơn quá hạn từ 10 ngày trở lên. Vui lòng liên hệ Ban Quản Lý (0328.004.663) để được hỗ trợ mở lại!',
+            error:
+                'Tài khoản của bạn đã bị TẠM KHÓA do hóa đơn quá hạn từ 10 ngày trở lên. Vui lòng liên hệ Ban Quản Lý (0328.004.663) để được hỗ trợ mở lại!',
             user: null,
           );
         }
@@ -274,7 +284,9 @@ class AuthService {
       await prefs.remove(_keySavedUsername);
       await prefs.setBool(_keyRememberMe, false);
       currentUserNotifier.value = null;
-      debugPrint('>>> [AuthService.logout] Đã đăng xuất và xóa toàn bộ session lưu');
+      debugPrint(
+        '>>> [AuthService.logout] Đã đăng xuất và xóa toàn bộ session lưu',
+      );
     } catch (e) {
       debugPrint('Lỗi khi đăng xuất: $e');
       currentUserNotifier.value = null;

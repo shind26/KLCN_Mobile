@@ -127,7 +127,7 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
     try {
       await _fetchRoomsInfo();
       final client = Supabase.instance.client;
-      
+
       // 1. Tìm các mã khách theo số điện thoại hoặc tên
       final khachRes = await client
           .from('khach_thue')
@@ -150,7 +150,9 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
         response = await client
             .from('giu_cho')
             .select()
-            .or('ma_giu_cho.ilike.%$cleanQuery%,ma_khach.in.(${maKhachList.join(",")})')
+            .or(
+              'ma_giu_cho.ilike.%$cleanQuery%,ma_khach.in.(${maKhachList.join(",")})',
+            )
             .order('thoi_gian_giu_cho', ascending: false);
       } else {
         response = await client
@@ -173,7 +175,8 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
               .inFilter('ma_khach', missingKhach.toList());
           for (final k in (extraKhach as List)) {
             final mk = k['ma_khach']?.toString() ?? '';
-            if (mk.isNotEmpty) khachMap[mk] = Map<String, dynamic>.from(k as Map);
+            if (mk.isNotEmpty)
+              khachMap[mk] = Map<String, dynamic>.from(k as Map);
           }
         } catch (_) {}
       }
@@ -194,7 +197,9 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
           'ma_phong': gc['ma_phong'],
           'ten_khach_hang': kh?['ho_ten_khach'] ?? 'Khách thuê',
           'so_dien_thoai': kh?['so_dt'] ?? '',
-          'ngay_hen': gc['ngay_du_kien_o'] ?? (gc['thoi_gian_giu_cho']?.toString().substring(0, 10) ?? ''),
+          'ngay_hen':
+              gc['ngay_du_kien_o'] ??
+              (gc['thoi_gian_giu_cho']?.toString().substring(0, 10) ?? ''),
           'khung_gio': gc['ghi_chu'] ?? 'Khung giờ thỏa thuận',
           'so_nguoi': gc['so_nguoi_o'] ?? 1,
           'ghi_chu': gc['ghi_chu'] ?? '',
@@ -222,28 +227,42 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
     }
   }
 
-
-
   // Hủy lịch hẹn
   Future<void> _cancelBooking(String maLichHen) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Xác nhận hủy lịch hẹn', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-        content: const Text('Bạn có chắc chắn muốn hủy lịch hẹn xem phòng này không?'),
+        title: const Text(
+          'Xác nhận hủy lịch hẹn',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        ),
+        content: const Text(
+          'Bạn có chắc chắn muốn hủy lịch hẹn xem phòng này không?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Không', style: TextStyle(color: Color(0xFF64748B))),
+            child: const Text(
+              'Không',
+              style: TextStyle(color: Color(0xFF64748B)),
+            ),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFDC2626),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
-            child: const Text('Hủy lịch', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            child: const Text(
+              'Hủy lịch',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ],
       ),
@@ -404,12 +423,24 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
                   textInputAction: TextInputAction.search,
                   onSubmitted: (val) => _searchBookings(val),
                   decoration: InputDecoration(
-                    hintText: 'Nhập số điện thoại hoặc mã phiếu (VD: 0912... hoặc GC...)',
-                    hintStyle: const TextStyle(fontSize: 12.5, color: Color(0xFF94A3B8)),
-                    prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF09638E), size: 20),
+                    hintText:
+                        'Nhập số điện thoại hoặc mã phiếu (VD: 0912... hoặc GC...)',
+                    hintStyle: const TextStyle(
+                      fontSize: 12.5,
+                      color: Color(0xFF94A3B8),
+                    ),
+                    prefixIcon: const Icon(
+                      Icons.search_rounded,
+                      color: Color(0xFF09638E),
+                      size: 20,
+                    ),
                     suffixIcon: _searchController.text.isNotEmpty
                         ? IconButton(
-                            icon: const Icon(Icons.cancel_rounded, size: 18, color: Color(0xFF94A3B8)),
+                            icon: const Icon(
+                              Icons.cancel_rounded,
+                              size: 18,
+                              color: Color(0xFF94A3B8),
+                            ),
                             onPressed: () {
                               _searchController.clear();
                               _fetchAllRecentBookings();
@@ -417,7 +448,10 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
                           )
                         : null,
                     border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
                   ),
                 ),
               ),
@@ -428,23 +462,24 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
               child: _isLoading
                   ? const LoadingMeoMeo(
                       message: 'Đang tải lịch hẹn...',
-                      subMessage: 'Mèo con đang tìm danh sách cuộc hẹn của bạn~ 🐾',
+                      subMessage:
+                          'Mèo con đang tìm danh sách cuộc hẹn của bạn~ 🐾',
                     )
                   : _bookings.isEmpty
-                      ? _buildEmptyState()
-                      : RefreshIndicator(
-                          onRefresh: () => _searchBookings(_searchController.text),
-                          color: const Color(0xFF09638E),
-                          child: ListView.builder(
-                            physics: const BouncingScrollPhysics(),
-                            padding: const EdgeInsets.all(14),
-                            itemCount: _bookings.length,
-                            itemBuilder: (context, index) {
-                              final booking = _bookings[index];
-                              return _buildBookingCard(booking);
-                            },
-                          ),
-                        ),
+                  ? _buildEmptyState()
+                  : RefreshIndicator(
+                      onRefresh: () => _searchBookings(_searchController.text),
+                      color: const Color(0xFF09638E),
+                      child: ListView.builder(
+                        physics: const BouncingScrollPhysics(),
+                        padding: const EdgeInsets.all(14),
+                        itemCount: _bookings.length,
+                        itemBuilder: (context, index) {
+                          final booking = _bookings[index];
+                          return _buildBookingCard(booking);
+                        },
+                      ),
+                    ),
             ),
           ],
         ),
@@ -473,7 +508,9 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              _hasSearched ? 'Không tìm thấy lịch hẹn nào' : 'Chưa có lịch hẹn xem phòng nào',
+              _hasSearched
+                  ? 'Không tìm thấy lịch hẹn nào'
+                  : 'Chưa có lịch hẹn xem phòng nào',
               style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
@@ -512,7 +549,8 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
     final room = _roomsMap[maPhong];
     final roomName = room?.tenHienThi ?? 'Phòng $maPhong';
     final roomPrice = room != null ? _formatCurrency(room.giaThue) : '';
-    final depositAmount = (booking['so_tien_the_chan'] as num?) ??
+    final depositAmount =
+        (booking['so_tien_the_chan'] as num?) ??
         (room != null ? (room.giaThue * 0.1).round() : 300000);
     final depositStr = _formatCurrency(depositAmount);
 
@@ -545,7 +583,11 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
                 Expanded(
                   child: Row(
                     children: [
-                      const Icon(Icons.confirmation_number_outlined, size: 15, color: Color(0xFF09638E)),
+                      const Icon(
+                        Icons.confirmation_number_outlined,
+                        size: 15,
+                        color: Color(0xFF09638E),
+                      ),
                       const SizedBox(width: 5),
                       Flexible(
                         child: Text(
@@ -572,16 +614,27 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
                     children: [
                       if (booking['da_coc_the_chan'] == true) ...[
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 7,
+                            vertical: 3,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0xFFDCFCE7),
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: const Color(0xFF16A34A).withValues(alpha: 0.3)),
+                            border: Border.all(
+                              color: const Color(
+                                0xFF16A34A,
+                              ).withValues(alpha: 0.3),
+                            ),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: const [
-                              Icon(Icons.shield_rounded, size: 11, color: Color(0xFF16A34A)),
+                              Icon(
+                                Icons.shield_rounded,
+                                size: 11,
+                                color: Color(0xFF16A34A),
+                              ),
                               SizedBox(width: 3),
                               Text(
                                 'Đã cọc thế chân',
@@ -596,11 +649,16 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
                         ),
                       ],
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 9,
+                          vertical: 3.5,
+                        ),
                         decoration: BoxDecoration(
                           color: statusBgColor,
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: statusColor.withValues(alpha: 0.3)),
+                          border: Border.all(
+                            color: statusColor.withValues(alpha: 0.3),
+                          ),
                         ),
                         child: Text(
                           trangThai,
@@ -639,14 +697,20 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
                             width: 74,
                             height: 68,
                             color: const Color(0xFFE2E8F0),
-                            child: const Icon(Icons.meeting_room_rounded, color: Color(0xFF94A3B8)),
+                            child: const Icon(
+                              Icons.meeting_room_rounded,
+                              color: Color(0xFF94A3B8),
+                            ),
                           ),
                         )
                       : Container(
                           width: 74,
                           height: 68,
                           color: const Color(0xFFE2E8F0),
-                          child: const Icon(Icons.meeting_room_rounded, color: Color(0xFF94A3B8)),
+                          child: const Icon(
+                            Icons.meeting_room_rounded,
+                            color: Color(0xFF94A3B8),
+                          ),
                         ),
                 ),
                 const SizedBox(width: 12),
@@ -680,12 +744,20 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
                       const SizedBox(height: 4),
                       Row(
                         children: [
-                          const Icon(Icons.calendar_today_rounded, size: 12, color: Color(0xFF64748B)),
+                          const Icon(
+                            Icons.calendar_today_rounded,
+                            size: 12,
+                            color: Color(0xFF64748B),
+                          ),
                           const SizedBox(width: 4),
                           Expanded(
                             child: Text(
                               '${_formatDate(ngayHen)} ($khungGio)',
-                              style: const TextStyle(fontSize: 11.5, color: Color(0xFF475569), fontWeight: FontWeight.w600),
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                color: Color(0xFF475569),
+                                fontWeight: FontWeight.w600,
+                              ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -695,12 +767,19 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
                       const SizedBox(height: 2),
                       Row(
                         children: [
-                          const Icon(Icons.person_outline, size: 12, color: Color(0xFF64748B)),
+                          const Icon(
+                            Icons.person_outline,
+                            size: 12,
+                            color: Color(0xFF64748B),
+                          ),
                           const SizedBox(width: 4),
                           Expanded(
                             child: Text(
                               '$tenKhach • $sdt ($soNguoi người)',
-                              style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF64748B),
+                              ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -711,7 +790,11 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
                         const SizedBox(height: 3),
                         Text(
                           'Ghi chú: $ghiChu',
-                          style: const TextStyle(fontSize: 10.5, fontStyle: FontStyle.italic, color: Color(0xFF64748B)),
+                          style: const TextStyle(
+                            fontSize: 10.5,
+                            fontStyle: FontStyle.italic,
+                            color: Color(0xFF64748B),
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -731,16 +814,26 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
               decoration: BoxDecoration(
                 color: const Color(0xFFFEF3C7),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.35)),
+                border: Border.all(
+                  color: const Color(0xFFF59E0B).withValues(alpha: 0.35),
+                ),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.hourglass_top_rounded, size: 14, color: Color(0xFFD97706)),
+                  const Icon(
+                    Icons.hourglass_top_rounded,
+                    size: 14,
+                    color: Color(0xFFD97706),
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'Đã thanh toán thế chân $depositStr (10% giá thuê) thành công. Đang ở trạng thái Chờ duyệt, Chủ trọ sẽ liên hệ và phê duyệt lịch hẹn.',
-                      style: const TextStyle(fontSize: 11.5, color: Color(0xFFB45309), fontWeight: FontWeight.w600),
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        color: Color(0xFFB45309),
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ],
@@ -753,16 +846,26 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
               decoration: BoxDecoration(
                 color: const Color(0xFFDCFCE7),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFF22C55E).withValues(alpha: 0.35)),
+                border: Border.all(
+                  color: const Color(0xFF22C55E).withValues(alpha: 0.35),
+                ),
               ),
               child: Row(
                 children: const [
-                  Icon(Icons.check_circle_rounded, size: 14, color: Color(0xFF16A34A)),
+                  Icon(
+                    Icons.check_circle_rounded,
+                    size: 14,
+                    color: Color(0xFF16A34A),
+                  ),
                   SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'Chủ trọ đã duyệt lịch hẹn! Quy trình đặt lịch đã hoàn tất thành công.',
-                      style: TextStyle(fontSize: 11.5, color: Color(0xFF15803D), fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: Color(0xFF15803D),
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ],
@@ -789,33 +892,72 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
                       onPressed: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (_) => RoomDetailScreen(room: room)),
+                          MaterialPageRoute(
+                            builder: (_) => RoomDetailScreen(room: room),
+                          ),
                         );
                       },
-                      icon: const Icon(Icons.info_outline_rounded, size: 14, color: Color(0xFF09638E)),
-                      label: const Text('Xem phòng', style: TextStyle(fontSize: 12, color: Color(0xFF09638E), fontWeight: FontWeight.w600)),
+                      icon: const Icon(
+                        Icons.info_outline_rounded,
+                        size: 14,
+                        color: Color(0xFF09638E),
+                      ),
+                      label: const Text(
+                        'Xem phòng',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF09638E),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   if (trangThai == 'Chờ thanh toán thế chân') ...[
                     ElevatedButton.icon(
                       onPressed: () => _openPaymentScreen(booking),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF09638E),
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                         elevation: 0,
                       ),
-                      icon: const Icon(Icons.payment_rounded, size: 14, color: Colors.white),
+                      icon: const Icon(
+                        Icons.payment_rounded,
+                        size: 14,
+                        color: Colors.white,
+                      ),
                       label: const Text(
                         'Thanh toán thế chân',
-                        style: TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ],
-                  if (trangThai == 'Chờ xác nhận' || trangThai == 'Chờ thanh toán thế chân' || trangThai == 'Chờ duyệt') ...[
+                  if (trangThai == 'Chờ xác nhận' ||
+                      trangThai == 'Chờ thanh toán thế chân' ||
+                      trangThai == 'Chờ duyệt') ...[
                     TextButton.icon(
                       onPressed: () => _cancelBooking(maLichHen),
-                      icon: const Icon(Icons.close_rounded, size: 14, color: Color(0xFFDC2626)),
-                      label: const Text('Hủy lịch', style: TextStyle(fontSize: 12, color: Color(0xFFDC2626), fontWeight: FontWeight.w600)),
+                      icon: const Icon(
+                        Icons.close_rounded,
+                        size: 14,
+                        color: Color(0xFFDC2626),
+                      ),
+                      label: const Text(
+                        'Hủy lịch',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFFDC2626),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ],
                 ],
@@ -868,11 +1010,16 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
       if (holdRow != null &&
           holdRow['trang_thai'] != 'HetHan' &&
           holdRow['trang_thai'] != 'DaHuy') {
-        giuCho = GiuChoModel.fromJson(Map<String, dynamic>.from(holdRow as Map));
+        giuCho = GiuChoModel.fromJson(
+          Map<String, dynamic>.from(holdRow as Map),
+        );
       } else {
         final rawDate = booking['ngay_hen']?.toString() ?? '';
-        final parsedDate = DateTime.tryParse(rawDate) ?? DateTime.now().add(const Duration(days: 2));
-        final guestCount = int.tryParse(booking['so_nguoi']?.toString() ?? '1') ?? 1;
+        final parsedDate =
+            DateTime.tryParse(rawDate) ??
+            DateTime.now().add(const Duration(days: 2));
+        final guestCount =
+            int.tryParse(booking['so_nguoi']?.toString() ?? '1') ?? 1;
 
         giuCho = await DepositService.tienHanhDatCoc(
           room: room,
@@ -896,7 +1043,8 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
             appointmentCode: booking['ma_lich_hen']?.toString(),
             appointmentDate: booking['ngay_hen']?.toString(),
             timeSlot: booking['khung_gio']?.toString(),
-            guestCount: int.tryParse(booking['so_nguoi']?.toString() ?? '1') ?? 1,
+            guestCount:
+                int.tryParse(booking['so_nguoi']?.toString() ?? '1') ?? 1,
             note: booking['ghi_chu']?.toString(),
           ),
         ),

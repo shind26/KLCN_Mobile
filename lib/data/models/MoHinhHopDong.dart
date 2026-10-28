@@ -43,8 +43,10 @@ class HopDongModel {
       ngayBd: json['ngay_bd']?.toString() ?? '',
       ngayKt: json['ngay_kt']?.toString() ?? '',
       tienDatCoc: num.tryParse(json['tien_dat_coc']?.toString() ?? '') ?? 0,
-      giaThueThaoThuan: num.tryParse(json['gia_thue_thoa_thuan']?.toString() ?? '') ?? 0,
-      chuKyThuTien: num.tryParse(json['chu_ky_thu_tien']?.toString() ?? '')?.toInt() ?? 1,
+      giaThueThaoThuan:
+          num.tryParse(json['gia_thue_thoa_thuan']?.toString() ?? '') ?? 0,
+      chuKyThuTien:
+          num.tryParse(json['chu_ky_thu_tien']?.toString() ?? '')?.toInt() ?? 1,
       trangThai: json['trang_thai']?.toString() ?? '',
       maPhong: json['ma_phong']?.toString() ?? '',
       maKhachDaiDien: json['ma_khach_dai_dien']?.toString() ?? '',
@@ -221,7 +223,8 @@ class PhuLucHopDongModel {
       ngayLap: json['ngay_lap']?.toString() ?? '',
       noiDungDieuChinh: json['noi_dung_dieu_chinh']?.toString() ?? '',
       giaTheMoi: num.tryParse(json['gia_thue_moi']?.toString() ?? '') ?? 0,
-      chenhLechTienCoc: num.tryParse(json['chenh_lech_tien_coc']?.toString() ?? '') ?? 0,
+      chenhLechTienCoc:
+          num.tryParse(json['chenh_lech_tien_coc']?.toString() ?? '') ?? 0,
       ngayGiaHanDen: json['ngay_gia_han_den']?.toString() ?? '',
       maHopDong: json['ma_hop_dong']?.toString() ?? '',
       maPhongMoi: json['ma_phong_moi']?.toString(),
@@ -277,7 +280,8 @@ class HoaDonModel {
       hanDongTien: json['han_dong_tien']?.toString() ?? '',
       tienPhong: num.tryParse(json['tien_phong']?.toString() ?? '') ?? 0,
       tienDienNuoc: num.tryParse(json['tien_dien_nuoc']?.toString() ?? '') ?? 0,
-      tienDichVuKhac: num.tryParse(json['tien_dich_vu_khac']?.toString() ?? '') ?? 0,
+      tienDichVuKhac:
+          num.tryParse(json['tien_dich_vu_khac']?.toString() ?? '') ?? 0,
       noCu: num.tryParse(json['no_cu']?.toString() ?? '') ?? 0,
       tongTien: num.tryParse(json['tong_tien']?.toString() ?? '') ?? 0,
       trangThai: json['trang_thai']?.toString() ?? '',
@@ -355,8 +359,12 @@ class HoaDonModel {
   }
 
   String get noiDungChuyenKhoan {
-    final cleanHd = maHopDong.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '').toUpperCase();
-    final cleanBill = maHoaDon.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '').toUpperCase();
+    final cleanHd = maHopDong
+        .replaceAll(RegExp(r'[^a-zA-Z0-9]'), '')
+        .toUpperCase();
+    final cleanBill = maHoaDon
+        .replaceAll(RegExp(r'[^a-zA-Z0-9]'), '')
+        .toUpperCase();
     final billCode = cleanBill.isNotEmpty ? cleanBill : cleanHd;
     return 'KIEUGIANG $billCode $thangNamShort'.trim();
   }

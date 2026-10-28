@@ -9,11 +9,11 @@ class LienHeHelper {
 
   /// Mở ứng dụng Zalo thật để nhắn tin với chủ trọ / ban quản lý
   /// Sử dụng đường dẫn chính thức https://zalo.me/so_dien_thoai
-  static Future<void> moZaloChat(
-    BuildContext context, {
-    String? phone,
-  }) async {
-    final targetPhone = (phone ?? defaultHotline).replaceAll(RegExp(r'[^0-9]'), '');
+  static Future<void> moZaloChat(BuildContext context, {String? phone}) async {
+    final targetPhone = (phone ?? defaultHotline).replaceAll(
+      RegExp(r'[^0-9]'),
+      '',
+    );
     final zaloUri = Uri.parse('https://zalo.me/$targetPhone');
 
     try {
@@ -26,7 +26,8 @@ class LienHeHelper {
         ThongBaoHelper.hienThongBao(
           context,
           tieuDe: 'Thông báo Zalo',
-          noiDung: 'Không thể mở ứng dụng Zalo. Bạn có thể liên hệ trực tiếp qua số: $targetPhone',
+          noiDung:
+              'Không thể mở ứng dụng Zalo. Bạn có thể liên hệ trực tiếp qua số: $targetPhone',
           type: ThongBaoType.canhBao,
         );
       }
@@ -43,11 +44,11 @@ class LienHeHelper {
   }
 
   /// Thực hiện cuộc gọi điện thoại trực tiếp đến Hotline
-  static Future<void> goiDien(
-    BuildContext context, {
-    String? phone,
-  }) async {
-    final targetPhone = (phone ?? defaultHotline).replaceAll(RegExp(r'[^0-9]'), '');
+  static Future<void> goiDien(BuildContext context, {String? phone}) async {
+    final targetPhone = (phone ?? defaultHotline).replaceAll(
+      RegExp(r'[^0-9]'),
+      '',
+    );
     final telUri = Uri.parse('tel:$targetPhone');
 
     try {
@@ -95,91 +96,97 @@ class LienHeHelper {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 14),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF0F172A),
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Hotline / Zalo: $display',
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: Color(0xFF64748B),
-                ),
-              ),
-              const SizedBox(height: 16),
-              ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(10),
+                Container(
+                  width: 40,
+                  height: 4,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFEBF5FA),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.chat_bubble_rounded,
-                    color: Color(0xFF09638E),
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-                title: const Text(
-                  'Nhắn tin qua Zalo',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                ),
-                subtitle: const Text(
-                  'Mở ứng dụng Zalo thật để trò chuyện trực tiếp',
-                  style: TextStyle(fontSize: 12),
-                ),
-                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  moZaloChat(context, phone: phone);
-                },
-              ),
-              const Divider(height: 12),
-              ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF0FDF4),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.phone_in_talk_rounded,
-                    color: Color(0xFF16A34A),
+                const SizedBox(height: 14),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF0F172A),
                   ),
                 ),
-                title: const Text(
-                  'Gọi điện thoại Hotline',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                const SizedBox(height: 4),
+                Text(
+                  'Hotline / Zalo: $display',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF64748B),
+                  ),
                 ),
-                subtitle: Text(
-                  'Gọi tới số $display (Hỗ trợ 24/7)',
-                  style: const TextStyle(fontSize: 12),
+                const SizedBox(height: 16),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEBF5FA),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.chat_bubble_rounded,
+                      color: Color(0xFF09638E),
+                    ),
+                  ),
+                  title: const Text(
+                    'Nhắn tin qua Zalo',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                  subtitle: const Text(
+                    'Mở ứng dụng Zalo thật để trò chuyện trực tiếp',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                  trailing: const Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    size: 14,
+                  ),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    moZaloChat(context, phone: phone);
+                  },
                 ),
-                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  goiDien(context, phone: phone);
-                },
-              ),
-              const SizedBox(height: 8),
-            ],
+                const Divider(height: 12),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF0FDF4),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.phone_in_talk_rounded,
+                      color: Color(0xFF16A34A),
+                    ),
+                  ),
+                  title: const Text(
+                    'Gọi điện thoại Hotline',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                  subtitle: Text(
+                    'Gọi tới số $display (Hỗ trợ 24/7)',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                  trailing: const Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    size: 14,
+                  ),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    goiDien(context, phone: phone);
+                  },
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
           ),
         ),
       ),
-    ),
-  );
+    );
   }
 }

@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -494,10 +494,13 @@ class _PaymentScreenState extends State<PaymentScreen>
             .eq('ma_tai_khoan', accountId);
         final cur = AuthService.currentUser;
         if (cur != null && cur.maTaiKhoan == accountId) {
-          AuthService.currentUserNotifier.value =
-              cur.copyWith(trangThai: 'TamKhoa');
+          AuthService.currentUserNotifier.value = cur.copyWith(
+            trangThai: 'TamKhoa',
+          );
         }
-        debugPrint('[AUTO_LOCK] ManHinhThanhToan: Đã cập nhật tai_khoan $accountId sang TamKhoa');
+        debugPrint(
+          '[AUTO_LOCK] ManHinhThanhToan: Đã cập nhật tai_khoan $accountId sang TamKhoa',
+        );
       }
     } catch (e) {
       debugPrint('[AUTO_LOCK] ManHinhThanhToan lỗi khóa tài khoản: $e');
@@ -564,8 +567,10 @@ Nội dung: ${widget.hoaDon.noiDungChuyenKhoan}''';
     final maHoaDon = widget.hoaDon.maHoaDon.trim();
     final timestamp = DateTime.now().millisecondsSinceEpoch;
     // ma_phieu_thu là varchar(10) trong Supabase: 'PT' + 8 số cuối của timestamp
-    final maPhieuThu = 'PT${(timestamp % 100000000).toString().padLeft(8, '0')}';
-    final maTraCuu = 'FT26${(timestamp % 1000000000000).toString().padLeft(12, '0')}';
+    final maPhieuThu =
+        'PT${(timestamp % 100000000).toString().padLeft(8, '0')}';
+    final maTraCuu =
+        'FT26${(timestamp % 1000000000000).toString().padLeft(12, '0')}';
     final String hinhThucThu = (reason != null && reason.contains('VNPAY'))
         ? 'Cổng VNPAY'
         : 'Chuyển khoản MB Bank';
@@ -604,7 +609,9 @@ Nội dung: ${widget.hoaDon.noiDungChuyenKhoan}''';
           'ngay_thu': DateTime.now().toIso8601String(),
           'trang_thai': 'Đã thanh toán',
         });
-        debugPrint('[PHIEU_THU] Đã ghi nhận phiếu thu thành công: $maPhieuThu cho hóa đơn $maHoaDon');
+        debugPrint(
+          '[PHIEU_THU] Đã ghi nhận phiếu thu thành công: $maPhieuThu cho hóa đơn $maHoaDon',
+        );
       } catch (ePt) {
         debugPrint('[PHIEU_THU] Lỗi lưu phiếu thu: $ePt');
       }
@@ -617,9 +624,12 @@ Nội dung: ${widget.hoaDon.noiDungChuyenKhoan}''';
               .from('tai_khoan')
               .update({'trang_thai': 'HoatDong'})
               .eq('ma_tai_khoan', curUser.maTaiKhoan);
-          AuthService.currentUserNotifier.value =
-              curUser.copyWith(trangThai: 'HoatDong');
-          debugPrint('[AUTO_UNLOCK] Đã mở lại HoatDong cho tài khoản ${curUser.maTaiKhoan}');
+          AuthService.currentUserNotifier.value = curUser.copyWith(
+            trangThai: 'HoatDong',
+          );
+          debugPrint(
+            '[AUTO_UNLOCK] Đã mở lại HoatDong cho tài khoản ${curUser.maTaiKhoan}',
+          );
         } catch (eTk) {
           debugPrint('[AUTO_UNLOCK] Lỗi mở lại tài khoản: $eTk');
         }
@@ -1156,8 +1166,12 @@ Nội dung: ${widget.hoaDon.noiDungChuyenKhoan}''';
                       children: [
                         Text(
                           _isPayingRemainingDebt
-                              ? '⚠️ KHOẢN NỢ ĐỢT 2 QUÁ HẠN ' + _soNgayQuaHan.toString() + ' NGÀY'
-                              : '⚠️ HÓA ĐƠN ĐANG QUÁ HẠN ' + _soNgayQuaHan.toString() + ' NGÀY',
+                              ? '⚠️ KHOẢN NỢ ĐỢT 2 QUÁ HẠN ' +
+                                    _soNgayQuaHan.toString() +
+                                    ' NGÀY'
+                              : '⚠️ HÓA ĐƠN ĐANG QUÁ HẠN ' +
+                                    _soNgayQuaHan.toString() +
+                                    ' NGÀY',
                           textAlign: TextAlign.center,
                           style: const TextStyle(
                             fontSize: 11,
@@ -1314,7 +1328,9 @@ Nội dung: ${widget.hoaDon.noiDungChuyenKhoan}''';
           color: isOverdue ? const Color(0xFFFEF2F2) : const Color(0xFFFFFBEB),
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
-            color: isOverdue ? const Color(0xFFFECACA) : const Color(0xFFFDE68A),
+            color: isOverdue
+                ? const Color(0xFFFECACA)
+                : const Color(0xFFFDE68A),
           ),
           boxShadow: [
             BoxShadow(
@@ -1332,18 +1348,22 @@ Nội dung: ${widget.hoaDon.noiDungChuyenKhoan}''';
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: isOverdue ? const Color(0xFFFEE2E2) : const Color(0xFFFEF3C7),
+                    color: isOverdue
+                        ? const Color(0xFFFEE2E2)
+                        : const Color(0xFFFEF3C7),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
                     isLocked
                         ? Icons.lock_rounded
                         : (isWarn
-                            ? Icons.warning_amber_rounded
-                            : (isOverdue
-                                ? Icons.error_outline_rounded
-                                : Icons.receipt_long_rounded)),
-                    color: isOverdue ? const Color(0xFFDC2626) : const Color(0xFFD97706),
+                              ? Icons.warning_amber_rounded
+                              : (isOverdue
+                                    ? Icons.error_outline_rounded
+                                    : Icons.receipt_long_rounded)),
+                    color: isOverdue
+                        ? const Color(0xFFDC2626)
+                        : const Color(0xFFD97706),
                     size: 20,
                   ),
                 ),
@@ -1356,12 +1376,14 @@ Nội dung: ${widget.hoaDon.noiDungChuyenKhoan}''';
                         _isPayingRemainingDebt
                             ? 'TRỄ HẠN ĐỢT 2 $_soNgayQuaHan NGÀY'
                             : (isOverdue
-                                ? 'HÓA ĐƠN QUÁ HẠN $_soNgayQuaHan NGÀY'
-                                : 'THANH TOÁN HÓA ĐƠN TIỀN PHÒNG'),
+                                  ? 'HÓA ĐƠN QUÁ HẠN $_soNgayQuaHan NGÀY'
+                                  : 'THANH TOÁN HÓA ĐƠN TIỀN PHÒNG'),
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w800,
-                          color: isOverdue ? const Color(0xFF991B1B) : const Color(0xFF92400E),
+                          color: isOverdue
+                              ? const Color(0xFF991B1B)
+                              : const Color(0xFF92400E),
                           letterSpacing: 0.2,
                         ),
                       ),
@@ -1372,7 +1394,9 @@ Nội dung: ${widget.hoaDon.noiDungChuyenKhoan}''';
                             : 'Hóa đơn đã được thanh toán đợt 1 trước đó',
                         style: TextStyle(
                           fontSize: 11,
-                          color: isOverdue ? const Color(0xFFB91C1C) : const Color(0xFFB45309),
+                          color: isOverdue
+                              ? const Color(0xFFB91C1C)
+                              : const Color(0xFFB45309),
                         ),
                       ),
                     ],
@@ -1384,7 +1408,9 @@ Nội dung: ${widget.hoaDon.noiDungChuyenKhoan}''';
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: isOverdue ? const Color(0xFFDC2626) : const Color(0xFFD97706),
+                    color: isOverdue
+                        ? const Color(0xFFDC2626)
+                        : const Color(0xFFD97706),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
@@ -1405,7 +1431,9 @@ Nội dung: ${widget.hoaDon.noiDungChuyenKhoan}''';
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: isOverdue ? const Color(0xFFFECACA) : const Color(0xFFFDE68A),
+                  color: isOverdue
+                      ? const Color(0xFFFECACA)
+                      : const Color(0xFFFDE68A),
                 ),
               ),
               child: Row(
@@ -1413,9 +1441,13 @@ Nội dung: ${widget.hoaDon.noiDungChuyenKhoan}''';
                   Icon(
                     isLocked
                         ? Icons.lock_rounded
-                        : (isOverdue ? Icons.warning_amber_rounded : Icons.lock_outline_rounded),
+                        : (isOverdue
+                              ? Icons.warning_amber_rounded
+                              : Icons.lock_outline_rounded),
                     size: 16,
-                    color: isOverdue ? const Color(0xFFDC2626) : const Color(0xFFD97706),
+                    color: isOverdue
+                        ? const Color(0xFFDC2626)
+                        : const Color(0xFFD97706),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
@@ -1425,7 +1457,9 @@ Nội dung: ${widget.hoaDon.noiDungChuyenKhoan}''';
                           : 'Hóa đơn đang còn nợ ${FormatUtils.currency(_tongTien.toDouble())}. Quý khách vui lòng chuyển khoản toàn bộ số tiền này để tất toán hóa đơn.',
                       style: TextStyle(
                         fontSize: 11.5,
-                        color: isOverdue ? const Color(0xFF7F1D1D) : const Color(0xFF78350F),
+                        color: isOverdue
+                            ? const Color(0xFF7F1D1D)
+                            : const Color(0xFF78350F),
                         height: 1.35,
                       ),
                     ),

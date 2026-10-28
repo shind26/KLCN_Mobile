@@ -40,8 +40,8 @@ class _ThongTinXe {
     this.loaiXe = 'Xe tay ga',
     String bienSo = '',
     String ghiChu = '',
-  })  : bienSoController = TextEditingController(text: bienSo),
-        ghiChuController = TextEditingController(text: ghiChu);
+  }) : bienSoController = TextEditingController(text: bienSo),
+       ghiChuController = TextEditingController(text: ghiChu);
 
   void dispose() {
     bienSoController.dispose();
@@ -59,8 +59,9 @@ class _ManHinhCapNhatThongTinCaNhanState
   final _cccdController = TextEditingController();
   final _diaChiController = TextEditingController();
   final _nguoiLienHeController = TextEditingController();
-  final _noiCapController =
-      TextEditingController(text: 'Cục Cảnh sát QLHC về TTXH');
+  final _noiCapController = TextEditingController(
+    text: 'Cục Cảnh sát QLHC về TTXH',
+  );
 
   String _gioiTinh = 'Nam';
   DateTime? _ngaySinh;
@@ -250,16 +251,28 @@ class _ManHinhCapNhatThongTinCaNhanState
               style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
             ),
             const SizedBox(height: 12),
-            _buildDialogRow('Họ và tên:', res.hoTen.isNotEmpty ? res.hoTen : 'Chưa nhận diện'),
-            _buildDialogRow('Số CCCD:', res.soCccd.isNotEmpty ? res.soCccd : 'Chưa nhận diện'),
-            if (res.gioiTinh != null) _buildDialogRow('Giới tính:', res.gioiTinh!),
-            if (res.ngaySinh != null) _buildDialogRow('Ngày sinh:', res.ngaySinh!),
+            _buildDialogRow(
+              'Họ và tên:',
+              res.hoTen.isNotEmpty ? res.hoTen : 'Chưa nhận diện',
+            ),
+            _buildDialogRow(
+              'Số CCCD:',
+              res.soCccd.isNotEmpty ? res.soCccd : 'Chưa nhận diện',
+            ),
+            if (res.gioiTinh != null)
+              _buildDialogRow('Giới tính:', res.gioiTinh!),
+            if (res.ngaySinh != null)
+              _buildDialogRow('Ngày sinh:', res.ngaySinh!),
             if (res.diaChiThuongTru != null)
               _buildDialogRow('Thường trú:', res.diaChiThuongTru!),
             const SizedBox(height: 8),
             const Text(
               'Bạn có thể rà soát và chỉnh sửa lại các thông tin nếu cần.',
-              style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: _primary),
+              style: TextStyle(
+                fontSize: 12,
+                fontStyle: FontStyle.italic,
+                color: _primary,
+              ),
             ),
           ],
         ),
@@ -269,7 +282,9 @@ class _ManHinhCapNhatThongTinCaNhanState
             style: ElevatedButton.styleFrom(
               backgroundColor: _primary,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
             child: const Text('Đã hiểu & Tiếp tục'),
           ),
@@ -315,7 +330,9 @@ class _ManHinhCapNhatThongTinCaNhanState
     if (hoTen.isEmpty || cccd.isEmpty || diaChi.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Vui lòng điền đầy đủ Họ tên, Số CCCD và Địa chỉ thường trú!'),
+          content: Text(
+            'Vui lòng điền đầy đủ Họ tên, Số CCCD và Địa chỉ thường trú!',
+          ),
           backgroundColor: Color(0xFFDC2626),
           behavior: SnackBarBehavior.floating,
         ),
@@ -350,16 +367,22 @@ class _ManHinhCapNhatThongTinCaNhanState
         try {
           final path =
               'cccd/${widget.maKhach}_truoc_${DateTime.now().millisecondsSinceEpoch}.jpg';
-          await db.storage.from('contracts').uploadBinary(
+          await db.storage
+              .from('contracts')
+              .uploadBinary(
                 path,
                 _bytesMatTruoc!,
-                fileOptions:
-                    const FileOptions(contentType: 'image/jpeg', upsert: true),
-              ).timeout(const Duration(seconds: 8));
+                fileOptions: const FileOptions(
+                  contentType: 'image/jpeg',
+                  upsert: true,
+                ),
+              )
+              .timeout(const Duration(seconds: 8));
           uploadedUrlMatTruoc = db.storage.from('contracts').getPublicUrl(path);
         } catch (eStorage) {
           debugPrint('Storage upload mặt trước fallback base64: $eStorage');
-          uploadedUrlMatTruoc = 'data:image/jpeg;base64,${base64Encode(_bytesMatTruoc!)}';
+          uploadedUrlMatTruoc =
+              'data:image/jpeg;base64,${base64Encode(_bytesMatTruoc!)}';
         }
       }
 
@@ -367,16 +390,22 @@ class _ManHinhCapNhatThongTinCaNhanState
         try {
           final path =
               'cccd/${widget.maKhach}_sau_${DateTime.now().millisecondsSinceEpoch}.jpg';
-          await db.storage.from('contracts').uploadBinary(
+          await db.storage
+              .from('contracts')
+              .uploadBinary(
                 path,
                 _bytesMatSau!,
-                fileOptions:
-                    const FileOptions(contentType: 'image/jpeg', upsert: true),
-              ).timeout(const Duration(seconds: 8));
+                fileOptions: const FileOptions(
+                  contentType: 'image/jpeg',
+                  upsert: true,
+                ),
+              )
+              .timeout(const Duration(seconds: 8));
           uploadedUrlMatSau = db.storage.from('contracts').getPublicUrl(path);
         } catch (eStorage) {
           debugPrint('Storage upload mặt sau fallback base64: $eStorage');
-          uploadedUrlMatSau = 'data:image/jpeg;base64,${base64Encode(_bytesMatSau!)}';
+          uploadedUrlMatSau =
+              'data:image/jpeg;base64,${base64Encode(_bytesMatSau!)}';
         }
       }
 
@@ -395,8 +424,9 @@ class _ManHinhCapNhatThongTinCaNhanState
         updateKt['ngay_sinh'] = DateFormat('yyyy-MM-dd').format(_ngaySinh!);
       }
       if (_ngayCapCccd != null) {
-        updateKt['ngay_cap_cccd'] =
-            DateFormat('yyyy-MM-dd').format(_ngayCapCccd!);
+        updateKt['ngay_cap_cccd'] = DateFormat(
+          'yyyy-MM-dd',
+        ).format(_ngayCapCccd!);
       }
       if (uploadedUrlMatTruoc != null) {
         updateKt['anh_cccd_mat_truoc'] = uploadedUrlMatTruoc;
@@ -405,12 +435,16 @@ class _ManHinhCapNhatThongTinCaNhanState
         updateKt['anh_cccd_mat_sau'] = uploadedUrlMatSau;
       }
 
-      await db.from('khach_thue').update(updateKt).eq('ma_khach', widget.maKhach);
+      await db
+          .from('khach_thue')
+          .update(updateKt)
+          .eq('ma_khach', widget.maKhach);
 
       // Cập nhật tên trong tài khoản
-      await db.from('tai_khoan').update({
-        'ho_ten': hoTen,
-      }).eq('ma_tai_khoan', widget.user.maTaiKhoan);
+      await db
+          .from('tai_khoan')
+          .update({'ho_ten': hoTen})
+          .eq('ma_tai_khoan', widget.user.maTaiKhoan);
 
       // 3. ĐĂNG KÝ PHƯƠNG TIỆN XE (NẾU CÓ)
       if (_coPhuongTien && _danhSachXe.isNotEmpty) {
@@ -782,8 +816,7 @@ class _ManHinhCapNhatThongTinCaNhanState
                           child: _buildDatePickerField(
                             label: 'Ngày cấp CCCD',
                             currentDate: _ngayCapCccd,
-                            onSelected: (d) =>
-                                setState(() => _ngayCapCccd = d),
+                            onSelected: (d) => setState(() => _ngayCapCccd = d),
                             icon: Icons.event_available_rounded,
                           ),
                         ),
@@ -1010,17 +1043,21 @@ class _ManHinhCapNhatThongTinCaNhanState
             decoration: InputDecoration(
               isDense: true,
               labelText: 'Loại xe',
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 10,
+              ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
             items: loaiXeOptions
-                .map((e) => DropdownMenuItem(
-                      value: e,
-                      child: Text(e, style: const TextStyle(fontSize: 12)),
-                    ))
+                .map(
+                  (e) => DropdownMenuItem(
+                    value: e,
+                    child: Text(e, style: const TextStyle(fontSize: 12)),
+                  ),
+                )
                 .toList(),
             onChanged: (val) {
               if (val != null) setState(() => xe.loaiXe = val);
@@ -1034,8 +1071,10 @@ class _ManHinhCapNhatThongTinCaNhanState
               isDense: true,
               labelText: 'Biển số xe *',
               hintText: 'Ví dụ: 59-X1 234.56',
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 10,
+              ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
@@ -1049,8 +1088,10 @@ class _ManHinhCapNhatThongTinCaNhanState
               isDense: true,
               labelText: 'Hãng / Màu xe (Tùy chọn)',
               hintText: 'Ví dụ: Honda Vision đỏ',
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 10,
+              ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
@@ -1143,12 +1184,17 @@ class _ManHinhCapNhatThongTinCaNhanState
             else if (url != null && url.isNotEmpty)
               url.startsWith('data:image')
                   ? Image.memory(
-                      base64Decode(url.contains(',') ? url.split(',').last : url),
+                      base64Decode(
+                        url.contains(',') ? url.split(',').last : url,
+                      ),
                       fit: BoxFit.cover,
                       width: double.infinity,
                       height: double.infinity,
                       errorBuilder: (_, __, ___) => const Center(
-                        child: Icon(Icons.broken_image_rounded, color: Color(0xFF94A3B8)),
+                        child: Icon(
+                          Icons.broken_image_rounded,
+                          color: Color(0xFF94A3B8),
+                        ),
                       ),
                     )
                   : Image.network(
@@ -1157,7 +1203,10 @@ class _ManHinhCapNhatThongTinCaNhanState
                       width: double.infinity,
                       height: double.infinity,
                       errorBuilder: (_, __, ___) => const Center(
-                        child: Icon(Icons.broken_image_rounded, color: Color(0xFF94A3B8)),
+                        child: Icon(
+                          Icons.broken_image_rounded,
+                          color: Color(0xFF94A3B8),
+                        ),
                       ),
                     )
             else
@@ -1241,7 +1290,10 @@ class _ManHinhCapNhatThongTinCaNhanState
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.photo_library_rounded, color: _primary),
+                leading: const Icon(
+                  Icons.photo_library_rounded,
+                  color: _primary,
+                ),
                 title: const Text('Chọn ảnh từ Thư viện'),
                 onTap: () {
                   Navigator.pop(ctx);
@@ -1334,8 +1386,10 @@ class _ManHinhCapNhatThongTinCaNhanState
             prefixIcon: Icon(icon, size: 18, color: _primary),
             filled: readOnly,
             fillColor: readOnly ? const Color(0xFFF1F5F9) : Colors.white,
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 11,
+            ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
               borderSide: const BorderSide(color: Color(0xFFCBD5E1)),

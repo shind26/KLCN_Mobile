@@ -31,7 +31,9 @@ class UserModel {
       ngayTao: json['ngay_tao']?.toString(),
       trangThai: json['trang_thai']?.toString() ?? 'HoatDong',
       hoTen: json['ho_ten']?.toString(),
-      daDoiMatKhau: json['da_doi_mat_khau'] == null ? true : json['da_doi_mat_khau'] == true,
+      daDoiMatKhau: json['da_doi_mat_khau'] == null
+          ? true
+          : json['da_doi_mat_khau'] == true,
     );
   }
 
@@ -50,9 +52,8 @@ class UserModel {
   }
 
   /// Tên hiển thị: ưu tiên họ tên thật, nếu không có thì dùng tên đăng nhập
-  String get tenHienThi => (hoTen != null && hoTen!.trim().isNotEmpty)
-      ? hoTen!.trim()
-      : tenDangNhap;
+  String get tenHienThi =>
+      (hoTen != null && hoTen!.trim().isNotEmpty) ? hoTen!.trim() : tenDangNhap;
 
   bool get isAdmin => vaiTro.toLowerCase() == 'admin';
   bool get isActive => trangThai.toLowerCase() == 'hoatdong';

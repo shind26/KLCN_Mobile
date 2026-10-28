@@ -30,7 +30,7 @@ void main() {
     });
 
     test('Giá trị tiền thế chân và thời hạn chuẩn', () {
-      expect(DepositService.depositAmount, 100000.0);
+      expect(DepositService.depositAmount, 300000.0);
       expect(DepositService.maxHoldDays, 5);
       expect(DepositService.paymentTimeoutMinutes, 15);
     });

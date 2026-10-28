@@ -30,7 +30,8 @@ class _ManHinhDoiMatKhauLanDauState extends State<ManHinhDoiMatKhauLanDau> {
   }
 
   bool get _hasMinLength => _matKhauMoiController.text.length >= 6;
-  bool get _hasLetter => RegExp(r'[a-zA-Z]').hasMatch(_matKhauMoiController.text);
+  bool get _hasLetter =>
+      RegExp(r'[a-zA-Z]').hasMatch(_matKhauMoiController.text);
   bool get _hasDigit => RegExp(r'[0-9]').hasMatch(_matKhauMoiController.text);
   bool get _isNotUser {
     final user = widget.tenDangNhap.trim();
@@ -38,6 +39,7 @@ class _ManHinhDoiMatKhauLanDauState extends State<ManHinhDoiMatKhauLanDau> {
     if (user.isEmpty || pass.isEmpty) return true;
     return pass != user;
   }
+
   bool get _isMatch =>
       _matKhauMoiController.text.isNotEmpty &&
       _matKhauMoiController.text == _xacNhanController.text;
@@ -55,11 +57,15 @@ class _ManHinhDoiMatKhauLanDauState extends State<ManHinhDoiMatKhauLanDau> {
       return;
     }
     if (!_hasLetter || !_hasDigit) {
-      setState(() => _errorMessage = 'Mật khẩu phải bao gồm cả chữ cái và chữ số');
+      setState(
+        () => _errorMessage = 'Mật khẩu phải bao gồm cả chữ cái và chữ số',
+      );
       return;
     }
     if (!_isNotUser) {
-      setState(() => _errorMessage = 'Mật khẩu mới không được trùng với tên đăng nhập');
+      setState(
+        () => _errorMessage = 'Mật khẩu mới không được trùng với tên đăng nhập',
+      );
       return;
     }
     if (!_isMatch) {
@@ -119,7 +125,10 @@ class _ManHinhDoiMatKhauLanDauState extends State<ManHinhDoiMatKhauLanDau> {
             ElevatedButton(
               onPressed: () {
                 Navigator.pop(ctx); // Đóng dialog
-                Navigator.pop(context, passMoi); // Trả về mật khẩu mới để tự động đăng nhập
+                Navigator.pop(
+                  context,
+                  passMoi,
+                ); // Trả về mật khẩu mới để tự động đăng nhập
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: _primary,

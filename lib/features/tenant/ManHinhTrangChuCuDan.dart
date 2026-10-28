@@ -87,7 +87,8 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
   List<Map<String, dynamic>> _danhSachPhuongTien =
       []; // danh sách phương tiện xe của cư dân từ Supabase
   bool _thongBaoUngDung = true; // Trạng thái nhận thông báo ứng dụng
-  bool _isEkycExpanded = false; // Thu gọn/mở rộng chi tiết hồ sơ định danh cá nhân
+  bool _isEkycExpanded =
+      false; // Thu gọn/mở rộng chi tiết hồ sơ định danh cá nhân
 
   // ─── Realtime & Đồng Bộ Phê Duyệt Tự Động ──────────────────
   RealtimeChannel? _tenantRealtimeChannel;
@@ -145,35 +146,55 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
     final user = AuthService.currentUser;
     // 0. Quản trị viên hoặc Chủ trọ luôn có toàn quyền
     final authRole = (user?.vaiTro ?? '').toLowerCase();
-    if (authRole.contains('admin') || authRole.contains('chutro') || authRole.contains('quanly')) {
+    if (authRole.contains('admin') ||
+        authRole.contains('chutro') ||
+        authRole.contains('quanly')) {
       return true;
     }
 
     // 1. So khớp mã khách đang đăng nhập với mã khách đại diện của hợp đồng
     final currentMaKhach = _khachThueData?['ma_khach']?.toString();
     final maDaiDien = _hopDong?.maKhachDaiDien;
-    if (currentMaKhach != null && currentMaKhach.isNotEmpty &&
-        maDaiDien != null && maDaiDien.isNotEmpty) {
+    if (currentMaKhach != null &&
+        currentMaKhach.isNotEmpty &&
+        maDaiDien != null &&
+        maDaiDien.isNotEmpty) {
       return currentMaKhach == maDaiDien;
     }
 
     // 2. Kiểm tra vai trò từ chi_tiet_hop_dong_khach_thue (_thanhVienPhong)
-    final String tenCuDan = _khachThueData?['ho_ten_khach']?.toString().isNotEmpty == true
+    final String tenCuDan =
+        _khachThueData?['ho_ten_khach']?.toString().isNotEmpty == true
         ? _khachThueData!['ho_ten_khach'].toString()
         : displayName;
 
-    final myMember = _thanhVienPhong.where((tv) =>
-        (currentMaKhach != null && currentMaKhach.isNotEmpty && tv.maKhach == currentMaKhach) ||
-        (user != null && tv.maTaiKhoan != null && tv.maTaiKhoan == user.maTaiKhoan) ||
-        (tv.hoTenKhach.trim().toLowerCase() == tenCuDan.trim().toLowerCase())
-    ).firstOrNull;
+    final myMember = _thanhVienPhong
+        .where(
+          (tv) =>
+              (currentMaKhach != null &&
+                  currentMaKhach.isNotEmpty &&
+                  tv.maKhach == currentMaKhach) ||
+              (user != null &&
+                  tv.maTaiKhoan != null &&
+                  tv.maTaiKhoan == user.maTaiKhoan) ||
+              (tv.hoTenKhach.trim().toLowerCase() ==
+                  tenCuDan.trim().toLowerCase()),
+        )
+        .firstOrNull;
 
     if (myMember != null && myMember.vaiTro.isNotEmpty) {
       final v = myMember.vaiTro.toLowerCase();
-      if (v.contains('đại diện') || v.contains('daidien') || v.contains('trưởng phòng') || v.contains('truongphong') || v.contains('landlord')) {
+      if (v.contains('đại diện') ||
+          v.contains('daidien') ||
+          v.contains('trưởng phòng') ||
+          v.contains('truongphong') ||
+          v.contains('landlord')) {
         return true;
       }
-      if (v.contains('ở cùng') || v.contains('ocung') || v.contains('thành viên') || v.contains('thanhvien')) {
+      if (v.contains('ở cùng') ||
+          v.contains('ocung') ||
+          v.contains('thành viên') ||
+          v.contains('thanhvien')) {
         return false;
       }
     }
@@ -182,7 +203,9 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
     if (authRole.contains('truongphong') || authRole.contains('daidien')) {
       return true;
     }
-    if (authRole.contains('thanhvien') || authRole.contains('banocung') || authRole.contains('ocung')) {
+    if (authRole.contains('thanhvien') ||
+        authRole.contains('banocung') ||
+        authRole.contains('ocung')) {
       return false;
     }
 
@@ -191,10 +214,13 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
 
     // 5. Nếu phòng có nhiều hơn 1 người và trong phòng đã xác định có người khác làm đại diện
     if (_thanhVienPhong.length > 1) {
-      final hasOtherDaiDien = _thanhVienPhong.any((tv) =>
-          (maDaiDien != null && maDaiDien.isNotEmpty && tv.maKhach == maDaiDien) ||
-          tv.vaiTro.toLowerCase().contains('đại diện') ||
-          tv.vaiTro.toLowerCase().contains('trưởng phòng')
+      final hasOtherDaiDien = _thanhVienPhong.any(
+        (tv) =>
+            (maDaiDien != null &&
+                maDaiDien.isNotEmpty &&
+                tv.maKhach == maDaiDien) ||
+            tv.vaiTro.toLowerCase().contains('đại diện') ||
+            tv.vaiTro.toLowerCase().contains('trưởng phòng'),
       );
       if (hasOtherDaiDien) return false;
     }
@@ -244,7 +270,11 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
           children: [
             Text(
               'Bạn đang đăng nhập với tư cách Thành viên phòng (Bạn cùng phòng).',
-              style: TextStyle(fontSize: 13.5, color: Colors.grey.shade700, height: 1.4),
+              style: TextStyle(
+                fontSize: 13.5,
+                color: Colors.grey.shade700,
+                height: 1.4,
+              ),
             ),
             const SizedBox(height: 12),
             Container(
@@ -257,7 +287,11 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.info_outline, size: 18, color: Color(0xFF09638E)),
+                  const Icon(
+                    Icons.info_outline,
+                    size: 18,
+                    color: Color(0xFF09638E),
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -276,7 +310,11 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
             const SizedBox(height: 12),
             Text(
               'Vui lòng báo cho Người đại diện của phòng bạn để tiến hành thủ tục này nhé!',
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade600, height: 1.3),
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey.shade600,
+                height: 1.3,
+              ),
             ),
           ],
         ),
@@ -288,10 +326,15 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF09638E),
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 padding: const EdgeInsets.symmetric(vertical: 12),
               ),
-              child: const Text('Đã hiểu', style: TextStyle(fontWeight: FontWeight.bold)),
+              child: const Text(
+                'Đã hiểu',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
             ),
           ),
         ],
@@ -403,7 +446,8 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
     final rowToaNha = row['toa_nha']?.toString().trim();
 
     // 1. Nếu cả 3 trường đều rỗng/null -> Thông báo chung toàn hệ thống/tất cả cư dân
-    final bool isChung = (rowTaiKhoan == null || rowTaiKhoan.isEmpty) &&
+    final bool isChung =
+        (rowTaiKhoan == null || rowTaiKhoan.isEmpty) &&
         (rowPhong == null || rowPhong.isEmpty) &&
         (rowToaNha == null || rowToaNha.isEmpty);
     if (isChung) return true;
@@ -411,9 +455,8 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
     // 2. Nếu khớp mã tài khoản
     if (rowTaiKhoan != null && rowTaiKhoan.isNotEmpty) {
       final user = AuthService.currentUser;
-      final myMaTk = user?.maTaiKhoan ??
-          _khachThueData?['ma_tai_khoan']?.toString() ??
-          '';
+      final myMaTk =
+          user?.maTaiKhoan ?? _khachThueData?['ma_tai_khoan']?.toString() ?? '';
       if (myMaTk.isNotEmpty &&
           rowTaiKhoan.toLowerCase() == myMaTk.toLowerCase()) {
         return true;
@@ -462,9 +505,8 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
     try {
       final db = Supabase.instance.client;
       final user = AuthService.currentUser;
-      final myMaTk = user?.maTaiKhoan ??
-          _khachThueData?['ma_tai_khoan']?.toString() ??
-          '';
+      final myMaTk =
+          user?.maTaiKhoan ?? _khachThueData?['ma_tai_khoan']?.toString() ?? '';
       final myRoomRaw = _hopDong?.maPhong ?? widget.roomNumber ?? 'P203';
       final myRoomDigits = myRoomRaw.replaceAll(RegExp(r'[^0-9]'), '');
 
@@ -507,8 +549,10 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
         titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 20,
+          vertical: 10,
+        ),
         actionsPadding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
         title: Row(
           children: [
@@ -586,9 +630,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                   border: Border.all(color: const Color(0xFFE2E8F0)),
                 ),
                 child: Text(
-                  noiDung.isNotEmpty
-                      ? noiDung
-                      : 'Không có nội dung chi tiết.',
+                  noiDung.isNotEmpty ? noiDung : 'Không có nội dung chi tiết.',
                   style: const TextStyle(
                     fontSize: 13.5,
                     color: Color(0xFF1E293B),
@@ -820,7 +862,8 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
         final daDoc = _danhSachIdDaDoc.contains(idHd);
         final isOverdue = _hoaDonMoiNhat!.soNgayConLai < 0;
         final overdueDays = -_hoaDonMoiNhat!.soNgayConLai;
-        final isPartialDebt = _hoaDonMoiNhat!.trangThai == 'Thanh toán một phần';
+        final isPartialDebt =
+            _hoaDonMoiNhat!.trangThai == 'Thanh toán một phần';
 
         if (isOverdue) {
           // Bắn thông báo chuông và banner hệ thống nhắc nhở quá hạn
@@ -961,7 +1004,9 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
         final guestNotifRes = await db
             .from('dang_ky_khach_qua_dem')
             .select()
-            .or('ma_phong.eq.P$pDigits,ma_phong.eq.$pDigits,ma_phong.eq.$activeRoom')
+            .or(
+              'ma_phong.eq.P$pDigits,ma_phong.eq.$pDigits,ma_phong.eq.$activeRoom',
+            )
             .order('tu_ngay', ascending: false)
             .limit(5);
 
@@ -972,7 +1017,8 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
           final tuNgay = g['tu_ngay']?.toString() ?? '';
           final denNgay = g['den_ngay']?.toString() ?? '';
           final idNotif = 'notif_guest_${maDk}_$st';
-          final daDoc = _danhSachIdDaDoc.contains(idNotif) || (st == 'Chờ duyệt');
+          final daDoc =
+              _danhSachIdDaDoc.contains(idNotif) || (st == 'Chờ duyệt');
 
           String tieuDe = '';
           String noiDung = '';
@@ -980,12 +1026,16 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
           int targetTab = 0;
 
           final stLower = st.toLowerCase();
-          if (st == 'Đã duyệt' || stLower.contains('duyệt') || stLower.contains('duyet')) {
+          if (st == 'Đã duyệt' ||
+              stLower.contains('duyệt') ||
+              stLower.contains('duyet')) {
             tieuDe = '🎉 Chủ Trọ Đã Duyệt Khách Lưu Trú';
             noiDung =
                 'Đơn đăng ký cho khách $tenKhach ($tuNgay đến $denNgay) phòng $activeRoom đã được chủ trọ duyệt thành công!';
             targetTab = 2;
-          } else if (st == 'Từ chối' || stLower.contains('từ chối') || stLower.contains('tu choi')) {
+          } else if (st == 'Từ chối' ||
+              stLower.contains('từ chối') ||
+              stLower.contains('tu choi')) {
             tieuDe = '⚠️ Đăng Ký Khách Bị Từ Chối';
             noiDung =
                 'Chủ trọ chưa thể phê duyệt khách $tenKhach ($tuNgay đến $denNgay). Vui lòng liên hệ BQL.';
@@ -1038,9 +1088,8 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => ContractDetailScreen(
-                  maHopDong: _hopDong!.maHopDong,
-                ),
+                builder: (_) =>
+                    ContractDetailScreen(maHopDong: _hopDong!.maHopDong),
               ),
             ).then((_) => _fetchTenantData());
           },
@@ -1130,8 +1179,11 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
               .eq('ma_tai_khoan', user.maTaiKhoan)
               .maybeSingle();
           final status = accRow?['trang_thai']?.toString() ?? '';
-          if (status.toLowerCase() == 'tamkhoa' || (accRow != null && status.toLowerCase() != 'hoatdong')) {
-            debugPrint('[AUTO_LOCK_KICK] Tài khoản ${user.maTaiKhoan} có trạng thái $status trên Supabase -> Đá văng ra màn hình đăng nhập!');
+          if (status.toLowerCase() == 'tamkhoa' ||
+              (accRow != null && status.toLowerCase() != 'hoatdong')) {
+            debugPrint(
+              '[AUTO_LOCK_KICK] Tài khoản ${user.maTaiKhoan} có trạng thái $status trên Supabase -> Đá văng ra màn hình đăng nhập!',
+            );
             await _daVangRaDangNhapDoKhoaTaiKhoan();
             return;
           }
@@ -1176,13 +1228,17 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
 
             if (rows.isNotEmpty) {
               // Ưu tiên hợp đồng đang hiệu lực hoặc đang chờ thanh lý
-              hopDongRow = rows.firstWhere(
-                (r) {
-                  final st = r['trang_thai']?.toString().toLowerCase().trim() ?? '';
-                  return ['còn hạn', 'đang thuê', 'hieuluc', 'chờ tl', 'chờ thanh lý'].contains(st);
-                },
-                orElse: () => rows.first,
-              );
+              hopDongRow = rows.firstWhere((r) {
+                final st =
+                    r['trang_thai']?.toString().toLowerCase().trim() ?? '';
+                return [
+                  'còn hạn',
+                  'đang thuê',
+                  'hieuluc',
+                  'chờ tl',
+                  'chờ thanh lý',
+                ].contains(st);
+              }, orElse: () => rows.first);
             }
           }
         }
@@ -1197,13 +1253,17 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                 .neq('trang_thai', 'Đã hủy')
                 .order('ngay_bd', ascending: false);
             if (hdDaiDienList.isNotEmpty) {
-              hopDongRow = hdDaiDienList.firstWhere(
-                (r) {
-                  final st = r['trang_thai']?.toString().toLowerCase().trim() ?? '';
-                  return ['còn hạn', 'đang thuê', 'hieuluc', 'chờ tl', 'chờ thanh lý'].contains(st);
-                },
-                orElse: () => hdDaiDienList.first,
-              );
+              hopDongRow = hdDaiDienList.firstWhere((r) {
+                final st =
+                    r['trang_thai']?.toString().toLowerCase().trim() ?? '';
+                return [
+                  'còn hạn',
+                  'đang thuê',
+                  'hieuluc',
+                  'chờ tl',
+                  'chờ thanh lý',
+                ].contains(st);
+              }, orElse: () => hdDaiDienList.first);
             }
           } catch (_) {}
         }
@@ -1316,7 +1376,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
         debugPrint('Lỗi tải su_co_bao_tri: rr');
       }
 
-      // ── 8. Tải danh sách tài sản phòng từ Supabase ──────────
+      // ── 8. Tải danh sách tài sản phòng từ Supabase (fallback sang bảng phong) ──────────
       List<Map<String, dynamic>> taiSanList = [];
       try {
         final tsRows = await db
@@ -1326,6 +1386,68 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
         taiSanList = List<Map<String, dynamic>>.from(tsRows as List);
       } catch (err) {
         debugPrint('Lỗi tải tai_san: $err');
+      }
+
+      // Tự động nạp từ bảng phong nếu bảng tai_san chưa được gán dòng nào
+      if (taiSanList.isEmpty && phongRow != null) {
+        final Set<String> itemNames = {};
+        void parseList(dynamic val) {
+          if (val == null) return;
+          if (val is List) {
+            for (final e in val) {
+              final s = e?.toString().trim() ?? '';
+              if (s.isNotEmpty) itemNames.add(s);
+            }
+          } else if (val is String) {
+            final cleaned = val
+                .replaceAll('{', '')
+                .replaceAll('}', '')
+                .replaceAll('"', '');
+            for (final s in cleaned.split(',')) {
+              final t = s.trim();
+              if (t.isNotEmpty) itemNames.add(t);
+            }
+          }
+        }
+
+        parseList(phongRow['noi_that_san_co']);
+        parseList(phongRow['tien_ich']);
+
+        if (itemNames.isNotEmpty) {
+          int idx = 1;
+          taiSanList = itemNames.map((name) {
+            return {
+              'ma_tai_san': 'TS_${hd.maPhong}_${idx++}',
+              'ten_tai_san': name,
+              'so_luong': 1,
+              'tinh_trang': 'Hoạt động tốt',
+              'thuong_hieu': '',
+              'ma_phong': hd.maPhong,
+            };
+          }).toList();
+        }
+      }
+
+      if (taiSanList.isEmpty) {
+        final standardItems = [
+          'Máy lạnh Inverter',
+          'Tủ lạnh riêng 130L',
+          'Bình nóng lạnh Ariston',
+          'Giường gỗ & Nệm cao su',
+          'Kệ bếp nấu ăn & Bồn rửa inox',
+          'Quạt trần / Quạt treo tường',
+        ];
+        int idx = 1;
+        taiSanList = standardItems.map((name) {
+          return {
+            'ma_tai_san': 'TS_${hd.maPhong}_${idx++}',
+            'ten_tai_san': name,
+            'so_luong': 1,
+            'tinh_trang': 'Hoạt động tốt',
+            'thuong_hieu': '',
+            'ma_phong': hd.maPhong,
+          };
+        }).toList();
       }
 
       // ── 9. Tải danh sách phương tiện xe của cư dân từ Supabase ──
@@ -1384,7 +1506,8 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(
         builder: (_) => LoginScreen(
-          accountLockedMessage: reason ??
+          accountLockedMessage:
+              reason ??
               'Tài khoản của bạn đã bị TẠM KHÓA do hóa đơn phòng quá hạn từ 10 ngày trở lên theo quy chế tòa nhà.\nVui lòng liên hệ Ban Quản Lý (0328.004.663) để được hỗ trợ mở lại!',
         ),
       ),
@@ -1405,7 +1528,8 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
 
     try {
       final db = Supabase.instance.client;
-      final bool isOverdue10Days = bill != null &&
+      final bool isOverdue10Days =
+          bill != null &&
           bill.trangThai != 'Đã thanh toán' &&
           bill.trangThai != 'Chờ gửi' &&
           bill.tongTien > 0 &&
@@ -1419,8 +1543,9 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
             .eq('ma_tai_khoan', accountId);
 
         if (user != null && user.trangThai != 'TamKhoa') {
-          AuthService.currentUserNotifier.value =
-              user.copyWith(trangThai: 'TamKhoa');
+          AuthService.currentUserNotifier.value = user.copyWith(
+            trangThai: 'TamKhoa',
+          );
         }
         debugPrint(
           '[AUTO_LOCK] Đã tự động TẠM KHÓA tài khoản $accountId trên Supabase do hóa đơn trễ hạn ${-bill.soNgayConLai} ngày',
@@ -1432,8 +1557,9 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
               .from('tai_khoan')
               .update({'trang_thai': 'HoatDong'})
               .eq('ma_tai_khoan', accountId);
-          AuthService.currentUserNotifier.value =
-              user.copyWith(trangThai: 'HoatDong');
+          AuthService.currentUserNotifier.value = user.copyWith(
+            trangThai: 'HoatDong',
+          );
           debugPrint(
             '[AUTO_UNLOCK] Đã tự động khôi phục HoatDong cho tài khoản $accountId',
           );
@@ -1509,7 +1635,9 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
           schema: 'public',
           table: 'dang_ky_khach_qua_dem',
           callback: (payload) {
-            debugPrint('[REALTIME] Thay đổi dang_ky_khach_qua_dem: ${payload.newRecord}');
+            debugPrint(
+              '[REALTIME] Thay đổi dang_ky_khach_qua_dem: ${payload.newRecord}',
+            );
             _checkKhachQuaDemRealtimeUpdate(payload.newRecord);
           },
         )
@@ -2065,7 +2193,9 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
 
       // 0. Bỏ qua nếu hợp đồng đã chuyển sang phòng mới này rồi để tránh re-trigger và loop
       if (_hopDong != null && _hopDong!.maPhong == maPhongMoi) {
-        debugPrint('[CHUYEN_PHONG] Hợp đồng hiện tại đã ở phòng $maPhongMoi, bỏ qua đồng bộ.');
+        debugPrint(
+          '[CHUYEN_PHONG] Hợp đồng hiện tại đã ở phòng $maPhongMoi, bỏ qua đồng bộ.',
+        );
         return;
       }
       try {
@@ -2075,7 +2205,9 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
             .eq('ma_hop_dong', recMaHD)
             .maybeSingle();
         if (checkHd != null && checkHd['ma_phong']?.toString() == maPhongMoi) {
-          debugPrint('[CHUYEN_PHONG] Hợp đồng trong DB đã ở phòng $maPhongMoi, bỏ qua đồng bộ.');
+          debugPrint(
+            '[CHUYEN_PHONG] Hợp đồng trong DB đã ở phòng $maPhongMoi, bỏ qua đồng bộ.',
+          );
           return;
         }
       } catch (_) {}
@@ -2170,7 +2302,9 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
       // 7. Ghi chú: Không tự sinh hóa đơn tiền phòng khi chuyển phòng trong tháng
       // vì tiền phòng kỳ hiện tại đã được thanh toán. Hóa đơn mới sẽ chỉ hiển thị
       // khi đến chu kỳ lập hóa đơn định kỳ hàng tháng tiếp theo do BQL gửi.
-      debugPrint('[CHUYEN_PHONG] Chuyển phòng thành công sang $maPhongMoi. Không can thiệp hóa đơn kỳ hiện tại.');
+      debugPrint(
+        '[CHUYEN_PHONG] Chuyển phòng thành công sang $maPhongMoi. Không can thiệp hóa đơn kỳ hiện tại.',
+      );
     } catch (e) {
       debugPrint('[CHUYEN_PHONG] Lỗi tự động sinh phụ lục và đổi phòng: ');
     }
@@ -2317,8 +2451,15 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
   void _checkKhachQuaDemRealtimeUpdate(Map<String, dynamic> record) {
     if (record.isEmpty || !mounted) return;
     final mPhong = maPhong.replaceAll('P.', '').replaceAll('P', '').trim();
-    final recMaPhong = record['ma_phong']?.toString().replaceAll('P.', '').replaceAll('P', '').trim() ?? '';
-    if (mPhong.isNotEmpty && recMaPhong.isNotEmpty && recMaPhong != mPhong) return;
+    final recMaPhong =
+        record['ma_phong']
+            ?.toString()
+            .replaceAll('P.', '')
+            .replaceAll('P', '')
+            .trim() ??
+        '';
+    if (mPhong.isNotEmpty && recMaPhong.isNotEmpty && recMaPhong != mPhong)
+      return;
 
     final maDangKy = record['ma_dang_ky']?.toString() ?? '';
     final status = record['trang_thai']?.toString() ?? '';
@@ -2327,11 +2468,19 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
     final denNgay = record['den_ngay']?.toString() ?? '';
     final approvalKey = 'guest_${maDangKy}_$status';
 
-    if (_notifiedApprovalKeys.contains(approvalKey) || ThongBaoHelper.daXem(approvalKey)) return;
+    if (_notifiedApprovalKeys.contains(approvalKey) ||
+        ThongBaoHelper.daXem(approvalKey))
+      return;
 
     final stLower = status.toLowerCase();
-    final isDaDuyet = status == 'Đã duyệt' || stLower.contains('duyệt') || stLower.contains('duyet');
-    final isTuChoi = status == 'Từ chối' || stLower.contains('từ chối') || stLower.contains('tu choi');
+    final isDaDuyet =
+        status == 'Đã duyệt' ||
+        stLower.contains('duyệt') ||
+        stLower.contains('duyet');
+    final isTuChoi =
+        status == 'Từ chối' ||
+        stLower.contains('từ chối') ||
+        stLower.contains('tu choi');
 
     if (isDaDuyet) {
       _notifiedApprovalKeys.add(approvalKey);
@@ -2341,7 +2490,8 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
       final activeRoom = _hopDong?.maPhong ?? widget.roomNumber ?? 'P203';
       _hienThongBaoHeThong(
         tieuDe: '🎉 Chủ Trọ Đã Duyệt Khách Qua Đêm!',
-        noiDung: 'Phiếu đăng ký cho khách $tenKhach ($tuNgay - $denNgay) phòng $activeRoom đã được chủ trọ duyệt thành công!',
+        noiDung:
+            'Phiếu đăng ký cho khách $tenKhach ($tuNgay - $denNgay) phòng $activeRoom đã được chủ trọ duyệt thành công!',
         loai: 'khach_luu_tru',
         tag: approvalKey,
         onXem: () {
@@ -2360,7 +2510,8 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
       ThongBaoHelper.hienThongBao(
         context,
         tieuDe: 'Chủ Trọ Đã Phê Duyệt Khách!',
-        noiDung: 'Phiếu đăng ký lưu trú của khách $tenKhach phòng $activeRoom ($tuNgay - $denNgay) đã được chủ trọ phê duyệt thành công!',
+        noiDung:
+            'Phiếu đăng ký lưu trú của khách $tenKhach phòng $activeRoom ($tuNgay - $denNgay) đã được chủ trọ phê duyệt thành công!',
         type: ThongBaoType.thanhCong,
         nutText: 'Xem Lịch Sử Lưu Trú',
         tag: approvalKey,
@@ -2384,7 +2535,8 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
       final activeRoom = _hopDong?.maPhong ?? widget.roomNumber ?? 'P203';
       _hienThongBaoHeThong(
         tieuDe: '⚠️ Yêu Cầu Lưu Trú Bị Từ Chối',
-        noiDung: 'Yêu cầu đăng ký khách qua đêm cho $tenKhach chưa được chủ trọ phê duyệt.',
+        noiDung:
+            'Yêu cầu đăng ký khách qua đêm cho $tenKhach chưa được chủ trọ phê duyệt.',
         loai: 'khach_luu_tru',
         isError: true,
         tag: approvalKey,
@@ -2422,7 +2574,8 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
     final tieuDe = record['tieu_de']?.toString() ?? 'Thông Báo Cư Dân';
     final noiDung = record['noi_dung']?.toString() ?? '';
     final loaiTb = record['loai_thong_bao']?.toString() ?? 'thong_bao';
-    final isKhauCap = loaiTb.toLowerCase().contains('khẩn') ||
+    final isKhauCap =
+        loaiTb.toLowerCase().contains('khẩn') ||
         loaiTb.toLowerCase().contains('khan') ||
         loaiTb.toLowerCase().contains('canh_bao') ||
         loaiTb.toLowerCase().contains('canhbao');
@@ -2549,7 +2702,9 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
       final guestRes = await db
           .from('dang_ky_khach_qua_dem')
           .select()
-          .or('ma_phong.eq.P$pDigits,ma_phong.eq.$pDigits,ma_phong.eq.$activeRoom')
+          .or(
+            'ma_phong.eq.P$pDigits,ma_phong.eq.$pDigits,ma_phong.eq.$activeRoom',
+          )
           .order('tu_ngay', ascending: false)
           .limit(3);
 
@@ -3424,8 +3579,8 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                       Icon(
                         remainingDays < 0
                             ? (overdueDays >= 10
-                                ? Icons.lock_rounded
-                                : Icons.warning_amber_rounded)
+                                  ? Icons.lock_rounded
+                                  : Icons.warning_amber_rounded)
                             : Icons.hourglass_top_rounded,
                         size: 12,
                         color: remainingDays < 0
@@ -3695,8 +3850,8 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                           overdueDays >= 10
                               ? Icons.lock_rounded
                               : (overdueDays >= 5
-                                  ? Icons.warning_amber_rounded
-                                  : Icons.error_outline_rounded),
+                                    ? Icons.warning_amber_rounded
+                                    : Icons.error_outline_rounded),
                           color: const Color(0xFFDC2626),
                           size: 18,
                         ),
@@ -3746,11 +3901,11 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                   Text(
                     isPartial
                         ? '• Khoản nợ Đợt 2 đang quá hạn $overdueDays ngày (${FormatUtils.currency(tongTienThucTe)}).\n'
-                          '• Nhà trọ KHÔNG áp dụng chính sách gia hạn tiền phòng.\n'
-                          '• Quý khách vui lòng bấm "Thanh toán Đợt 2 / VietQR" bên dưới để hoàn tất đóng tiền.'
+                              '• Nhà trọ KHÔNG áp dụng chính sách gia hạn tiền phòng.\n'
+                              '• Quý khách vui lòng bấm "Thanh toán Đợt 2 / VietQR" bên dưới để hoàn tất đóng tiền.'
                         : '• Hóa đơn tiền phòng đang quá hạn $overdueDays ngày (${FormatUtils.currency(tongTienThucTe)}).\n'
-                          '• Nhà trọ KHÔNG áp dụng chính sách gia hạn tiền phòng.\n'
-                          '• Quý khách vui lòng bấm "Thanh toán / VietQR" bên dưới để hoàn tất đóng tiền.',
+                              '• Nhà trọ KHÔNG áp dụng chính sách gia hạn tiền phòng.\n'
+                              '• Quý khách vui lòng bấm "Thanh toán / VietQR" bên dưới để hoàn tất đóng tiền.',
                     style: const TextStyle(
                       fontSize: 11.5,
                       height: 1.45,
@@ -3766,10 +3921,16 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                             height: 36,
                             child: ElevatedButton.icon(
                               onPressed: () => LienHeHelper.moZaloChat(context),
-                              icon: const Icon(Icons.chat_bubble_rounded, size: 14),
+                              icon: const Icon(
+                                Icons.chat_bubble_rounded,
+                                size: 14,
+                              ),
                               label: const Text(
                                 'Zalo BQL',
-                                style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF0284C7),
@@ -3788,14 +3949,22 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                             height: 36,
                             child: OutlinedButton.icon(
                               onPressed: () => LienHeHelper.goiDien(context),
-                              icon: const Icon(Icons.phone_in_talk_rounded, size: 14),
+                              icon: const Icon(
+                                Icons.phone_in_talk_rounded,
+                                size: 14,
+                              ),
                               label: const Text(
                                 'Gọi Hotline',
-                                style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: const Color(0xFFDC2626),
-                                side: const BorderSide(color: Color(0xFFF87171)),
+                                side: const BorderSide(
+                                  color: Color(0xFFF87171),
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(10),
                                 ),
@@ -4009,23 +4178,22 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                 title: 'Khách qua đêm',
                 subtitle: 'Đăng ký & chờ duyệt',
                 onTap: () {
-                  final curRoomDigits =
-                      maPhong.replaceAll(RegExp(r'[^0-9]'), '');
-                  final curRoomName = _phong?.tenHienThi ??
+                  final curRoomDigits = maPhong.replaceAll(
+                    RegExp(r'[^0-9]'),
+                    '',
+                  );
+                  final curRoomName =
+                      _phong?.tenHienThi ??
                       (curRoomDigits.isNotEmpty
                           ? 'Phòng $curRoomDigits'
                           : (widget.roomNumber != null &&
-                                  widget.roomNumber!.isNotEmpty
-                              ? 'Phòng ${widget.roomNumber}'
-                              : 'Phòng 203'));
+                                    widget.roomNumber!.isNotEmpty
+                                ? 'Phòng ${widget.roomNumber}'
+                                : 'Phòng 203'));
                   final curToaNha = _phong?.toaNha.isNotEmpty == true
                       ? _phong!.toaNha
                       : 'Kiêu Giang 2';
-                  _showLuaChonKhachQuaDem(
-                    context,
-                    curRoomName,
-                    curToaNha,
-                  );
+                  _showLuaChonKhachQuaDem(context, curRoomName, curToaNha);
                 },
               ),
             ),
@@ -4388,7 +4556,8 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                       builder: (_) => ManHinhLichSuLuuTru(
                         tenPhong: roomName,
                         toaNha: toaNhaName,
-                        initialTabIndex: 0, // Mở tab Tất cả để luôn thấy đầy đủ cả khách đã duyệt & chờ duyệt
+                        initialTabIndex:
+                            0, // Mở tab Tất cả để luôn thấy đầy đủ cả khách đã duyệt & chờ duyệt
                       ),
                     ),
                   );
@@ -5296,7 +5465,9 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                             ),
                           ),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white.withValues(alpha: 0.22),
+                            backgroundColor: Colors.white.withValues(
+                              alpha: 0.22,
+                            ),
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 9),
                             elevation: 0,
@@ -7253,10 +7424,17 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
   /// Chuyển đổi mã vai trò kỹ thuật → nhãn hiển thị thân thiện
   String _formatVaiTro(String raw) {
     final clean = raw.toLowerCase().replaceAll(' ', '').replaceAll('_', '');
-    if (clean.contains('daidien') || clean.contains('đạidiện') || clean.contains('truongphong') || clean.contains('trưởngphòng') || clean == 'landlord') {
+    if (clean.contains('daidien') ||
+        clean.contains('đạidiện') ||
+        clean.contains('truongphong') ||
+        clean.contains('trưởngphòng') ||
+        clean == 'landlord') {
       return 'Người đại diện';
     }
-    if (clean.contains('ocung') || clean.contains('ởcùng') || clean.contains('thanhvien') || clean.contains('thànhviên')) {
+    if (clean.contains('ocung') ||
+        clean.contains('ởcùng') ||
+        clean.contains('thanhvien') ||
+        clean.contains('thànhviên')) {
       return 'Bạn ở cùng';
     }
     switch (clean) {
@@ -7284,10 +7462,16 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
     String vaiTroLabel;
     {
       final currentMaKhach = _khachThueData?['ma_khach']?.toString();
-      final myMember = _thanhVienPhong.where((tv) =>
-          (currentMaKhach != null && currentMaKhach.isNotEmpty && tv.maKhach == currentMaKhach) ||
-          (tv.hoTenKhach.trim().toLowerCase() == tenCuDan.trim().toLowerCase())
-      ).firstOrNull;
+      final myMember = _thanhVienPhong
+          .where(
+            (tv) =>
+                (currentMaKhach != null &&
+                    currentMaKhach.isNotEmpty &&
+                    tv.maKhach == currentMaKhach) ||
+                (tv.hoTenKhach.trim().toLowerCase() ==
+                    tenCuDan.trim().toLowerCase()),
+          )
+          .firstOrNull;
       final rawVaiTro = (myMember != null && myMember.vaiTro.isNotEmpty)
           ? myMember.vaiTro
           : (AuthService.currentUser?.vaiTro ?? '');
@@ -7702,7 +7886,9 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                   iconColor: const Color(0xFF0284C7),
                   iconBg: const Color(0xFFE0F2FE),
                   title: 'Hợp đồng thuê điện tử',
-                  badge: (_hopDong != null && !_hopDong!.daKyBenB) ? 'CHƯA KÝ' : 'ACTIVE',
+                  badge: (_hopDong != null && !_hopDong!.daKyBenB)
+                      ? 'CHƯA KÝ'
+                      : 'ACTIVE',
                   badgeColor: (_hopDong != null && !_hopDong!.daKyBenB)
                       ? const Color(0xFFD97706)
                       : const Color(0xFF059669),
@@ -7738,9 +7924,15 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                   iconColor: const Color(0xFF16A34A),
                   iconBg: const Color(0xFFDCFCE7),
                   title: 'Biên bản bàn giao thiết bị & tài sản',
-                  badge: _hopDong?.daXacNhanBanGiao == true ? 'ĐÃ BÀN GIAO' : 'CHỜ XÁC NHẬN',
-                  badgeColor: _hopDong?.daXacNhanBanGiao == true ? const Color(0xFF16A34A) : const Color(0xFFD97706),
-                  badgeBg: _hopDong?.daXacNhanBanGiao == true ? const Color(0xFFDCFCE7) : const Color(0xFFFEF3C7),
+                  badge: _hopDong?.daXacNhanBanGiao == true
+                      ? 'ĐÃ BÀN GIAO'
+                      : 'CHỜ XÁC NHẬN',
+                  badgeColor: _hopDong?.daXacNhanBanGiao == true
+                      ? const Color(0xFF16A34A)
+                      : const Color(0xFFD97706),
+                  badgeBg: _hopDong?.daXacNhanBanGiao == true
+                      ? const Color(0xFFDCFCE7)
+                      : const Color(0xFFFEF3C7),
                   subtitle: _hopDong?.daXacNhanBanGiao == true
                       ? 'Đã kiểm tra & nhận đầy đủ ${_danhSachTaiSan.length} thiết bị phòng'
                       : 'Cần kiểm tra và ký xác nhận tài sản',
@@ -7754,7 +7946,8 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                         MaterialPageRoute(
                           builder: (_) => ManHinhBienBanBanGiaoTaiSan(
                             user: user,
-                            maKhach: _khachThueData!['ma_khach']?.toString() ?? '',
+                            maKhach:
+                                _khachThueData!['ma_khach']?.toString() ?? '',
                             maHopDong: _hopDong?.maHopDong ?? maHopDong,
                             maPhong: curRoom,
                             khachThueData: _khachThueData!,
@@ -7789,7 +7982,11 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                   },
                 ),
                 if (_isNguoiDaiDien) ...[
-                  const Divider(height: 1, indent: 56, color: Color(0xFFF1F5F9)),
+                  const Divider(
+                    height: 1,
+                    indent: 56,
+                    color: Color(0xFFF1F5F9),
+                  ),
 
                   // 4. Chấm dứt hợp đồng & Trả phòng
                   _buildContractItem(
@@ -8253,19 +8450,28 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
   // ── THẺ HỒ SƠ ĐỊNH DANH CÁ NHÂN & CCCD eKYC (Được tinh gọn 2 cột sang trọng) ──
   Widget _buildEkycProfileCard() {
     final kt = _khachThueData ?? {};
-    final soCccd = kt['cccd']?.toString() ?? kt['so_cccd']?.toString() ?? 'Chưa cập nhật';
+    final soCccd =
+        kt['cccd']?.toString() ?? kt['so_cccd']?.toString() ?? 'Chưa cập nhật';
     final hoTen = kt['ho_ten_khach']?.toString() ?? displayName;
-    final soDt = kt['so_dt']?.toString() ?? (AuthService.currentUser?.tenDangNhap ?? 'Chưa cập nhật');
+    final soDt =
+        kt['so_dt']?.toString() ??
+        (AuthService.currentUser?.tenDangNhap ?? 'Chưa cập nhật');
     final gioiTinh = kt['gioi_tinh']?.toString() ?? 'Nam';
-    final diaChi = kt['dia_chi_thuong_tru']?.toString() ?? kt['dia_chi']?.toString() ?? 'Chưa cập nhật';
-    final noiCap = kt['noi_cap_cccd']?.toString() ?? 'Cục Cảnh sát QLHC về TTXH';
-    final nguoiLienHe = kt['nguoi_lien_he_khan_cap']?.toString() ?? 'Chưa cập nhật';
-    
+    final diaChi =
+        kt['dia_chi_thuong_tru']?.toString() ??
+        kt['dia_chi']?.toString() ??
+        'Chưa cập nhật';
+    final noiCap =
+        kt['noi_cap_cccd']?.toString() ?? 'Cục Cảnh sát QLHC về TTXH';
+    final nguoiLienHe =
+        kt['nguoi_lien_he_khan_cap']?.toString() ?? 'Chưa cập nhật';
+
     String ngaySinhDisplay = 'Chưa cập nhật';
     if (kt['ngay_sinh'] != null) {
       try {
         final d = DateTime.parse(kt['ngay_sinh'].toString());
-        ngaySinhDisplay = '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+        ngaySinhDisplay =
+            '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
       } catch (_) {
         ngaySinhDisplay = kt['ngay_sinh'].toString();
       }
@@ -8275,7 +8481,8 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
     if (kt['ngay_cap_cccd'] != null) {
       try {
         final d = DateTime.parse(kt['ngay_cap_cccd'].toString());
-        ngayCapDisplay = '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+        ngayCapDisplay =
+            '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
       } catch (_) {
         ngayCapDisplay = kt['ngay_cap_cccd'].toString();
       }
@@ -8310,7 +8517,11 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                   color: const Color(0xFFE0F2FE),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.badge_outlined, color: Color(0xFF0284C7), size: 20),
+                child: const Icon(
+                  Icons.badge_outlined,
+                  color: Color(0xFF0284C7),
+                  size: 20,
+                ),
               ),
               const SizedBox(width: 10),
               const Expanded(
@@ -8343,7 +8554,11 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.check_circle_rounded, size: 12, color: Color(0xFF16A34A)),
+                    Icon(
+                      Icons.check_circle_rounded,
+                      size: 12,
+                      color: Color(0xFF16A34A),
+                    ),
                     SizedBox(width: 4),
                     Text(
                       'Đã xác thực',
@@ -8390,7 +8605,11 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                     const SizedBox(height: 3),
                     Row(
                       children: [
-                        const Icon(Icons.fingerprint_rounded, size: 14, color: Color(0xFF09638E)),
+                        const Icon(
+                          Icons.fingerprint_rounded,
+                          size: 14,
+                          color: Color(0xFF09638E),
+                        ),
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
@@ -8418,7 +8637,11 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                             borderRadius: BorderRadius.circular(4),
                             child: const Padding(
                               padding: EdgeInsets.all(2),
-                              child: Icon(Icons.copy_rounded, size: 13, color: Color(0xFF64748B)),
+                              child: Icon(
+                                Icons.copy_rounded,
+                                size: 13,
+                                color: Color(0xFF64748B),
+                              ),
                             ),
                           ),
                       ],
@@ -8457,31 +8680,58 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
             const Divider(height: 22, color: Color(0xFFF1F5F9)),
             _buildCompactDetailRow(Icons.home_outlined, 'Thường trú:', diaChi),
             const SizedBox(height: 8),
-            _buildCompactDetailRow(Icons.account_balance_outlined, 'Cấp ngày & Nơi cấp:', '$ngayCapDisplay • $noiCap'),
+            _buildCompactDetailRow(
+              Icons.account_balance_outlined,
+              'Cấp ngày & Nơi cấp:',
+              '$ngayCapDisplay • $noiCap',
+            ),
             const SizedBox(height: 8),
-            _buildCompactDetailRow(Icons.emergency_outlined, 'Liên hệ khẩn cấp:', nguoiLienHe, valueColor: const Color(0xFFDC2626)),
+            _buildCompactDetailRow(
+              Icons.emergency_outlined,
+              'Liên hệ khẩn cấp:',
+              nguoiLienHe,
+              valueColor: const Color(0xFFDC2626),
+            ),
 
             const SizedBox(height: 12),
             Row(
               children: [
-                const Icon(Icons.photo_camera_front_rounded, size: 14, color: Color(0xFF09638E)),
+                const Icon(
+                  Icons.photo_camera_front_rounded,
+                  size: 14,
+                  color: Color(0xFF09638E),
+                ),
                 const SizedBox(width: 6),
                 const Text(
                   'Hình ảnh CCCD định danh lưu trữ:',
-                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF475569),
+                  ),
                 ),
                 const Spacer(),
-                if ((urlMatTruoc == null || urlMatTruoc.isEmpty) || (urlMatSau == null || urlMatSau.isEmpty))
+                if ((urlMatTruoc == null || urlMatTruoc.isEmpty) ||
+                    (urlMatSau == null || urlMatSau.isEmpty))
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFFEF3C7),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.4)),
+                      border: Border.all(
+                        color: const Color(0xFFF59E0B).withValues(alpha: 0.4),
+                      ),
                     ),
                     child: const Text(
                       'Cần bổ sung',
-                      style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFFD97706)),
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFFD97706),
+                      ),
                     ),
                   ),
               ],
@@ -8521,7 +8771,9 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    _isEkycExpanded ? 'Thu gọn thông tin' : 'Xem chi tiết thường trú & ảnh CCCD',
+                    _isEkycExpanded
+                        ? 'Thu gọn thông tin'
+                        : 'Xem chi tiết thường trú & ảnh CCCD',
                     style: const TextStyle(
                       fontSize: 11.5,
                       fontWeight: FontWeight.w600,
@@ -8530,7 +8782,9 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                   ),
                   const SizedBox(width: 4),
                   Icon(
-                    _isEkycExpanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                    _isEkycExpanded
+                        ? Icons.keyboard_arrow_up_rounded
+                        : Icons.keyboard_arrow_down_rounded,
                     size: 17,
                     color: const Color(0xFF09638E),
                   ),
@@ -8584,7 +8838,12 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
     );
   }
 
-  Widget _buildCompactDetailRow(IconData icon, String label, String value, {Color? valueColor}) {
+  Widget _buildCompactDetailRow(
+    IconData icon,
+    String label,
+    String value, {
+    Color? valueColor,
+  }) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -8594,7 +8853,11 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
           width: 100,
           child: Text(
             label,
-            style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+            style: const TextStyle(
+              fontSize: 11.5,
+              color: Color(0xFF64748B),
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ),
         Expanded(
@@ -8623,11 +8886,19 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.add_a_photo_outlined, size: 18, color: Color(0xFF94A3B8)),
+          const Icon(
+            Icons.add_a_photo_outlined,
+            size: 18,
+            color: Color(0xFF94A3B8),
+          ),
           const SizedBox(height: 3),
           Text(
             label,
-            style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF64748B)),
+            style: const TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF64748B),
+            ),
           ),
           const SizedBox(height: 1),
           const Text(
@@ -8661,7 +8932,10 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                     width: double.infinity,
                     height: double.infinity,
                     errorBuilder: (_, __, ___) => const Center(
-                      child: Icon(Icons.broken_image_rounded, color: Color(0xFF94A3B8)),
+                      child: Icon(
+                        Icons.broken_image_rounded,
+                        color: Color(0xFF94A3B8),
+                      ),
                     ),
                   )
                 : Image.network(
@@ -8670,21 +8944,31 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                     width: double.infinity,
                     height: double.infinity,
                     errorBuilder: (_, __, ___) => const Center(
-                      child: Icon(Icons.broken_image_rounded, color: Color(0xFF94A3B8)),
+                      child: Icon(
+                        Icons.broken_image_rounded,
+                        color: Color(0xFF94A3B8),
+                      ),
                     ),
                   ),
             Positioned(
               left: 6,
               bottom: 4,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 5,
+                  vertical: 1.5,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.black.withValues(alpha: 0.65),
                   borderRadius: BorderRadius.circular(5),
                 ),
                 child: Text(
                   label,
-                  style: const TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ),
@@ -8697,7 +8981,11 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                   color: Color(0xFF09638E),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.zoom_in_rounded, color: Colors.white, size: 11),
+                child: const Icon(
+                  Icons.zoom_in_rounded,
+                  color: Colors.white,
+                  size: 11,
+                ),
               ),
             ),
           ],
@@ -8733,7 +9021,11 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                   color: const Color(0xFFFEF3C7),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.two_wheeler_rounded, color: Color(0xFFD97706), size: 20),
+                child: const Icon(
+                  Icons.two_wheeler_rounded,
+                  color: Color(0xFFD97706),
+                  size: 20,
+                ),
               ),
               const SizedBox(width: 10),
               const Expanded(
@@ -8755,7 +9047,11 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                 ),
                 child: Text(
                   '${_danhSachPhuongTien.length} xe',
-                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF475569),
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
@@ -8763,7 +9059,10 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                 onTap: () => _showModalChinhSuaPhuongTien(null),
                 borderRadius: BorderRadius.circular(8),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFF09638E),
                     borderRadius: BorderRadius.circular(8),
@@ -8799,7 +9098,11 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.directions_walk_rounded, color: Color(0xFF94A3B8), size: 24),
+                  const Icon(
+                    Icons.directions_walk_rounded,
+                    color: Color(0xFF94A3B8),
+                    size: 24,
+                  ),
                   const SizedBox(width: 10),
                   const Expanded(
                     child: Text(
@@ -8809,10 +9112,24 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                   ),
                   TextButton.icon(
                     onPressed: () => _showModalChinhSuaPhuongTien(null),
-                    icon: const Icon(Icons.add_rounded, size: 16, color: Color(0xFF09638E)),
-                    label: const Text('Thêm ngay', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF09638E))),
+                    icon: const Icon(
+                      Icons.add_rounded,
+                      size: 16,
+                      color: Color(0xFF09638E),
+                    ),
+                    label: const Text(
+                      'Thêm ngay',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF09638E),
+                      ),
+                    ),
                     style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       minimumSize: Size.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
@@ -8855,7 +9172,11 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                 borderRadius: BorderRadius.circular(10),
               ),
               child: const Center(
-                child: Icon(Icons.moped_rounded, color: Color(0xFF09638E), size: 20),
+                child: Icon(
+                  Icons.moped_rounded,
+                  color: Color(0xFF09638E),
+                  size: 20,
+                ),
               ),
             ),
             const SizedBox(width: 12),
@@ -8865,18 +9186,29 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                 children: [
                   Text(
                     bienSo,
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF0F172A),
+                    ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     loaiXe,
-                    style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF64748B),
+                    ),
                   ),
                 ],
               ),
             ),
             IconButton(
-              icon: const Icon(Icons.edit_outlined, size: 19, color: Color(0xFF09638E)),
+              icon: const Icon(
+                Icons.edit_outlined,
+                size: 19,
+                color: Color(0xFF09638E),
+              ),
               onPressed: () => _showModalChinhSuaPhuongTien(xe),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
@@ -8884,16 +9216,33 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
             ),
             const SizedBox(width: 10),
             IconButton(
-              icon: const Icon(Icons.delete_outline_rounded, size: 19, color: Color(0xFFEF4444)),
+              icon: const Icon(
+                Icons.delete_outline_rounded,
+                size: 19,
+                color: Color(0xFFEF4444),
+              ),
               onPressed: () async {
                 final confirm = await showDialog<bool>(
                   context: context,
                   builder: (c) => AlertDialog(
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                    title: const Text('Xác Nhận Xóa Phương Tiện', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                    content: Text('Bạn có chắc chắn muốn xóa phương tiện "$bienSo" khỏi hồ sơ không?'),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    title: const Text(
+                      'Xác Nhận Xóa Phương Tiện',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    content: Text(
+                      'Bạn có chắc chắn muốn xóa phương tiện "$bienSo" khỏi hồ sơ không?',
+                    ),
                     actions: [
-                      TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Hủy')),
+                      TextButton(
+                        onPressed: () => Navigator.pop(c, false),
+                        child: const Text('Hủy'),
+                      ),
                       ElevatedButton(
                         onPressed: () => Navigator.pop(c, true),
                         style: ElevatedButton.styleFrom(
@@ -8944,8 +9293,11 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
   void _showModalChinhSuaPhuongTien(Map<String, dynamic>? phuongTienHienTai) {
     final isEditing = phuongTienHienTai != null;
     final maPt = phuongTienHienTai?['ma_phuong_tien']?.toString() ?? '';
-    final bienSoCtrl = TextEditingController(text: phuongTienHienTai?['bien_so_xe']?.toString() ?? '');
-    String loaiXeSelected = phuongTienHienTai?['loai_xe']?.toString() ?? 'Xe máy';
+    final bienSoCtrl = TextEditingController(
+      text: phuongTienHienTai?['bien_so_xe']?.toString() ?? '',
+    );
+    String loaiXeSelected =
+        phuongTienHienTai?['loai_xe']?.toString() ?? 'Xe máy';
 
     final dsLoaiXe = ['Xe máy', 'Xe tay ga', 'Xe số', 'Xe điện', 'Xe đạp điện'];
     if (!dsLoaiXe.contains(loaiXeSelected)) {
@@ -8994,7 +9346,9 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                         Container(
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF09638E).withValues(alpha: 0.1),
+                            color: const Color(
+                              0xFF09638E,
+                            ).withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: const Icon(
@@ -9009,7 +9363,9 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                isEditing ? 'Chỉnh Sửa Phương Tiện' : 'Đăng Ký Phương Tiện Mới',
+                                isEditing
+                                    ? 'Chỉnh Sửa Phương Tiện'
+                                    : 'Đăng Ký Phương Tiện Mới',
                                 style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
@@ -9018,7 +9374,9 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                isEditing ? 'Cập nhật loại xe và biển số xe' : 'Đăng ký xe gửi tại nhà trọ Kiêu Giang',
+                                isEditing
+                                    ? 'Cập nhật loại xe và biển số xe'
+                                    : 'Đăng ký xe gửi tại nhà trọ Kiêu Giang',
                                 style: const TextStyle(
                                   fontSize: 12,
                                   color: Color(0xFF64748B),
@@ -9028,7 +9386,10 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                           ),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.close_rounded, color: Color(0xFF64748B)),
+                          icon: const Icon(
+                            Icons.close_rounded,
+                            color: Color(0xFF64748B),
+                          ),
                           onPressed: () => Navigator.pop(ctx),
                         ),
                       ],
@@ -9055,13 +9416,19 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                           selected: isSel,
                           selectedColor: const Color(0xFF09638E),
                           labelStyle: TextStyle(
-                            color: isSel ? Colors.white : const Color(0xFF334155),
-                            fontWeight: isSel ? FontWeight.bold : FontWeight.w500,
+                            color: isSel
+                                ? Colors.white
+                                : const Color(0xFF334155),
+                            fontWeight: isSel
+                                ? FontWeight.bold
+                                : FontWeight.w500,
                             fontSize: 12,
                           ),
                           backgroundColor: const Color(0xFFF1F5F9),
                           side: BorderSide(
-                            color: isSel ? const Color(0xFF09638E) : const Color(0xFFE2E8F0),
+                            color: isSel
+                                ? const Color(0xFF09638E)
+                                : const Color(0xFFE2E8F0),
                           ),
                           onSelected: (val) {
                             if (val) setModalState(() => loaiXeSelected = lx);
@@ -9098,21 +9465,35 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                           fontWeight: FontWeight.normal,
                           letterSpacing: 0,
                         ),
-                        prefixIcon: const Icon(Icons.pin_rounded, color: Color(0xFF09638E), size: 20),
+                        prefixIcon: const Icon(
+                          Icons.pin_rounded,
+                          color: Color(0xFF09638E),
+                          size: 20,
+                        ),
                         filled: true,
                         fillColor: const Color(0xFFF8FAFC),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
+                        ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFE2E8F0),
+                          ),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFE2E8F0),
+                          ),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Color(0xFF09638E), width: 1.5),
+                          borderSide: const BorderSide(
+                            color: Color(0xFF09638E),
+                            width: 1.5,
+                          ),
                         ),
                       ),
                     ),
@@ -9129,18 +9510,39 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                                     final confirm = await showDialog<bool>(
                                       context: ctx,
                                       builder: (c) => AlertDialog(
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                                        title: const Text('Xác Nhận Xóa Phương Tiện', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                                        content: Text('Bạn có chắc chắn muốn xóa phương tiện biển số "${bienSoCtrl.text.trim()}" khỏi hồ sơ không?'),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            18,
+                                          ),
+                                        ),
+                                        title: const Text(
+                                          'Xác Nhận Xóa Phương Tiện',
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        content: Text(
+                                          'Bạn có chắc chắn muốn xóa phương tiện biển số "${bienSoCtrl.text.trim()}" khỏi hồ sơ không?',
+                                        ),
                                         actions: [
-                                          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Hủy')),
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(c, false),
+                                            child: const Text('Hủy'),
+                                          ),
                                           ElevatedButton(
-                                            onPressed: () => Navigator.pop(c, true),
+                                            onPressed: () =>
+                                                Navigator.pop(c, true),
                                             style: ElevatedButton.styleFrom(
-                                              backgroundColor: const Color(0xFFEF4444),
+                                              backgroundColor: const Color(
+                                                0xFFEF4444,
+                                              ),
                                               foregroundColor: Colors.white,
                                             ),
-                                            child: const Text('Xóa Phương Tiện'),
+                                            child: const Text(
+                                              'Xóa Phương Tiện',
+                                            ),
                                           ),
                                         ],
                                       ),
@@ -9157,26 +9559,35 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                                           ThongBaoHelper.hienToast(
                                             context,
                                             tieuDe: 'Thành công',
-                                            noiDung: 'Đã xóa phương tiện khỏi danh sách.',
+                                            noiDung:
+                                                'Đã xóa phương tiện khỏi danh sách.',
                                             type: ThongBaoType.thanhCong,
                                           );
                                           _fetchTenantData(isSilent: true);
                                         }
                                       } catch (err) {
-                                        setModalState(() => isSubmitting = false);
+                                        setModalState(
+                                          () => isSubmitting = false,
+                                        );
                                         ThongBaoHelper.hienToast(
                                           context,
                                           tieuDe: 'Lỗi',
-                                          noiDung: 'Không thể xóa phương tiện: $err',
+                                          noiDung:
+                                              'Không thể xóa phương tiện: $err',
                                           type: ThongBaoType.thatBai,
                                         );
                                       }
                                     }
                                   },
-                            icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFEF4444)),
+                            icon: const Icon(
+                              Icons.delete_outline_rounded,
+                              color: Color(0xFFEF4444),
+                            ),
                             style: IconButton.styleFrom(
                               backgroundColor: const Color(0xFFFEE2E2),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                               padding: const EdgeInsets.all(12),
                             ),
                             tooltip: 'Xóa phương tiện',
@@ -9190,7 +9601,9 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                               onPressed: isSubmitting
                                   ? null
                                   : () async {
-                                      final bienSo = bienSoCtrl.text.trim().toUpperCase();
+                                      final bienSo = bienSoCtrl.text
+                                          .trim()
+                                          .toUpperCase();
                                       if (bienSo.isEmpty) {
                                         ThongBaoHelper.hienToast(
                                           context,
@@ -9204,18 +9617,29 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                                       setModalState(() => isSubmitting = true);
                                       try {
                                         final db = Supabase.instance.client;
-                                        final maKhach = _khachThueData?['ma_khach']?.toString() ??
-                                            AuthService.currentUser?.maTaiKhoan ??
+                                        final maKhach =
+                                            _khachThueData?['ma_khach']
+                                                ?.toString() ??
+                                            AuthService
+                                                .currentUser
+                                                ?.maTaiKhoan ??
                                             '';
-                                        final activeRoom = _hopDong?.maPhong ?? widget.roomNumber ?? 'P203';
+                                        final activeRoom =
+                                            _hopDong?.maPhong ??
+                                            widget.roomNumber ??
+                                            'P203';
 
                                         if (isEditing) {
-                                          await db.from('phuong_tien').update({
-                                            'loai_xe': loaiXeSelected,
-                                            'bien_so_xe': bienSo,
-                                          }).eq('ma_phuong_tien', maPt);
+                                          await db
+                                              .from('phuong_tien')
+                                              .update({
+                                                'loai_xe': loaiXeSelected,
+                                                'bien_so_xe': bienSo,
+                                              })
+                                              .eq('ma_phuong_tien', maPt);
                                         } else {
-                                          final newMaPt = 'PT_${DateTime.now().millisecondsSinceEpoch.toString().substring(4)}';
+                                          final newMaPt =
+                                              'PT_${DateTime.now().millisecondsSinceEpoch.toString().substring(4)}';
                                           await db.from('phuong_tien').insert({
                                             'ma_phuong_tien': newMaPt,
                                             'ma_khach': maKhach,
@@ -9223,7 +9647,8 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                                             'loai_xe': loaiXeSelected,
                                             'bien_so_xe': bienSo,
                                             'trang_thai': 'Đang sử dụng',
-                                            'ngay_dang_ky': DateTime.now().toIso8601String(),
+                                            'ngay_dang_ky': DateTime.now()
+                                                .toIso8601String(),
                                           });
                                         }
 
@@ -9240,28 +9665,38 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                                           _fetchTenantData(isSilent: true);
                                         }
                                       } catch (err) {
-                                        setModalState(() => isSubmitting = false);
+                                        setModalState(
+                                          () => isSubmitting = false,
+                                        );
                                         ThongBaoHelper.hienToast(
                                           context,
                                           tieuDe: 'Lỗi',
-                                          noiDung: 'Không thể lưu phương tiện: $err',
+                                          noiDung:
+                                              'Không thể lưu phương tiện: $err',
                                           type: ThongBaoType.thatBai,
                                         );
                                       }
                                     },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF09638E),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
                                 elevation: 0,
                               ),
                               child: isSubmitting
                                   ? const SizedBox(
                                       width: 20,
                                       height: 20,
-                                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                        strokeWidth: 2,
+                                      ),
                                     )
                                   : Text(
-                                      isEditing ? 'Lưu Thay Đổi' : 'Xác Nhận Đăng Ký',
+                                      isEditing
+                                          ? 'Lưu Thay Đổi'
+                                          : 'Xác Nhận Đăng Ký',
                                       style: const TextStyle(
                                         fontSize: 14,
                                         fontWeight: FontWeight.bold,
@@ -9414,194 +9849,197 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE2E8F0),
-                  borderRadius: BorderRadius.circular(2),
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE2E8F0),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
                 ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF2F2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.warning_amber_rounded,
+                        color: Color(0xFFDC2626),
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Hướng Dẫn Xử Lý Quá Hạn',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF0F172A),
+                            ),
+                          ),
+                          Text(
+                            'Hóa đơn ${hd.maHoaDon} • Trễ ${-hd.soNgayConLai} ngày',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFFDC2626),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
                 Container(
-                  padding: const EdgeInsets.all(10),
+                  padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFEF2F2),
-                    borderRadius: BorderRadius.circular(12),
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
                   ),
-                  child: const Icon(
-                    Icons.warning_amber_rounded,
-                    color: Color(0xFFDC2626),
-                    size: 24,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
+                  child: const Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Hướng Dẫn Xử Lý Quá Hạn',
+                      Text(
+                        'Quy định nghiêm ngặt về tiền phòng & Quá hạn:',
                         style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF0F172A),
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF1E293B),
                         ),
                       ),
+                      SizedBox(height: 6),
                       Text(
-                        'Hóa đơn ${hd.maHoaDon} • Trễ ${-hd.soNgayConLai} ngày',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFFDC2626),
-                          fontWeight: FontWeight.w600,
+                        '• Hạn nộp định kỳ: Bắt buộc hoàn tất trước hoặc đúng ngày 04 hàng tháng.\n'
+                        '• Tòa nhà KHÔNG có chính sách cho gia hạn nợ tiền phòng.\n'
+                        '• Trễ hạn từ 5 ngày: BQL gửi thông báo cảnh báo trễ hạn đóng tiền phòng.\n'
+                        '• Trễ hạn từ 10 ngày: BQL sẽ liên hệ trực tiếp hoặc tạm ngưng tiện ích lưu trú nếu không thanh toán. Hotline BQL: ${LienHeHelper.defaultHotlineDisplay}.',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          height: 1.5,
+                          color: Color(0xFF475569),
                         ),
                       ),
                     ],
                   ),
                 ),
+
+                const SizedBox(height: 16),
+                const Text(
+                  'Hướng xử lý bắt buộc:',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF0F172A),
+                  ),
+                ),
+                const SizedBox(height: 10),
+
+                // Phương án 1: Thanh toán ngay VietQR
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 4,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: const BorderSide(
+                      color: Color(0xFF09638E),
+                      width: 1.2,
+                    ),
+                  ),
+                  tileColor: const Color(0xFFF0FDF4),
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFDCFCE7),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.qr_code_scanner_rounded,
+                      color: Color(0xFF16A34A),
+                      size: 22,
+                    ),
+                  ),
+                  title: const Text(
+                    'Thanh toán ngay bằng VietQR (Khuyên dùng)',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF15803D),
+                    ),
+                  ),
+                  subtitle: const Text(
+                    'Quét mã 24/7 gạch nợ tự động trong 30 giây để tránh bị phạt',
+                    style: TextStyle(fontSize: 11.5, color: Color(0xFF166534)),
+                  ),
+                  trailing: const Icon(
+                    Icons.chevron_right_rounded,
+                    color: Color(0xFF16A34A),
+                  ),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _showVietQrModal();
+                  },
+                ),
+                const SizedBox(height: 10),
+
+                // Phương án 2: Gọi Hotline BQL khiếu nại sai số
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 4,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: const BorderSide(color: Color(0xFFE2E8F0)),
+                  ),
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.phone_in_talk_rounded,
+                      color: Color(0xFF0F172A),
+                      size: 20,
+                    ),
+                  ),
+                  title: const Text(
+                    'Hotline Ban Quản Lý (0328.004.663)',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                  ),
+                  subtitle: const Text(
+                    'Liên hệ trực tiếp nếu có thắc mắc/sai lệch về chỉ số điện nước',
+                    style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                  ),
+                  trailing: const Icon(
+                    Icons.chevron_right_rounded,
+                    color: Color(0xFF94A3B8),
+                  ),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    LienHeHelper.hienThiLuaChonLienHe(context);
+                  },
+                ),
               ],
             ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-              ),
-              child: const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Quy định nghiêm ngặt về tiền phòng & Quá hạn:',
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF1E293B),
-                    ),
-                  ),
-                  SizedBox(height: 6),
-                  Text(
-                    '• Hạn nộp định kỳ: Bắt buộc hoàn tất trước hoặc đúng ngày 04 hàng tháng.\n'
-                    '• Tòa nhà KHÔNG có chính sách cho gia hạn nợ tiền phòng.\n'
-                    '• Trễ hạn từ 5 ngày: BQL gửi thông báo cảnh báo trễ hạn đóng tiền phòng.\n'
-                    '• Trễ hạn từ 10 ngày: BQL sẽ liên hệ trực tiếp hoặc tạm ngưng tiện ích lưu trú nếu không thanh toán. Hotline BQL: ${LienHeHelper.defaultHotlineDisplay}.',
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      height: 1.5,
-                      color: Color(0xFF475569),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 16),
-            const Text(
-              'Hướng xử lý bắt buộc:',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF0F172A),
-              ),
-            ),
-            const SizedBox(height: 10),
-
-            // Phương án 1: Thanh toán ngay VietQR
-            ListTile(
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 4,
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: const BorderSide(color: Color(0xFF09638E), width: 1.2),
-              ),
-              tileColor: const Color(0xFFF0FDF4),
-              leading: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFDCFCE7),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(
-                  Icons.qr_code_scanner_rounded,
-                  color: Color(0xFF16A34A),
-                  size: 22,
-                ),
-              ),
-              title: const Text(
-                'Thanh toán ngay bằng VietQR (Khuyên dùng)',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF15803D),
-                ),
-              ),
-              subtitle: const Text(
-                'Quét mã 24/7 gạch nợ tự động trong 30 giây để tránh bị phạt',
-                style: TextStyle(fontSize: 11.5, color: Color(0xFF166534)),
-              ),
-              trailing: const Icon(
-                Icons.chevron_right_rounded,
-                color: Color(0xFF16A34A),
-              ),
-              onTap: () {
-                Navigator.pop(ctx);
-                _showVietQrModal();
-              },
-            ),
-            const SizedBox(height: 10),
-
-            // Phương án 2: Gọi Hotline BQL khiếu nại sai số
-            ListTile(
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 4,
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: const BorderSide(color: Color(0xFFE2E8F0)),
-              ),
-              leading: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(
-                  Icons.phone_in_talk_rounded,
-                  color: Color(0xFF0F172A),
-                  size: 20,
-                ),
-              ),
-              title: const Text(
-                'Hotline Ban Quản Lý (0328.004.663)',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-              ),
-              subtitle: const Text(
-                'Liên hệ trực tiếp nếu có thắc mắc/sai lệch về chỉ số điện nước',
-                style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
-              ),
-              trailing: const Icon(
-                Icons.chevron_right_rounded,
-                color: Color(0xFF94A3B8),
-              ),
-              onTap: () {
-                Navigator.pop(ctx);
-                LienHeHelper.hienThiLuaChonLienHe(context);
-              },
-            ),
-          ],
+          ),
         ),
       ),
-    ),
-  ),
-);
+    );
   }
 
   /// Chuyển tiếp tới modal hướng dẫn quá hạn
@@ -11222,31 +11660,33 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                             (phongMoiData?['dien_tich'] as num?)?.toInt() ?? 20;
 
                         if (!mounted) return;
-                        rootNav.push(
-                          MaterialPageRoute(
-                            builder: (_) => RoomTransferSuccessScreen(
-                              ticketCode: maYC,
-                              targetRoom: {
-                                'maPhong': targetRoom,
-                                'toaNha':
-                                    phongMoiData?['toa_nha']?.toString() ??
-                                    'Tòa A',
-                                'tang': tangMoi,
-                                'dienTich': dienTichMoi,
-                                'giaThue': giaThueMoi,
-                                'tienDatCoc': tienCocMoi,
-                              },
-                              currentRoomNumber: curRoom,
-                              currentPrice:
-                                  _hopDong?.giaThueThaoThuan ?? 3800000,
-                              moveInDateFormatted: thoiGianHen,
-                              reason:
-                                  don['ly_do_chuyen']?.toString() ??
-                                  'Chuyển phòng theo yêu cầu',
-                              note: '',
-                            ),
-                          ),
-                        ).then((_) => _fetchTenantData());
+                        rootNav
+                            .push(
+                              MaterialPageRoute(
+                                builder: (_) => RoomTransferSuccessScreen(
+                                  ticketCode: maYC,
+                                  targetRoom: {
+                                    'maPhong': targetRoom,
+                                    'toaNha':
+                                        phongMoiData?['toa_nha']?.toString() ??
+                                        'Tòa A',
+                                    'tang': tangMoi,
+                                    'dienTich': dienTichMoi,
+                                    'giaThue': giaThueMoi,
+                                    'tienDatCoc': tienCocMoi,
+                                  },
+                                  currentRoomNumber: curRoom,
+                                  currentPrice:
+                                      _hopDong?.giaThueThaoThuan ?? 3800000,
+                                  moveInDateFormatted: thoiGianHen,
+                                  reason:
+                                      don['ly_do_chuyen']?.toString() ??
+                                      'Chuyển phòng theo yêu cầu',
+                                  note: '',
+                                ),
+                              ),
+                            )
+                            .then((_) => _fetchTenantData());
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF09638E),

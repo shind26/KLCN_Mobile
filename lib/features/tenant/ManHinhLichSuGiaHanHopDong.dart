@@ -22,15 +22,18 @@ class ManHinhLichSuGiaHanHopDong extends StatefulWidget {
   });
 
   @override
-  State<ManHinhLichSuGiaHanHopDong> createState() => _ManHinhLichSuGiaHanHopDongState();
+  State<ManHinhLichSuGiaHanHopDong> createState() =>
+      _ManHinhLichSuGiaHanHopDongState();
 }
 
-class _ManHinhLichSuGiaHanHopDongState extends State<ManHinhLichSuGiaHanHopDong> {
+class _ManHinhLichSuGiaHanHopDongState
+    extends State<ManHinhLichSuGiaHanHopDong> {
   static const _primary = Color(0xFF09638E);
   static const _bg = Color(0xFFF1F6FA);
   static const _textDark = Color(0xFF0F172A);
 
-  int _selectedFilterIndex = 0; // 0: Tất cả, 1: Chờ duyệt, 2: Đã duyệt, 3: Từ chối
+  int _selectedFilterIndex =
+      0; // 0: Tất cả, 1: Chờ duyệt, 2: Đã duyệt, 3: Từ chối
   bool _isLoading = true;
   bool _isDaiDien = true;
   List<Map<String, dynamic>> _danhSachPhuLuc = [];
@@ -77,7 +80,11 @@ class _ManHinhLichSuGiaHanHopDongState extends State<ManHinhLichSuGiaHanHopDong>
           children: [
             Text(
               'Bạn đang đăng nhập với tư cách Thành viên phòng (Bạn cùng phòng).',
-              style: TextStyle(fontSize: 13.5, color: Colors.grey.shade700, height: 1.4),
+              style: TextStyle(
+                fontSize: 13.5,
+                color: Colors.grey.shade700,
+                height: 1.4,
+              ),
             ),
             const SizedBox(height: 12),
             Container(
@@ -90,7 +97,11 @@ class _ManHinhLichSuGiaHanHopDongState extends State<ManHinhLichSuGiaHanHopDong>
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.info_outline, size: 18, color: Color(0xFF09638E)),
+                  const Icon(
+                    Icons.info_outline,
+                    size: 18,
+                    color: Color(0xFF09638E),
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -109,7 +120,11 @@ class _ManHinhLichSuGiaHanHopDongState extends State<ManHinhLichSuGiaHanHopDong>
             const SizedBox(height: 12),
             Text(
               'Vui lòng báo cho Người đại diện của phòng bạn để tiến hành thủ tục này nhé!',
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade600, height: 1.3),
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey.shade600,
+                height: 1.3,
+              ),
             ),
           ],
         ),
@@ -121,10 +136,15 @@ class _ManHinhLichSuGiaHanHopDongState extends State<ManHinhLichSuGiaHanHopDong>
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF09638E),
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 padding: const EdgeInsets.symmetric(vertical: 12),
               ),
-              child: const Text('Đã hiểu', style: TextStyle(fontWeight: FontWeight.bold)),
+              child: const Text(
+                'Đã hiểu',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
             ),
           ),
         ],
@@ -165,7 +185,8 @@ class _ManHinhLichSuGiaHanHopDongState extends State<ManHinhLichSuGiaHanHopDong>
     if (widget.maHopDong != null && widget.maHopDong!.isNotEmpty) {
       return widget.maHopDong!;
     }
-    if (widget.hopDong?.maHopDong != null && widget.hopDong!.maHopDong.isNotEmpty) {
+    if (widget.hopDong?.maHopDong != null &&
+        widget.hopDong!.maHopDong.isNotEmpty) {
       return widget.hopDong!.maHopDong;
     }
     return 'HD001';
@@ -192,9 +213,13 @@ class _ManHinhLichSuGiaHanHopDongState extends State<ManHinhLichSuGiaHanHopDong>
       bool userIsDaiDien = true;
       if (user != null) {
         final authRole = user.vaiTro.toLowerCase();
-        if (authRole.contains('admin') || authRole.contains('chutro') || authRole.contains('quanly')) {
+        if (authRole.contains('admin') ||
+            authRole.contains('chutro') ||
+            authRole.contains('quanly')) {
           userIsDaiDien = true;
-        } else if (authRole.contains('thanhvien') || authRole.contains('banocung') || authRole.contains('ocung')) {
+        } else if (authRole.contains('thanhvien') ||
+            authRole.contains('banocung') ||
+            authRole.contains('ocung')) {
           userIsDaiDien = false;
         } else if (user.maTaiKhoan.isNotEmpty) {
           final kt = await db
@@ -212,9 +237,12 @@ class _ManHinhLichSuGiaHanHopDongState extends State<ManHinhLichSuGiaHanHopDong>
             if (cthd != null) {
               cCode = cthd['ma_hop_dong']?.toString() ?? cCode;
               final vt = (cthd['vai_tro']?.toString() ?? '').toLowerCase();
-              if (vt.contains('ở cùng') || vt.contains('thành viên') || vt.contains('ocung')) {
+              if (vt.contains('ở cùng') ||
+                  vt.contains('thành viên') ||
+                  vt.contains('ocung')) {
                 userIsDaiDien = false;
-              } else if (vt.contains('đại diện') || vt.contains('trưởng phòng')) {
+              } else if (vt.contains('đại diện') ||
+                  vt.contains('trưởng phòng')) {
                 userIsDaiDien = true;
               }
             }
@@ -250,15 +278,20 @@ class _ManHinhLichSuGiaHanHopDongState extends State<ManHinhLichSuGiaHanHopDong>
 
       if (mounted) {
         // Lọc chỉ giữ các phụ lục gia hạn (loại bỏ phụ lục chuyển phòng có mã PLCP hoặc ma_phong_moi)
-        final giaHanList = (res as List).where((item) {
-          final pMoi = item['ma_phong_moi']?.toString() ?? '';
-          final code = item['ma_phu_luc']?.toString() ?? '';
-          final loai = item['loai_phu_luc']?.toString().toLowerCase() ?? '';
-          if (pMoi.isNotEmpty || code.startsWith('PLCP') || loai.contains('chuyển phòng')) {
-            return false;
-          }
-          return true;
-        }).map((e) => Map<String, dynamic>.from(e)).toList();
+        final giaHanList = (res as List)
+            .where((item) {
+              final pMoi = item['ma_phong_moi']?.toString() ?? '';
+              final code = item['ma_phu_luc']?.toString() ?? '';
+              final loai = item['loai_phu_luc']?.toString().toLowerCase() ?? '';
+              if (pMoi.isNotEmpty ||
+                  code.startsWith('PLCP') ||
+                  loai.contains('chuyển phòng')) {
+                return false;
+              }
+              return true;
+            })
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
 
         setState(() {
           _isDaiDien = userIsDaiDien;
@@ -275,13 +308,19 @@ class _ManHinhLichSuGiaHanHopDongState extends State<ManHinhLichSuGiaHanHopDong>
   List<Map<String, dynamic>> get _filteredList {
     if (_selectedFilterIndex == 0) return _danhSachPhuLuc;
     if (_selectedFilterIndex == 1) {
-      return _danhSachPhuLuc.where((i) => (i['trang_thai']?.toString() ?? '') == 'Chờ duyệt').toList();
+      return _danhSachPhuLuc
+          .where((i) => (i['trang_thai']?.toString() ?? '') == 'Chờ duyệt')
+          .toList();
     }
     if (_selectedFilterIndex == 2) {
-      return _danhSachPhuLuc.where((i) => (i['trang_thai']?.toString() ?? '') == 'Đã duyệt').toList();
+      return _danhSachPhuLuc
+          .where((i) => (i['trang_thai']?.toString() ?? '') == 'Đã duyệt')
+          .toList();
     }
     if (_selectedFilterIndex == 3) {
-      return _danhSachPhuLuc.where((i) => (i['trang_thai']?.toString() ?? '') == 'Từ chối').toList();
+      return _danhSachPhuLuc
+          .where((i) => (i['trang_thai']?.toString() ?? '') == 'Từ chối')
+          .toList();
     }
     return _danhSachPhuLuc;
   }
@@ -306,19 +345,19 @@ class _ManHinhLichSuGiaHanHopDongState extends State<ManHinhLichSuGiaHanHopDong>
                         subMessage: 'Mèo con đang kiểm tra các đơn gia hạn~ 🐾',
                       )
                     : _filteredList.isEmpty
-                        ? _buildEmptyState()
-                        : ListView.separated(
-                            physics: const AlwaysScrollableScrollPhysics(
-                              parent: BouncingScrollPhysics(),
-                            ),
-                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
-                            itemCount: _filteredList.length,
-                            separatorBuilder: (_, _) => const SizedBox(height: 14),
-                            itemBuilder: (context, index) {
-                              final item = _filteredList[index];
-                              return _buildPhuLucCard(item);
-                            },
-                          ),
+                    ? _buildEmptyState()
+                    : ListView.separated(
+                        physics: const AlwaysScrollableScrollPhysics(
+                          parent: BouncingScrollPhysics(),
+                        ),
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+                        itemCount: _filteredList.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 14),
+                        itemBuilder: (context, index) {
+                          final item = _filteredList[index];
+                          return _buildPhuLucCard(item);
+                        },
+                      ),
               ),
             ],
           ),
@@ -332,7 +371,8 @@ class _ManHinhLichSuGiaHanHopDongState extends State<ManHinhLichSuGiaHanHopDong>
                   return;
                 }
                 int daysLeft = 999;
-                if (widget.hopDong?.ngayKt != null && widget.hopDong!.ngayKt.isNotEmpty) {
+                if (widget.hopDong?.ngayKt != null &&
+                    widget.hopDong!.ngayKt.isNotEmpty) {
                   try {
                     final dt = DateTime.parse(widget.hopDong!.ngayKt);
                     daysLeft = dt.difference(DateTime.now()).inDays;
@@ -364,7 +404,10 @@ class _ManHinhLichSuGiaHanHopDongState extends State<ManHinhLichSuGiaHanHopDong>
               icon: const Icon(Icons.add_rounded, color: Colors.white),
               label: const Text(
                 'Tạo Đơn Gia Hạn',
-                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
               ),
             )
           : null,
@@ -377,7 +420,11 @@ class _ManHinhLichSuGiaHanHopDongState extends State<ManHinhLichSuGiaHanHopDong>
       elevation: 0,
       scrolledUnderElevation: 0,
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 19, color: _textDark),
+        icon: const Icon(
+          Icons.arrow_back_ios_new_rounded,
+          size: 19,
+          color: _textDark,
+        ),
         onPressed: () => Navigator.pop(context),
       ),
       centerTitle: true,
@@ -385,7 +432,11 @@ class _ManHinhLichSuGiaHanHopDongState extends State<ManHinhLichSuGiaHanHopDong>
         children: [
           const Text(
             'Lịch Sử Gia Hạn Hợp Đồng',
-            style: TextStyle(fontSize: 16.5, fontWeight: FontWeight.bold, color: _textDark),
+            style: TextStyle(
+              fontSize: 16.5,
+              fontWeight: FontWeight.bold,
+              color: _textDark,
+            ),
           ),
           const SizedBox(height: 2),
           Text(
@@ -399,8 +450,12 @@ class _ManHinhLichSuGiaHanHopDongState extends State<ManHinhLichSuGiaHanHopDong>
 
   Widget _buildSummaryHeader() {
     final tong = _danhSachPhuLuc.length;
-    final choDuyet = _danhSachPhuLuc.where((i) => i['trang_thai'] == 'Chờ duyệt').length;
-    final daDuyet = _danhSachPhuLuc.where((i) => i['trang_thai'] == 'Đã duyệt').length;
+    final choDuyet = _danhSachPhuLuc
+        .where((i) => i['trang_thai'] == 'Chờ duyệt')
+        .length;
+    final daDuyet = _danhSachPhuLuc
+        .where((i) => i['trang_thai'] == 'Đã duyệt')
+        .length;
 
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
@@ -433,9 +488,19 @@ class _ManHinhLichSuGiaHanHopDongState extends State<ManHinhLichSuGiaHanHopDong>
   Widget _buildStatCol(String label, String value, Color color) {
     return Column(
       children: [
-        Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color)),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
         const SizedBox(height: 2),
-        Text(label, style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B))),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+        ),
       ],
     );
   }
@@ -465,7 +530,9 @@ class _ManHinhLichSuGiaHanHopDongState extends State<ManHinhLichSuGiaHanHopDong>
             ),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
-              side: BorderSide(color: isSelected ? _primary : const Color(0xFFE2E8F0)),
+              side: BorderSide(
+                color: isSelected ? _primary : const Color(0xFFE2E8F0),
+              ),
             ),
             showCheckmark: false,
           );
@@ -479,7 +546,8 @@ class _ManHinhLichSuGiaHanHopDongState extends State<ManHinhLichSuGiaHanHopDong>
     final st = item['trang_thai']?.toString() ?? 'Chờ duyệt';
     final ngayLap = item['ngay_lap']?.toString() ?? '';
     final ngayDen = item['ngay_gia_han_den']?.toString() ?? '';
-    final noiDung = item['noi_dung_dieu_chinh']?.toString() ?? 'Gia hạn thời hạn hợp đồng';
+    final noiDung =
+        item['noi_dung_dieu_chinh']?.toString() ?? 'Gia hạn thời hạn hợp đồng';
     final giaMoi = num.tryParse(item['gia_thue_moi']?.toString() ?? '0') ?? 0;
 
     Color badgeColor;
@@ -534,7 +602,11 @@ class _ManHinhLichSuGiaHanHopDongState extends State<ManHinhLichSuGiaHanHopDong>
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.history_edu_rounded, size: 14, color: _primary),
+                    const Icon(
+                      Icons.history_edu_rounded,
+                      size: 14,
+                      color: _primary,
+                    ),
                     const SizedBox(width: 4),
                     Text(
                       maPl,
@@ -595,9 +667,16 @@ class _ManHinhLichSuGiaHanHopDongState extends State<ManHinhLichSuGiaHanHopDong>
             children: [
               _buildInfoMini('Ngày nộp đơn', _formatDate(ngayLap)),
               if (ngayDen.isNotEmpty)
-                _buildInfoMini('Gia hạn đến', _formatDate(ngayDen), isHighlight: true),
+                _buildInfoMini(
+                  'Gia hạn đến',
+                  _formatDate(ngayDen),
+                  isHighlight: true,
+                ),
               if (giaMoi > 0)
-                _buildInfoMini('Giá thuê', '${FormatUtils.currency(giaMoi.toDouble())}/tháng'),
+                _buildInfoMini(
+                  'Giá thuê',
+                  '${FormatUtils.currency(giaMoi.toDouble())}/tháng',
+                ),
             ],
           ),
           const SizedBox(height: 12),
@@ -608,14 +687,24 @@ class _ManHinhLichSuGiaHanHopDongState extends State<ManHinhLichSuGiaHanHopDong>
             height: 38,
             child: OutlinedButton.icon(
               onPressed: () => _hienThiChiTietPhuLucModal(item),
-              icon: const Icon(Icons.visibility_outlined, size: 16, color: _primary),
+              icon: const Icon(
+                Icons.visibility_outlined,
+                size: 16,
+                color: _primary,
+              ),
               label: const Text(
                 'Xem Chi Tiết Phụ Lục Ký Kết',
-                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: _primary),
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.bold,
+                  color: _primary,
+                ),
               ),
               style: OutlinedButton.styleFrom(
                 side: const BorderSide(color: Color(0xFFBAE6FD)),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
             ),
           ),
@@ -624,11 +713,18 @@ class _ManHinhLichSuGiaHanHopDongState extends State<ManHinhLichSuGiaHanHopDong>
     );
   }
 
-  Widget _buildInfoMini(String label, String value, {bool isHighlight = false}) {
+  Widget _buildInfoMini(
+    String label,
+    String value, {
+    bool isHighlight = false,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+        ),
         const SizedBox(height: 2),
         Text(
           value,
@@ -697,7 +793,11 @@ class _ManHinhLichSuGiaHanHopDongState extends State<ManHinhLichSuGiaHanHopDong>
                       color: const Color(0xFFE0F2FE),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Icon(Icons.description_rounded, color: _primary, size: 22),
+                    child: const Icon(
+                      Icons.description_rounded,
+                      color: _primary,
+                      size: 22,
+                    ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -706,11 +806,18 @@ class _ManHinhLichSuGiaHanHopDongState extends State<ManHinhLichSuGiaHanHopDong>
                       children: [
                         Text(
                           'Phụ Lục Gia Hạn #$maPl',
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: _textDark),
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: _textDark,
+                          ),
                         ),
                         Text(
                           'Căn cứ Hợp đồng số: $_contractCode',
-                          style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF64748B),
+                          ),
                         ),
                       ],
                     ),
@@ -724,14 +831,26 @@ class _ManHinhLichSuGiaHanHopDongState extends State<ManHinhLichSuGiaHanHopDong>
               _buildModalRow('Trạng thái phê duyệt:', st),
               _buildModalRow('Ngày lập văn bản:', _formatDate(ngayLap)),
               _buildModalRow('Phòng áp dụng:', _roomName),
-              if (ngayDen.isNotEmpty) _buildModalRow('Thời hạn thuê mới đến:', _formatDate(ngayDen)),
-              if (giaMoi > 0) _buildModalRow('Giá thuê thỏa thuận:', '${FormatUtils.currency(giaMoi.toDouble())}/tháng'),
-              _buildModalRow('Tiền đặt cọc bảo lưu:', '100% bảo lưu tiền cọc gốc'),
+              if (ngayDen.isNotEmpty)
+                _buildModalRow('Thời hạn thuê mới đến:', _formatDate(ngayDen)),
+              if (giaMoi > 0)
+                _buildModalRow(
+                  'Giá thuê thỏa thuận:',
+                  '${FormatUtils.currency(giaMoi.toDouble())}/tháng',
+                ),
+              _buildModalRow(
+                'Tiền đặt cọc bảo lưu:',
+                '100% bảo lưu tiền cọc gốc',
+              ),
 
               const SizedBox(height: 14),
               const Text(
                 'Điều khoản điều chỉnh:',
-                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: _textDark),
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.bold,
+                  color: _textDark,
+                ),
               ),
               const SizedBox(height: 6),
               Container(
@@ -743,8 +862,14 @@ class _ManHinhLichSuGiaHanHopDongState extends State<ManHinhLichSuGiaHanHopDong>
                   border: Border.all(color: const Color(0xFFE2E8F0)),
                 ),
                 child: Text(
-                  noiDung.isNotEmpty ? noiDung : 'Gia hạn thời hạn hợp đồng thuê nhà theo thỏa thuận.',
-                  style: const TextStyle(fontSize: 12.5, color: Color(0xFF334155), height: 1.4),
+                  noiDung.isNotEmpty
+                      ? noiDung
+                      : 'Gia hạn thời hạn hợp đồng thuê nhà theo thỏa thuận.',
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    color: Color(0xFF334155),
+                    height: 1.4,
+                  ),
                 ),
               ),
               const SizedBox(height: 14),
@@ -757,12 +882,20 @@ class _ManHinhLichSuGiaHanHopDongState extends State<ManHinhLichSuGiaHanHopDong>
                 ),
                 child: const Row(
                   children: [
-                    Icon(Icons.verified_user_rounded, color: Color(0xFF16A34A), size: 18),
+                    Icon(
+                      Icons.verified_user_rounded,
+                      color: Color(0xFF16A34A),
+                      size: 18,
+                    ),
                     SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         'Phụ lục này là bộ phận không tách rời của Hợp đồng thuê nhà ban đầu và có giá trị pháp lý đầy đủ.',
-                        style: TextStyle(fontSize: 11.5, color: Color(0xFF15803D), height: 1.3),
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          color: Color(0xFF15803D),
+                          height: 1.3,
+                        ),
                       ),
                     ),
                   ],
@@ -777,9 +910,14 @@ class _ManHinhLichSuGiaHanHopDongState extends State<ManHinhLichSuGiaHanHopDong>
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _primary,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
-                  child: const Text('Đóng', style: TextStyle(fontWeight: FontWeight.bold)),
+                  child: const Text(
+                    'Đóng',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 ),
               ),
             ],
@@ -795,10 +933,17 @@ class _ManHinhLichSuGiaHanHopDongState extends State<ManHinhLichSuGiaHanHopDong>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(fontSize: 12.5, color: Color(0xFF64748B))),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
+          ),
           Text(
             value,
-            style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: _textDark),
+            style: const TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.bold,
+              color: _textDark,
+            ),
           ),
         ],
       ),
@@ -819,18 +964,30 @@ class _ManHinhLichSuGiaHanHopDongState extends State<ManHinhLichSuGiaHanHopDong>
                 color: Color(0xFFE0F2FE),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.history_edu_rounded, size: 36, color: _primary),
+              child: const Icon(
+                Icons.history_edu_rounded,
+                size: 36,
+                color: _primary,
+              ),
             ),
             const SizedBox(height: 16),
             const Text(
               'Chưa Có Đơn Gia Hạn Nào',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: _textDark),
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+                color: _textDark,
+              ),
             ),
             const SizedBox(height: 6),
             const Text(
               'Các yêu cầu gia hạn hợp đồng và phụ lục đã ký của bạn sẽ được hiển thị và theo dõi tại đây.',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B), height: 1.4),
+              style: TextStyle(
+                fontSize: 12.5,
+                color: Color(0xFF64748B),
+                height: 1.4,
+              ),
             ),
             if (_isDaiDien) ...[
               const SizedBox(height: 20),
@@ -857,8 +1014,13 @@ class _ManHinhLichSuGiaHanHopDongState extends State<ManHinhLichSuGiaHanHopDong>
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _primary,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
             ],

@@ -126,8 +126,10 @@ class _ManHinhVnPayWebViewState extends State<ManHinhVnPayWebView> {
           }
 
           final timestamp = DateTime.now().millisecondsSinceEpoch;
-          final maPhieuThu = 'PT${(timestamp % 100000000).toString().padLeft(8, '0')}';
-          final maTraCuu = 'VNP${(timestamp % 1000000000000).toString().padLeft(12, '0')}';
+          final maPhieuThu =
+              'PT${(timestamp % 100000000).toString().padLeft(8, '0')}';
+          final maTraCuu =
+              'VNP${(timestamp % 1000000000000).toString().padLeft(12, '0')}';
           try {
             await db.from('phieu_thu').insert({
               'ma_phieu_thu': maPhieuThu,
@@ -138,7 +140,9 @@ class _ManHinhVnPayWebViewState extends State<ManHinhVnPayWebView> {
               'ngay_thu': DateTime.now().toIso8601String(),
               'trang_thai': 'Đã thanh toán',
             });
-            debugPrint('[VNPAY] Đã lưu phiếu thu thành công: $maPhieuThu cho $maHD');
+            debugPrint(
+              '[VNPAY] Đã lưu phiếu thu thành công: $maPhieuThu cho $maHD',
+            );
           } catch (ePt) {
             debugPrint('[VNPAY] Lỗi lưu phiếu thu: $ePt');
           }
@@ -151,9 +155,12 @@ class _ManHinhVnPayWebViewState extends State<ManHinhVnPayWebView> {
                   .from('tai_khoan')
                   .update({'trang_thai': 'HoatDong'})
                   .eq('ma_tai_khoan', curUser.maTaiKhoan);
-              AuthService.currentUserNotifier.value =
-                  curUser.copyWith(trangThai: 'HoatDong');
-              debugPrint('[AUTO_UNLOCK] VNPAY đã mở lại HoatDong cho tài khoản ${curUser.maTaiKhoan}');
+              AuthService.currentUserNotifier.value = curUser.copyWith(
+                trangThai: 'HoatDong',
+              );
+              debugPrint(
+                '[AUTO_UNLOCK] VNPAY đã mở lại HoatDong cho tài khoản ${curUser.maTaiKhoan}',
+              );
             } catch (eTk) {
               debugPrint('[AUTO_UNLOCK] Lỗi mở lại tài khoản VNPAY: $eTk');
             }
@@ -168,7 +175,8 @@ class _ManHinhVnPayWebViewState extends State<ManHinhVnPayWebView> {
         PaymentSoundHelper.playSuccess();
 
         final timestampForRef = DateTime.now().millisecondsSinceEpoch;
-        final vnpRef = 'VNP${(timestampForRef % 1000000000000).toString().padLeft(12, '0')}';
+        final vnpRef =
+            'VNP${(timestampForRef % 1000000000000).toString().padLeft(12, '0')}';
 
         Navigator.pushReplacement(
           context,
@@ -284,7 +292,9 @@ class _VnPayWebViewScreenState extends State<VnPayWebViewScreen> {
   int _selectedBankIndex = 0;
   bool _isProcessing = false;
 
-  final _cardNoController = TextEditingController(text: '9704 1985 2619 1432 198');
+  final _cardNoController = TextEditingController(
+    text: '9704 1985 2619 1432 198',
+  );
   final _cardHolderController = TextEditingController(text: 'NGUYEN VAN A');
   final _cardExpController = TextEditingController(text: '07/15');
 
@@ -358,7 +368,11 @@ class _VnPayWebViewScreenState extends State<VnPayWebViewScreen> {
                 const Text(
                   'Mã xác thực OTP đã được gửi đến số điện thoại đăng ký tài khoản thẻ.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B), height: 1.4),
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    color: Color(0xFF64748B),
+                    height: 1.4,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 TextField(
@@ -383,7 +397,10 @@ class _VnPayWebViewScreenState extends State<VnPayWebViewScreen> {
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Color(0xFF005BAA), width: 2),
+                      borderSide: const BorderSide(
+                        color: Color(0xFF005BAA),
+                        width: 2,
+                      ),
                     ),
                   ),
                 ),
@@ -391,7 +408,11 @@ class _VnPayWebViewScreenState extends State<VnPayWebViewScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: const [
-                    Icon(Icons.timer_outlined, size: 15, color: Color(0xFF64748B)),
+                    Icon(
+                      Icons.timer_outlined,
+                      size: 15,
+                      color: Color(0xFF64748B),
+                    ),
                     SizedBox(width: 4),
                     Text(
                       'Hiệu lực mã: 119s',
@@ -406,10 +427,15 @@ class _VnPayWebViewScreenState extends State<VnPayWebViewScreen> {
                       child: OutlinedButton(
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                         ),
                         onPressed: () => Navigator.pop(ctx, false),
-                        child: const Text('Hủy', style: TextStyle(color: Color(0xFF64748B))),
+                        child: const Text(
+                          'Hủy',
+                          style: TextStyle(color: Color(0xFF64748B)),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -419,12 +445,17 @@ class _VnPayWebViewScreenState extends State<VnPayWebViewScreen> {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF005BAA),
                           padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                         ),
                         onPressed: () => Navigator.pop(ctx, true),
                         child: const Text(
                           'Xác nhận OTP',
-                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ),
@@ -452,16 +483,24 @@ class _VnPayWebViewScreenState extends State<VnPayWebViewScreen> {
   @override
   Widget build(BuildContext context) {
     final amount = widget.amount ?? 100000;
-    final formattedAmount =
-        NumberFormat.currency(locale: 'vi_VN', symbol: 'đ', decimalDigits: 0).format(amount);
-    final orderId = widget.maHoaDon ?? 'KG${DateTime.now().millisecondsSinceEpoch}';
+    final formattedAmount = NumberFormat.currency(
+      locale: 'vi_VN',
+      symbol: 'đ',
+      decimalDigits: 0,
+    ).format(amount);
+    final orderId =
+        widget.maHoaDon ?? 'KG${DateTime.now().millisecondsSinceEpoch}';
 
     return Scaffold(
       backgroundColor: const Color(0xFFF1F5F9),
       appBar: AppBar(
         title: const Text(
           'Cổng thanh toán VNPAY',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
         ),
         backgroundColor: const Color(0xFF005BAA),
         foregroundColor: Colors.white,
@@ -481,7 +520,10 @@ class _VnPayWebViewScreenState extends State<VnPayWebViewScreen> {
               children: const [
                 Icon(Icons.lock_rounded, size: 16, color: Colors.white70),
                 SizedBox(width: 4),
-                Text('Bảo mật', style: TextStyle(fontSize: 12, color: Colors.white70)),
+                Text(
+                  'Bảo mật',
+                  style: TextStyle(fontSize: 12, color: Colors.white70),
+                ),
               ],
             ),
           ),
@@ -506,7 +548,10 @@ class _VnPayWebViewScreenState extends State<VnPayWebViewScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: const [
-                    CircularProgressIndicator(color: Color(0xFF005BAA), strokeWidth: 3),
+                    CircularProgressIndicator(
+                      color: Color(0xFF005BAA),
+                      strokeWidth: 3,
+                    ),
                     SizedBox(height: 18),
                     Text(
                       'Đang xử lý giao dịch qua cổng VNPAY...',
@@ -519,7 +564,10 @@ class _VnPayWebViewScreenState extends State<VnPayWebViewScreen> {
                     SizedBox(height: 6),
                     Text(
                       'Vui lòng giữ nguyên ứng dụng trong giây lát.',
-                      style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: Color(0xFF64748B),
+                      ),
                     ),
                   ],
                 ),
@@ -551,7 +599,10 @@ class _VnPayWebViewScreenState extends State<VnPayWebViewScreen> {
                         Row(
                           children: [
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
                               decoration: BoxDecoration(
                                 color: const Color(0xFF005BAA),
                                 borderRadius: BorderRadius.circular(6),
@@ -576,13 +627,23 @@ class _VnPayWebViewScreenState extends State<VnPayWebViewScreen> {
                               ),
                             ),
                             const Spacer(),
-                            const Icon(Icons.verified_user_rounded, color: Color(0xFF16A34A), size: 18),
+                            const Icon(
+                              Icons.verified_user_rounded,
+                              color: Color(0xFF16A34A),
+                              size: 18,
+                            ),
                           ],
                         ),
                         const Divider(height: 20),
                         Row(
                           children: [
-                            const Text('Số tiền thanh toán:', style: TextStyle(color: Color(0xFF64748B), fontSize: 13)),
+                            const Text(
+                              'Số tiền thanh toán:',
+                              style: TextStyle(
+                                color: Color(0xFF64748B),
+                                fontSize: 13,
+                              ),
+                            ),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
@@ -600,7 +661,13 @@ class _VnPayWebViewScreenState extends State<VnPayWebViewScreen> {
                         const SizedBox(height: 6),
                         Row(
                           children: [
-                            const Text('Đơn vị nhận:', style: TextStyle(color: Color(0xFF64748B), fontSize: 13)),
+                            const Text(
+                              'Đơn vị nhận:',
+                              style: TextStyle(
+                                color: Color(0xFF64748B),
+                                fontSize: 13,
+                              ),
+                            ),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
@@ -620,7 +687,13 @@ class _VnPayWebViewScreenState extends State<VnPayWebViewScreen> {
                         const SizedBox(height: 6),
                         Row(
                           children: [
-                            const Text('Mã đơn hàng:', style: TextStyle(color: Color(0xFF64748B), fontSize: 13)),
+                            const Text(
+                              'Mã đơn hàng:',
+                              style: TextStyle(
+                                color: Color(0xFF64748B),
+                                fontSize: 13,
+                              ),
+                            ),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
@@ -654,11 +727,15 @@ class _VnPayWebViewScreenState extends State<VnPayWebViewScreen> {
                         Expanded(
                           child: InkWell(
                             onTap: () => setState(() => _selectedTab = 0),
-                            borderRadius: const BorderRadius.horizontal(left: Radius.circular(12)),
+                            borderRadius: const BorderRadius.horizontal(
+                              left: Radius.circular(12),
+                            ),
                             child: Container(
                               padding: const EdgeInsets.symmetric(vertical: 12),
                               decoration: BoxDecoration(
-                                color: _selectedTab == 0 ? const Color(0xFF005BAA) : Colors.transparent,
+                                color: _selectedTab == 0
+                                    ? const Color(0xFF005BAA)
+                                    : Colors.transparent,
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Center(
@@ -667,7 +744,9 @@ class _VnPayWebViewScreenState extends State<VnPayWebViewScreen> {
                                   style: TextStyle(
                                     fontSize: 13.5,
                                     fontWeight: FontWeight.bold,
-                                    color: _selectedTab == 0 ? Colors.white : const Color(0xFF64748B),
+                                    color: _selectedTab == 0
+                                        ? Colors.white
+                                        : const Color(0xFF64748B),
                                   ),
                                 ),
                               ),
@@ -677,11 +756,15 @@ class _VnPayWebViewScreenState extends State<VnPayWebViewScreen> {
                         Expanded(
                           child: InkWell(
                             onTap: () => setState(() => _selectedTab = 1),
-                            borderRadius: const BorderRadius.horizontal(right: Radius.circular(12)),
+                            borderRadius: const BorderRadius.horizontal(
+                              right: Radius.circular(12),
+                            ),
                             child: Container(
                               padding: const EdgeInsets.symmetric(vertical: 12),
                               decoration: BoxDecoration(
-                                color: _selectedTab == 1 ? const Color(0xFF005BAA) : Colors.transparent,
+                                color: _selectedTab == 1
+                                    ? const Color(0xFF005BAA)
+                                    : Colors.transparent,
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Center(
@@ -690,7 +773,9 @@ class _VnPayWebViewScreenState extends State<VnPayWebViewScreen> {
                                   style: TextStyle(
                                     fontSize: 13.5,
                                     fontWeight: FontWeight.bold,
-                                    color: _selectedTab == 1 ? Colors.white : const Color(0xFF64748B),
+                                    color: _selectedTab == 1
+                                        ? Colors.white
+                                        : const Color(0xFF64748B),
                                   ),
                                 ),
                               ),
@@ -724,14 +809,20 @@ class _VnPayWebViewScreenState extends State<VnPayWebViewScreen> {
                         children: [
                           const Text(
                             'Chọn ngân hàng thanh toán',
-                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF0F172A),
+                            ),
                           ),
                           const SizedBox(height: 10),
                           SingleChildScrollView(
                             scrollDirection: Axis.horizontal,
                             physics: const BouncingScrollPhysics(),
                             child: Row(
-                              children: List.generate(_popularBanks.length, (idx) {
+                              children: List.generate(_popularBanks.length, (
+                                idx,
+                              ) {
                                 final b = _popularBanks[idx];
                                 final isSel = _selectedBankIndex == idx;
                                 return Padding(
@@ -741,13 +832,20 @@ class _VnPayWebViewScreenState extends State<VnPayWebViewScreen> {
                                     selected: isSel,
                                     selectedColor: const Color(0xFF005BAA),
                                     labelStyle: TextStyle(
-                                      color: isSel ? Colors.white : const Color(0xFF334155),
-                                      fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
+                                      color: isSel
+                                          ? Colors.white
+                                          : const Color(0xFF334155),
+                                      fontWeight: isSel
+                                          ? FontWeight.bold
+                                          : FontWeight.normal,
                                       fontSize: 12.5,
                                     ),
                                     backgroundColor: const Color(0xFFF1F5F9),
                                     onSelected: (val) {
-                                      if (val) setState(() => _selectedBankIndex = idx);
+                                      if (val)
+                                        setState(
+                                          () => _selectedBankIndex = idx,
+                                        );
                                     },
                                   ),
                                 );
@@ -757,7 +855,11 @@ class _VnPayWebViewScreenState extends State<VnPayWebViewScreen> {
                           const Divider(height: 24),
                           const Text(
                             'Thông tin thẻ thanh toán',
-                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF0F172A),
+                            ),
                           ),
                           const SizedBox(height: 12),
                           TextField(
@@ -765,11 +867,19 @@ class _VnPayWebViewScreenState extends State<VnPayWebViewScreen> {
                             keyboardType: TextInputType.number,
                             decoration: InputDecoration(
                               labelText: 'Số thẻ ngân hàng',
-                              prefixIcon: const Icon(Icons.credit_card_rounded, color: Color(0xFF005BAA)),
+                              prefixIcon: const Icon(
+                                Icons.credit_card_rounded,
+                                color: Color(0xFF005BAA),
+                              ),
                               filled: true,
                               fillColor: const Color(0xFFF8FAFC),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 12,
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                             ),
                           ),
                           const SizedBox(height: 12),
@@ -778,11 +888,19 @@ class _VnPayWebViewScreenState extends State<VnPayWebViewScreen> {
                             textCapitalization: TextCapitalization.characters,
                             decoration: InputDecoration(
                               labelText: 'Tên in trên thẻ (không dấu)',
-                              prefixIcon: const Icon(Icons.person_outline_rounded, color: Color(0xFF005BAA)),
+                              prefixIcon: const Icon(
+                                Icons.person_outline_rounded,
+                                color: Color(0xFF005BAA),
+                              ),
                               filled: true,
                               fillColor: const Color(0xFFF8FAFC),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 12,
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                             ),
                           ),
                           const SizedBox(height: 12),
@@ -791,11 +909,19 @@ class _VnPayWebViewScreenState extends State<VnPayWebViewScreen> {
                             keyboardType: TextInputType.datetime,
                             decoration: InputDecoration(
                               labelText: 'Ngày phát hành (MM/YY)',
-                              prefixIcon: const Icon(Icons.calendar_today_rounded, color: Color(0xFF005BAA)),
+                              prefixIcon: const Icon(
+                                Icons.calendar_today_rounded,
+                                color: Color(0xFF005BAA),
+                              ),
                               filled: true,
                               fillColor: const Color(0xFFF8FAFC),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 12,
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                             ),
                           ),
                           const SizedBox(height: 18),
@@ -805,7 +931,9 @@ class _VnPayWebViewScreenState extends State<VnPayWebViewScreen> {
                             child: ElevatedButton(
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF005BAA),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
                                 elevation: 2,
                               ),
                               onPressed: _onConfirmPaymentFlow,
@@ -854,7 +982,9 @@ class _VnPayWebViewScreenState extends State<VnPayWebViewScreen> {
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(14),
-                              border: Border.all(color: const Color(0xFFE2E8F0)),
+                              border: Border.all(
+                                color: const Color(0xFFE2E8F0),
+                              ),
                             ),
                             child: QrImageView(
                               data: widget.paymentUrl,
@@ -866,7 +996,11 @@ class _VnPayWebViewScreenState extends State<VnPayWebViewScreen> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: const [
-                              Icon(Icons.timer_outlined, size: 16, color: Color(0xFFDC2626)),
+                              Icon(
+                                Icons.timer_outlined,
+                                size: 16,
+                                color: Color(0xFFDC2626),
+                              ),
                               SizedBox(width: 4),
                               Text(
                                 'Thời gian còn lại: 14:59',
@@ -885,7 +1019,9 @@ class _VnPayWebViewScreenState extends State<VnPayWebViewScreen> {
                             child: ElevatedButton(
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF005BAA),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
                                 elevation: 2,
                               ),
                               onPressed: () {
@@ -913,6 +1049,3 @@ class _VnPayWebViewScreenState extends State<VnPayWebViewScreen> {
     );
   }
 }
-
-
-

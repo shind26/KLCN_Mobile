@@ -40,20 +40,20 @@ class DichVuQuetCccd {
 
       debugPrint('[OCR] Bắt đầu gửi ảnh lên OCR engine...');
 
-      final response = await http.post(
-        Uri.parse(_ocrApiUrl),
-        headers: {
-          'apikey': _ocrApiKey,
-        },
-        body: {
-          'base64Image': base64Image,
-          'language': 'vnm',
-          'isOverlayRequired': 'false',
-          'detectOrientation': 'true',
-          'scale': 'true',
-          'OCREngine': '2',
-        },
-      ).timeout(const Duration(seconds: 15));
+      final response = await http
+          .post(
+            Uri.parse(_ocrApiUrl),
+            headers: {'apikey': _ocrApiKey},
+            body: {
+              'base64Image': base64Image,
+              'language': 'vnm',
+              'isOverlayRequired': 'false',
+              'detectOrientation': 'true',
+              'scale': 'true',
+              'OCREngine': '2',
+            },
+          )
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -106,7 +106,8 @@ class DichVuQuetCccd {
     final cccdFallbackRegex = RegExp(r'\b\d{12}\b');
 
     for (final line in lines) {
-      final match = cccdRegex.firstMatch(line) ?? cccdFallbackRegex.firstMatch(line);
+      final match =
+          cccdRegex.firstMatch(line) ?? cccdFallbackRegex.firstMatch(line);
       if (match != null) {
         soCccd = match.group(0)!;
         break;
@@ -117,7 +118,9 @@ class DichVuQuetCccd {
     final dobRegex = RegExp(r'\b(\d{2}/\d{2}/\d{4})\b');
     for (final line in lines) {
       final lower = line.toLowerCase();
-      if (lower.contains('sinh') || lower.contains('birth') || lower.contains('ngày')) {
+      if (lower.contains('sinh') ||
+          lower.contains('birth') ||
+          lower.contains('ngày')) {
         final match = dobRegex.firstMatch(line);
         if (match != null) {
           ngaySinh = match.group(1);
@@ -140,7 +143,9 @@ class DichVuQuetCccd {
     for (final line in lines) {
       final lower = line.toLowerCase();
       if (lower.contains('giới tính') || lower.contains('sex')) {
-        if (lower.contains('nữ') || lower.contains('nu') || lower.contains('female')) {
+        if (lower.contains('nữ') ||
+            lower.contains('nu') ||
+            lower.contains('female')) {
           gioiTinh = 'Nữ';
           break;
         } else if (lower.contains('nam') || lower.contains('male')) {
@@ -297,10 +302,12 @@ class DichVuQuetCccd {
 
   static String _chuanHoaTen(String raw) {
     final words = raw.trim().split(RegExp(r'\s+'));
-    return words.map((w) {
-      if (w.isEmpty) return '';
-      final lower = w.toLowerCase();
-      return lower[0].toUpperCase() + lower.substring(1);
-    }).join(' ');
+    return words
+        .map((w) {
+          if (w.isEmpty) return '';
+          final lower = w.toLowerCase();
+          return lower[0].toUpperCase() + lower.substring(1);
+        })
+        .join(' ');
   }
 }

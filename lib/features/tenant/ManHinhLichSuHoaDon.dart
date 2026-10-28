@@ -34,7 +34,8 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
   static const _textDark = Color(0xFF0F172A);
 
   String _selectedYear = 'Năm 2026';
-  int _selectedFilterIndex = 0; // 0: Tất cả, 1: Chưa thanh toán / Chờ duyệt, 2: Đã thanh toán
+  int _selectedFilterIndex =
+      0; // 0: Tất cả, 1: Chưa thanh toán / Chờ duyệt, 2: Đã thanh toán
 
   bool _isLoading = true;
   List<HoaDonModel> _allHoaDons = [];
@@ -134,17 +135,21 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
   int get _paidCount =>
       _allHoaDons.where((h) => h.trangThai == 'Đã thanh toán').length;
   // Chỉ đếm hóa đơn BQL đã gửi nhưng chưa thanh toán (loại trừ 'Chờ gửi')
-  int get _unpaidCount =>
-      _allHoaDons
-          .where((h) =>
-              h.trangThai != 'Đã thanh toán' && h.trangThai != 'Chờ gửi')
-          .length;
+  int get _unpaidCount => _allHoaDons
+      .where((h) => h.trangThai != 'Đã thanh toán' && h.trangThai != 'Chờ gửi')
+      .length;
 
   double get _avgElectricity {
     if (_chiSoDienNuoc.isEmpty) return 60.0;
     final total = _chiSoDienNuoc.fold<double>(0.0, (sum, item) {
-      final cu = num.tryParse(item['chi_so_dien_cu']?.toString() ?? '0')?.toDouble() ?? 0.0;
-      final moi = num.tryParse(item['chi_so_dien_moi']?.toString() ?? '0')?.toDouble() ?? 0.0;
+      final cu =
+          num.tryParse(item['chi_so_dien_cu']?.toString() ?? '0')?.toDouble() ??
+          0.0;
+      final moi =
+          num.tryParse(
+            item['chi_so_dien_moi']?.toString() ?? '0',
+          )?.toDouble() ??
+          0.0;
       return sum + (moi - cu).clamp(0.0, double.infinity);
     });
     return total / _chiSoDienNuoc.length;
@@ -153,8 +158,14 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
   double get _avgWater {
     if (_chiSoDienNuoc.isEmpty) return 6.0;
     final total = _chiSoDienNuoc.fold<double>(0.0, (sum, item) {
-      final cu = num.tryParse(item['chi_so_nuoc_cu']?.toString() ?? '0')?.toDouble() ?? 0.0;
-      final moi = num.tryParse(item['chi_so_nuoc_moi']?.toString() ?? '0')?.toDouble() ?? 0.0;
+      final cu =
+          num.tryParse(item['chi_so_nuoc_cu']?.toString() ?? '0')?.toDouble() ??
+          0.0;
+      final moi =
+          num.tryParse(
+            item['chi_so_nuoc_moi']?.toString() ?? '0',
+          )?.toDouble() ??
+          0.0;
       return sum + (moi - cu).clamp(0.0, double.infinity);
     });
     return total / _chiSoDienNuoc.length;
@@ -164,8 +175,9 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
     if (_selectedFilterIndex == 1) {
       // Tab 'Chưa thanh toán': chỉ hiện hóa đơn đã được gửi (không tính 'Chờ gửi')
       return _allHoaDons
-          .where((h) =>
-              h.trangThai != 'Đã thanh toán' && h.trangThai != 'Chờ gửi')
+          .where(
+            (h) => h.trangThai != 'Đã thanh toán' && h.trangThai != 'Chờ gửi',
+          )
           .toList();
     }
     if (_selectedFilterIndex == 2) {
@@ -200,14 +212,16 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
               child: _isLoading
                   ? const LoadingMeoMeo(
                       message: 'Đang tải hóa đơn...',
-                      subMessage: 'Mèo con đang tính toán chi phí cho bạn nha~ 🐾',
+                      subMessage:
+                          'Mèo con đang tính toán chi phí cho bạn nha~ 🐾',
                     )
                   : RefreshIndicator(
                       onRefresh: _fetchInvoices,
                       color: _navyDark,
                       child: SingleChildScrollView(
                         physics: const AlwaysScrollableScrollPhysics(
-                            parent: BouncingScrollPhysics()),
+                          parent: BouncingScrollPhysics(),
+                        ),
                         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -283,8 +297,11 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
             child: Stack(
               alignment: Alignment.center,
               children: [
-                const Icon(Icons.notifications_none_rounded,
-                    color: Color(0xFF475569), size: 20),
+                const Icon(
+                  Icons.notifications_none_rounded,
+                  color: Color(0xFF475569),
+                  size: 20,
+                ),
                 if (_unpaidCount > 0)
                   Positioned(
                     top: 8,
@@ -343,8 +360,11 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
               borderRadius: BorderRadius.circular(10),
               border: Border.all(color: const Color(0xFFE2E8F0)),
             ),
-            child: const Icon(Icons.arrow_back_ios_new_rounded,
-                color: _navyDark, size: 15),
+            child: const Icon(
+              Icons.arrow_back_ios_new_rounded,
+              color: _navyDark,
+              size: 15,
+            ),
           ),
         ),
         const SizedBox(width: 10),
@@ -365,7 +385,10 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
               const SizedBox(height: 1),
               Text(
                 widget.roomName,
-                style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                style: const TextStyle(
+                  fontSize: 11.5,
+                  color: Color(0xFF64748B),
+                ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -383,25 +406,28 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.calendar_month_rounded,
-                  color: _navyDark, size: 14),
+              const Icon(
+                Icons.calendar_month_rounded,
+                color: _navyDark,
+                size: 14,
+              ),
               const SizedBox(width: 4),
               DropdownButtonHideUnderline(
                 child: DropdownButton<String>(
                   value: _selectedYear,
                   isDense: true,
-                  icon: const Icon(Icons.keyboard_arrow_down_rounded,
-                      color: _navyDark, size: 16),
+                  icon: const Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    color: _navyDark,
+                    size: 16,
+                  ),
                   style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
                     color: _navyDark,
                   ),
                   items: ['Năm 2024', 'Năm 2025', 'Năm 2026'].map((y) {
-                    return DropdownMenuItem<String>(
-                      value: y,
-                      child: Text(y),
-                    );
+                    return DropdownMenuItem<String>(value: y, child: Text(y));
                   }).toList(),
                   onChanged: (val) {
                     if (val != null) setState(() => _selectedYear = val);
@@ -436,8 +462,10 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
               borderRadius: BorderRadius.circular(20),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 7,
+                ),
                 decoration: BoxDecoration(
                   gradient: isSelected
                       ? const LinearGradient(
@@ -449,9 +477,7 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                   color: isSelected ? null : Colors.white,
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: isSelected
-                        ? _navyDark
-                        : const Color(0xFFCBD5E1),
+                    color: isSelected ? _navyDark : const Color(0xFFCBD5E1),
                   ),
                   boxShadow: isSelected
                       ? [
@@ -467,8 +493,7 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                   filters[index],
                   style: TextStyle(
                     fontSize: 11.5,
-                    fontWeight:
-                        isSelected ? FontWeight.bold : FontWeight.w600,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
                     color: isSelected ? Colors.white : const Color(0xFF334155),
                   ),
                 ),
@@ -508,21 +533,26 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                     Flexible(
                       child: Text(
                         'Tổng chi phí $_selectedYear',
-                        style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF64748B),
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     const SizedBox(width: 4),
-                    const Icon(Icons.info_outline_rounded,
-                        color: Color(0xFF94A3B8), size: 13),
+                    const Icon(
+                      Icons.info_outline_rounded,
+                      color: Color(0xFF94A3B8),
+                      size: 13,
+                    ),
                   ],
                 ),
               ),
               const SizedBox(width: 8),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: _unpaidCount == 0
                       ? const Color(0xFFDCFCE7)
@@ -573,7 +603,9 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                     textBaseline: TextBaseline.alphabetic,
                     children: [
                       Text(
-                        FormatUtils.currency(_totalSpending).replaceAll('đ', '').trim(),
+                        FormatUtils.currency(
+                          _totalSpending,
+                        ).replaceAll('đ', '').trim(),
                         style: const TextStyle(
                           fontSize: 26,
                           fontWeight: FontWeight.w900,
@@ -629,8 +661,11 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.bolt_rounded,
-                          color: Color(0xFFD97706), size: 18),
+                      const Icon(
+                        Icons.bolt_rounded,
+                        color: Color(0xFFD97706),
+                        size: 18,
+                      ),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Column(
@@ -639,16 +674,19 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                             const Text(
                               'Điện bình quân',
                               style: TextStyle(
-                                  fontSize: 10, color: Color(0xFF64748B)),
+                                fontSize: 10,
+                                color: Color(0xFF64748B),
+                              ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
                             Text(
                               '~${_avgElectricity.toStringAsFixed(0)} kWh/tháng',
                               style: const TextStyle(
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.bold,
-                                  color: _textDark),
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.bold,
+                                color: _textDark,
+                              ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -670,8 +708,11 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.water_drop_outlined,
-                          color: Color(0xFF0284C7), size: 18),
+                      const Icon(
+                        Icons.water_drop_outlined,
+                        color: Color(0xFF0284C7),
+                        size: 18,
+                      ),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Column(
@@ -680,16 +721,19 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                             const Text(
                               'Nước bình quân',
                               style: TextStyle(
-                                  fontSize: 10, color: Color(0xFF64748B)),
+                                fontSize: 10,
+                                color: Color(0xFF64748B),
+                              ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
                             Text(
                               '~${_avgWater.toStringAsFixed(0)} m³/tháng',
                               style: const TextStyle(
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.bold,
-                                  color: _textDark),
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.bold,
+                                color: _textDark,
+                              ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -718,8 +762,16 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
 
       double maxKwh = 1.0;
       for (final item in displayData) {
-        final cu = num.tryParse(item['chi_so_dien_cu']?.toString() ?? '0')?.toDouble() ?? 0.0;
-        final moi = num.tryParse(item['chi_so_dien_moi']?.toString() ?? '0')?.toDouble() ?? 0.0;
+        final cu =
+            num.tryParse(
+              item['chi_so_dien_cu']?.toString() ?? '0',
+            )?.toDouble() ??
+            0.0;
+        final moi =
+            num.tryParse(
+              item['chi_so_dien_moi']?.toString() ?? '0',
+            )?.toDouble() ??
+            0.0;
         final diff = (moi - cu).clamp(0.0, double.infinity);
         if (diff > maxKwh) maxKwh = diff;
       }
@@ -727,8 +779,16 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
       for (int i = 0; i < displayData.length; i++) {
         final item = displayData[i];
         final thang = item['thang_nam']?.toString().split('/')[0] ?? '${i + 1}';
-        final cu = num.tryParse(item['chi_so_dien_cu']?.toString() ?? '0')?.toDouble() ?? 0.0;
-        final moi = num.tryParse(item['chi_so_dien_moi']?.toString() ?? '0')?.toDouble() ?? 0.0;
+        final cu =
+            num.tryParse(
+              item['chi_so_dien_cu']?.toString() ?? '0',
+            )?.toDouble() ??
+            0.0;
+        final moi =
+            num.tryParse(
+              item['chi_so_dien_moi']?.toString() ?? '0',
+            )?.toDouble() ??
+            0.0;
         final diff = (moi - cu).clamp(0.0, double.infinity).toInt();
         final isHighest = diff.toDouble() == maxKwh;
         barWidgets.add(_buildBar('T$thang', diff, isHighest, maxKwh));
@@ -776,8 +836,10 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                 ),
               ),
               SizedBox(width: 8),
-              Text('Đơn vị: kWh',
-                  style: TextStyle(fontSize: 10.5, color: Color(0xFF94A3B8))),
+              Text(
+                'Đơn vị: kWh',
+                style: TextStyle(fontSize: 10.5, color: Color(0xFF94A3B8)),
+              ),
             ],
           ),
           const SizedBox(height: 16),
@@ -791,8 +853,11 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
           const SizedBox(height: 8),
           const Row(
             children: [
-              Icon(Icons.tips_and_updates_outlined,
-                  color: Color(0xFFD97706), size: 14),
+              Icon(
+                Icons.tips_and_updates_outlined,
+                color: Color(0xFFD97706),
+                size: 14,
+              ),
               SizedBox(width: 6),
               Expanded(
                 child: Text(
@@ -807,7 +872,12 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
     );
   }
 
-  Widget _buildBar(String label, int value, bool isHighest, [double maxVal = 100.0]) {
+  Widget _buildBar(
+    String label,
+    int value,
+    bool isHighest, [
+    double maxVal = 100.0,
+  ]) {
     final safeMax = maxVal > 0 ? maxVal : 100.0;
     final height = ((value / safeMax) * 60.0).clamp(12.0, 60.0);
 
@@ -878,14 +948,19 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
         ),
         child: Column(
           children: const [
-            Icon(Icons.receipt_long_outlined, size: 40, color: Color(0xFF94A3B8)),
+            Icon(
+              Icons.receipt_long_outlined,
+              size: 40,
+              color: Color(0xFF94A3B8),
+            ),
             SizedBox(height: 10),
             Text(
               'Không tìm thấy hóa đơn nào',
               style: TextStyle(
-                  fontSize: 14.5,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF475569)),
+                fontSize: 14.5,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF475569),
+              ),
             ),
             SizedBox(height: 4),
             Text(
@@ -951,7 +1026,9 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      hd.thangNam.isNotEmpty ? 'Hóa đơn ${hd.thangNam}' : 'Hóa đơn #${hd.maHoaDon}',
+                      hd.thangNam.isNotEmpty
+                          ? 'Hóa đơn ${hd.thangNam}'
+                          : 'Hóa đơn #${hd.maHoaDon}',
                       style: const TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.bold,
@@ -965,7 +1042,10 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                       isPaid
                           ? 'Đã thanh toán ngày: ${hd.hanDongTienFormatted}'
                           : 'Hạn thanh toán: ${hd.hanDongTienFormatted}',
-                      style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF64748B),
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -976,16 +1056,22 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: isPaid ? const Color(0xFFDCFCE7) : const Color(0xFFFFE4E6),
+                  color: isPaid
+                      ? const Color(0xFFDCFCE7)
+                      : const Color(0xFFFFE4E6),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      isPaid ? Icons.check_circle_rounded : Icons.access_time_filled_rounded,
+                      isPaid
+                          ? Icons.check_circle_rounded
+                          : Icons.access_time_filled_rounded,
                       size: 11,
-                      color: isPaid ? const Color(0xFF16A34A) : const Color(0xFFE11D48),
+                      color: isPaid
+                          ? const Color(0xFF16A34A)
+                          : const Color(0xFFE11D48),
                     ),
                     const SizedBox(width: 4),
                     Text(
@@ -993,7 +1079,9 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                       style: TextStyle(
                         fontSize: 10.5,
                         fontWeight: FontWeight.bold,
-                        color: isPaid ? const Color(0xFF16A34A) : const Color(0xFFE11D48),
+                        color: isPaid
+                            ? const Color(0xFF16A34A)
+                            : const Color(0xFFE11D48),
                       ),
                     ),
                   ],
@@ -1048,8 +1136,7 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
             _buildLineItemRow('Điện & Nước sinh hoạt', hd.tienDienNuoc),
             if (hd.tienDichVuKhac > 0)
               _buildLineItemRow('Dịch vụ chung', hd.tienDichVuKhac),
-            if (hd.noCu > 0)
-              _buildLineItemRow('Nợ kỳ trước', hd.noCu),
+            if (hd.noCu > 0) _buildLineItemRow('Nợ kỳ trước', hd.noCu),
           ],
           const SizedBox(height: 12),
 
@@ -1059,7 +1146,10 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
               Expanded(
                 child: Text(
                   'Mã HĐ: #${hd.maHoaDon}',
-                  style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF94A3B8),
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -1093,18 +1183,26 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                   }
                 },
                 icon: Icon(
-                  isPaid ? Icons.receipt_rounded : Icons.qr_code_scanner_rounded,
+                  isPaid
+                      ? Icons.receipt_rounded
+                      : Icons.qr_code_scanner_rounded,
                   size: 13,
                 ),
                 label: Text(
                   isPaid ? 'Xem biên lai' : 'Thanh toán',
-                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: isPaid ? const Color(0xFFE2E8F0) : _navyDark,
                   foregroundColor: isPaid ? _navyDark : Colors.white,
                   elevation: 0,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
                   minimumSize: const Size(0, 32),
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   shape: RoundedRectangleBorder(
@@ -1133,7 +1231,9 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
     } else if (lower.contains('nước')) {
       icon = Icons.water_drop_outlined;
       iconColor = const Color(0xFF0284C7);
-    } else if (lower.contains('rác') || lower.contains('vệ sinh') || lower.contains('dịch vụ')) {
+    } else if (lower.contains('rác') ||
+        lower.contains('vệ sinh') ||
+        lower.contains('dịch vụ')) {
       icon = Icons.cleaning_services_outlined;
       iconColor = const Color(0xFF0D9488);
     }
@@ -1257,10 +1357,14 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
         backgroundColor: Colors.white,
         selectedItemColor: _navyDark,
         unselectedItemColor: const Color(0xFF94A3B8),
-        selectedLabelStyle:
-            const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
-        unselectedLabelStyle:
-            const TextStyle(fontWeight: FontWeight.w500, fontSize: 11),
+        selectedLabelStyle: const TextStyle(
+          fontWeight: FontWeight.bold,
+          fontSize: 11,
+        ),
+        unselectedLabelStyle: const TextStyle(
+          fontWeight: FontWeight.w500,
+          fontSize: 11,
+        ),
         elevation: 0,
         items: [
           const BottomNavigationBarItem(

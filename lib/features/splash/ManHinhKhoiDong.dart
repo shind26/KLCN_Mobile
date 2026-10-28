@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:nhatro_kieugiang/core/services/DichVuXacThuc.dart';
 import 'package:nhatro_kieugiang/features/guest/ManHinhTrangChuKhach.dart';
 import 'package:nhatro_kieugiang/features/tenant/ManHinhTrangChuCuDan.dart';
@@ -41,10 +41,7 @@ class _SplashScreenState extends State<SplashScreen>
     )..repeat(reverse: true);
 
     _floatAnimation = Tween<double>(begin: -8.0, end: 8.0).animate(
-      CurvedAnimation(
-        parent: _floatController,
-        curve: Curves.easeInOutSine,
-      ),
+      CurvedAnimation(parent: _floatController, curve: Curves.easeInOutSine),
     );
     _pulseController = AnimationController(
       vsync: this,
@@ -63,7 +60,9 @@ class _SplashScreenState extends State<SplashScreen>
 
     final isLoggedIn = AuthService.isLoggedIn;
     final currentUser = AuthService.currentUser;
-    debugPrint('>>> [SplashScreen] Kiểm tra đăng nhập: isLoggedIn = $isLoggedIn, user = ${currentUser?.tenDangNhap}');
+    debugPrint(
+      '>>> [SplashScreen] Kiểm tra đăng nhập: isLoggedIn = $isLoggedIn, user = ${currentUser?.tenDangNhap}',
+    );
 
     bool isAccountLocked = false;
     String lockedMessage = '';
@@ -76,7 +75,8 @@ class _SplashScreenState extends State<SplashScreen>
             .eq('ma_tai_khoan', currentUser.maTaiKhoan)
             .maybeSingle();
         final status = accRes?['trang_thai']?.toString() ?? '';
-        if (status.toLowerCase() == 'tamkhoa' || (accRes != null && status.toLowerCase() != 'hoatdong')) {
+        if (status.toLowerCase() == 'tamkhoa' ||
+            (accRes != null && status.toLowerCase() != 'hoatdong')) {
           isAccountLocked = true;
           lockedMessage =
               'Tài khoản của bạn đã bị TẠM KHÓA do hóa đơn phòng quá hạn từ 10 ngày trở lên theo quy chế tòa nhà.\nVui lòng liên hệ Ban Quản Lý (0328.004.663) để được hỗ trợ mở lại!';
@@ -91,9 +91,7 @@ class _SplashScreenState extends State<SplashScreen>
     if (isAccountLocked) {
       targetScreen = LoginScreen(accountLockedMessage: lockedMessage);
     } else if (AuthService.isLoggedIn) {
-      targetScreen = TenantHomeScreen(
-        tenantName: currentUser?.tenDangNhap,
-      );
+      targetScreen = TenantHomeScreen(tenantName: currentUser?.tenDangNhap);
     } else {
       targetScreen = const GuestHomeScreen();
     }
@@ -104,17 +102,13 @@ class _SplashScreenState extends State<SplashScreen>
         pageBuilder: (context, animation, secondaryAnimation) => targetScreen,
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return FadeTransition(
-            opacity: CurvedAnimation(
-              parent: animation,
-              curve: Curves.easeOut,
-            ),
+            opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
             child: child,
           );
         },
       ),
     );
   }
-
 
   @override
   void dispose() {
@@ -137,8 +131,8 @@ class _SplashScreenState extends State<SplashScreen>
                 colors: [
                   Color(0xFF145D85),
                   Color(0xFF2276A3),
-                  Color(0xFF4C98BD), 
-                  Color(0xFF6FB6D7), 
+                  Color(0xFF4C98BD),
+                  Color(0xFF6FB6D7),
                 ],
                 stops: [0.0, 0.35, 0.7, 1.0],
               ),
@@ -181,7 +175,9 @@ class _SplashScreenState extends State<SplashScreen>
                               offset: const Offset(0, 14),
                             ),
                             BoxShadow(
-                              color: const Color(0xFF145D85).withValues(alpha: 0.2),
+                              color: const Color(
+                                0xFF145D85,
+                              ).withValues(alpha: 0.2),
                               blurRadius: 40,
                               spreadRadius: 2,
                             ),
@@ -196,8 +192,11 @@ class _SplashScreenState extends State<SplashScreen>
                               return Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: const [
-                                  Icon(Icons.home_work_rounded,
-                                      size: 56, color: Color(0xFF2276A3)),
+                                  Icon(
+                                    Icons.home_work_rounded,
+                                    size: 56,
+                                    color: Color(0xFF2276A3),
+                                  ),
                                   SizedBox(height: 8),
                                   Text(
                                     'Kiêu Giang',
@@ -206,7 +205,7 @@ class _SplashScreenState extends State<SplashScreen>
                                       fontWeight: FontWeight.bold,
                                       fontSize: 14,
                                     ),
-                                  )
+                                  ),
                                 ],
                               );
                             },
@@ -244,7 +243,7 @@ class _SplashScreenState extends State<SplashScreen>
 
                 const SizedBox(height: 24),
 
-                // THANH LOAD 
+                // THANH LOAD
                 AnimatedBuilder(
                   animation: _sweepAnimation,
                   builder: (context, child) {
@@ -283,7 +282,7 @@ class _SplashScreenState extends State<SplashScreen>
             ),
           ),
 
-          // 4. CHỮ VERSION 2.0 & HOME 
+          // 4. CHỮ VERSION 2.0 & HOME
           Positioned(
             left: 0,
             right: 0,
@@ -320,14 +319,12 @@ class _SplashScreenState extends State<SplashScreen>
     );
   }
 }
+
 class BackgroundEffectPainter extends CustomPainter {
   final double floatValue;
   final double pulseValue;
 
-  BackgroundEffectPainter({
-    required this.floatValue,
-    required this.pulseValue,
-  });
+  BackgroundEffectPainter({required this.floatValue, required this.pulseValue});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -335,7 +332,6 @@ class BackgroundEffectPainter extends CustomPainter {
       ..style = PaintingStyle.fill
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 45);
 
-   
     paint.color = Colors.white.withValues(alpha: 0.08 + pulseValue * 0.04);
     canvas.drawCircle(
       Offset(size.width * 0.15, size.height * 0.2 + (floatValue * 3)),
@@ -343,8 +339,9 @@ class BackgroundEffectPainter extends CustomPainter {
       paint,
     );
 
-  
-    paint.color = Colors.white.withValues(alpha: 0.06 + floatValue.abs() * 0.005);
+    paint.color = Colors.white.withValues(
+      alpha: 0.06 + floatValue.abs() * 0.005,
+    );
     canvas.drawCircle(
       Offset(size.width * 0.85, size.height * 0.75 - (floatValue * 2)),
       140,

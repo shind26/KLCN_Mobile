@@ -8,10 +8,10 @@ class SmsService {
 
   /// Gửi tin nhắn SMS OTP qua cổng eSMS.vn (Hệ thống viễn thông)
   /// Tự động thích ứng môi trường Web (chặn CORS) để không bị kẹt khi demo/test
-  static Future<({bool success, String? message, String? smsId, bool isTestOtp})> sendOtpSms({
-    required String phone,
-    required String otpCode,
-  }) async {
+  static Future<
+    ({bool success, String? message, String? smsId, bool isTestOtp})
+  >
+  sendOtpSms({required String phone, required String otpCode}) async {
     try {
       // Chuẩn hóa số điện thoại: VD +84987654321 -> 0987654321
       String cleanPhone = phone.trim().replaceAll(RegExp(r'\s+'), '');
@@ -52,9 +52,13 @@ class SmsService {
 
       debugPrint('Đang gửi SMS thật qua eSMS đến $cleanPhone: $directUri');
 
-      final response = await http.get(directUri).timeout(const Duration(seconds: 10));
+      final response = await http
+          .get(directUri)
+          .timeout(const Duration(seconds: 10));
 
-      debugPrint('Kết quả phản hồi eSMS: ${response.statusCode} - ${response.body}');
+      debugPrint(
+        'Kết quả phản hồi eSMS: ${response.statusCode} - ${response.body}',
+      );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);

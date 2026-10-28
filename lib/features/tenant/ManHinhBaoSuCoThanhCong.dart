@@ -279,7 +279,10 @@ class ManHinhBaoSuCoThanhCong extends StatelessWidget {
                           separatorBuilder: (_, _) => const SizedBox(width: 10),
                           itemBuilder: (context, idx) {
                             return InkWell(
-                              onTap: () => _showFullImageDialog(context, danhSachAnh[idx]),
+                              onTap: () => _showFullImageDialog(
+                                context,
+                                danhSachAnh[idx],
+                              ),
                               borderRadius: BorderRadius.circular(10),
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(10),
@@ -388,7 +391,8 @@ class ManHinhBaoSuCoThanhCong extends StatelessWidget {
                     Navigator.pushAndRemoveUntil(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => const TenantHomeScreen(initialTabIndex: 3),
+                        builder: (_) =>
+                            const TenantHomeScreen(initialTabIndex: 3),
                       ),
                       (route) => false,
                     );
@@ -419,8 +423,11 @@ class ManHinhBaoSuCoThanhCong extends StatelessWidget {
                 height: 48,
                 child: OutlinedButton.icon(
                   onPressed: () => _xacNhanXoaPhieu(context),
-                  icon: const Icon(Icons.delete_outline_rounded,
-                      color: Color(0xFFDC2626), size: 18),
+                  icon: const Icon(
+                    Icons.delete_outline_rounded,
+                    color: Color(0xFFDC2626),
+                    size: 18,
+                  ),
                   label: const Text(
                     'Xóa Báo Cáo Này (Nếu Gửi Nhầm)',
                     style: TextStyle(
@@ -516,7 +523,10 @@ class ManHinhBaoSuCoThanhCong extends StatelessWidget {
                           ),
                           padding: const EdgeInsets.symmetric(vertical: 11),
                         ),
-                        child: const Text('Giữ lại', style: TextStyle(color: Color(0xFF475569))),
+                        child: const Text(
+                          'Giữ lại',
+                          style: TextStyle(color: Color(0xFF475569)),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -532,7 +542,10 @@ class ManHinhBaoSuCoThanhCong extends StatelessWidget {
                           ),
                           padding: const EdgeInsets.symmetric(vertical: 11),
                         ),
-                        child: const Text('Xác nhận xóa', style: TextStyle(fontWeight: FontWeight.bold)),
+                        child: const Text(
+                          'Xác nhận xóa',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
                       ),
                     ),
                   ],
@@ -626,7 +639,8 @@ class ManHinhBaoSuCoThanhCong extends StatelessWidget {
         return Image.network(
           img,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => const Icon(Icons.broken_image_rounded, color: Colors.grey),
+          errorBuilder: (_, __, ___) =>
+              const Icon(Icons.broken_image_rounded, color: Colors.grey),
         );
       }
     } else if (img is Uint8List) {
@@ -648,9 +662,7 @@ class ManHinhBaoSuCoThanhCong extends StatelessWidget {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(16),
-              child: InteractiveViewer(
-                child: _buildImageWidget(img),
-              ),
+              child: InteractiveViewer(child: _buildImageWidget(img)),
             ),
             IconButton(
               icon: const CircleAvatar(

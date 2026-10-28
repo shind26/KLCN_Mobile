@@ -40,9 +40,9 @@ class _BookingScreenState extends State<BookingScreen> {
   bool _isSubmitting = false;
   late bool _isDepositTab;
 
-  final _nameController   = TextEditingController();
-  final _phoneController  = TextEditingController();
-  final _noteController   = TextEditingController();
+  final _nameController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _noteController = TextEditingController();
 
   Timer? _phoneDebounceTimer;
   String? _phoneAccountError;
@@ -79,15 +79,35 @@ class _BookingScreenState extends State<BookingScreen> {
   // ===== SLOT DEFINITIONS: [label, startHour, startMinute] =====
   static const List<Map<String, dynamic>> _allSlots = [
     // Sáng
-    {'label': '08:30 - 09:30', 'startH': 8,  'startM': 30,  'session': 'morning'},
-    {'label': '09:30 - 10:30', 'startH': 9,  'startM': 30,  'session': 'morning'},
-    {'label': '10:30 - 11:30', 'startH': 10, 'startM': 30,  'session': 'morning'},
+    {'label': '08:30 - 09:30', 'startH': 8, 'startM': 30, 'session': 'morning'},
+    {'label': '09:30 - 10:30', 'startH': 9, 'startM': 30, 'session': 'morning'},
+    {
+      'label': '10:30 - 11:30',
+      'startH': 10,
+      'startM': 30,
+      'session': 'morning',
+    },
     // Chiều
-    {'label': '14:00 - 15:00', 'startH': 14, 'startM': 0,   'session': 'afternoon'},
-    {'label': '15:30 - 16:30', 'startH': 15, 'startM': 30,  'session': 'afternoon'},
+    {
+      'label': '14:00 - 15:00',
+      'startH': 14,
+      'startM': 0,
+      'session': 'afternoon',
+    },
+    {
+      'label': '15:30 - 16:30',
+      'startH': 15,
+      'startM': 30,
+      'session': 'afternoon',
+    },
     // Tối
-    {'label': '17:30 - 18:30', 'startH': 17, 'startM': 30,  'session': 'evening'},
-    {'label': '19:00 - 20:00', 'startH': 19, 'startM': 0,   'session': 'evening'},
+    {
+      'label': '17:30 - 18:30',
+      'startH': 17,
+      'startM': 30,
+      'session': 'evening',
+    },
+    {'label': '19:00 - 20:00', 'startH': 19, 'startM': 0, 'session': 'evening'},
   ];
 
   String? _slotStatus(DateTime day, Map<String, dynamic> slot) {
@@ -95,13 +115,15 @@ class _BookingScreenState extends State<BookingScreen> {
 
     final now = DateTime.now();
     final slotDateTime = DateTime(
-      day.year, day.month, day.day,
-      slot['startH'] as int, slot['startM'] as int,
+      day.year,
+      day.month,
+      day.day,
+      slot['startH'] as int,
+      slot['startM'] as int,
     );
 
-    final isToday = day.year == now.year &&
-        day.month == now.month &&
-        day.day == now.day;
+    final isToday =
+        day.year == now.year && day.month == now.month && day.day == now.day;
     if (!isToday) return null;
 
     final diffMinutes = slotDateTime.difference(now).inMinutes;
@@ -158,7 +180,8 @@ class _BookingScreenState extends State<BookingScreen> {
     _selectedDayIndex = firstValidIndex;
     _selectedTimeSlot = _firstAvailableSlot(_displayDays[firstValidIndex]);
 
-    _rooms = widget.availableRooms ?? (widget.room != null ? [widget.room!] : []);
+    _rooms =
+        widget.availableRooms ?? (widget.room != null ? [widget.room!] : []);
     _selectedRoom = widget.room ?? (_rooms.isNotEmpty ? _rooms.first : null);
 
     // Luôn tải và đồng bộ danh sách phòng trống mới nhất từ Supabase (loại bỏ phòng đã cọc/đã xác nhận)
@@ -204,24 +227,28 @@ class _BookingScreenState extends State<BookingScreen> {
           if (p == null || p.isEmpty) continue;
           if (st == 'Đã thanh toán' || st == 'DangGiu' || st == 'DaDatCoc') {
             lockedRoomCodes.add(p);
-          } else if (st == 'ChoThanhToan' && expStr != null && expStr.isNotEmpty) {
+          } else if (st == 'ChoThanhToan' &&
+              expStr != null &&
+              expStr.isNotEmpty) {
             final exp = DateTime.tryParse(expStr)?.toUtc();
             if (exp != null && exp.isAfter(nowUtc)) {
               lockedRoomCodes.add(p);
             }
           }
         }
-
       } catch (eLock) {
         debugPrint('Lỗi fetch locked rooms trong BookingScreen: $eLock');
       }
 
-      final available = list.where((r) => !lockedRoomCodes.contains(r.maPhong)).toList();
+      final available = list
+          .where((r) => !lockedRoomCodes.contains(r.maPhong))
+          .toList();
 
       if (mounted) {
         RoomModel? newSelected;
         if (initialRoom != null) {
-          final isInitialLocked = lockedRoomCodes.contains(initialRoom.maPhong) ||
+          final isInitialLocked =
+              lockedRoomCodes.contains(initialRoom.maPhong) ||
               !available.any((r) => r.maPhong == initialRoom.maPhong);
           if (isInitialLocked) {
             // Phòng được chọn ban đầu đã bị cọc hoặc có người ở!
@@ -240,13 +267,15 @@ class _BookingScreenState extends State<BookingScreen> {
           } else {
             newSelected = available.firstWhere(
               (r) => r.maPhong == initialRoom.maPhong,
-              orElse: () => available.isNotEmpty ? available.first : initialRoom,
+              orElse: () =>
+                  available.isNotEmpty ? available.first : initialRoom,
             );
           }
         } else if (_selectedRoom != null) {
           newSelected = available.firstWhere(
             (r) => r.maPhong == _selectedRoom!.maPhong,
-            orElse: () => available.isNotEmpty ? available.first : _selectedRoom!,
+            orElse: () =>
+                available.isNotEmpty ? available.first : _selectedRoom!,
           );
         } else {
           newSelected = available.isNotEmpty ? available.first : null;
@@ -330,7 +359,8 @@ class _BookingScreenState extends State<BookingScreen> {
         ThongBaoHelper.hienThongBao(
           context,
           tieuDe: 'Nhắc nhở',
-          noiDung: 'Vui lòng nhập số điện thoại Việt Nam hợp lệ (10 chữ số, ví dụ 0912345678)!',
+          noiDung:
+              'Vui lòng nhập số điện thoại Việt Nam hợp lệ (10 chữ số, ví dụ 0912345678)!',
           type: ThongBaoType.canhBao,
         );
         return;
@@ -340,7 +370,8 @@ class _BookingScreenState extends State<BookingScreen> {
       final hasAcc = await DepositService.hasExistingAccount(phoneClean);
       if (hasAcc) {
         setState(() {
-          _phoneAccountError = 'Số điện thoại này đã có tài khoản trên hệ thống. Vui lòng dùng số khác!';
+          _phoneAccountError =
+              'Số điện thoại này đã có tài khoản trên hệ thống. Vui lòng dùng số khác!';
         });
         if (!mounted) return;
         ThongBaoHelper.hienThongBao(
@@ -385,7 +416,9 @@ class _BookingScreenState extends State<BookingScreen> {
         ThongBaoHelper.hienThongBao(
           context,
           tieuDe: 'Ngày coi phòng',
-          noiDung: dateCheck.error ?? 'Ngày coi phòng không hợp lệ (tối đa 5 ngày tới)!',
+          noiDung:
+              dateCheck.error ??
+              'Ngày coi phòng không hợp lệ (tối đa 5 ngày tới)!',
           type: ThongBaoType.canhBao,
         );
         return;
@@ -409,16 +442,19 @@ class _BookingScreenState extends State<BookingScreen> {
         return;
       }
 
-      final dateStr = '${_getVietnameseDayName(selDay)}, ${selDay.day.toString().padLeft(2, '0')}/${selDay.month.toString().padLeft(2, '0')}/${selDay.year}';
+      final dateStr =
+          '${_getVietnameseDayName(selDay)}, ${selDay.day.toString().padLeft(2, '0')}/${selDay.month.toString().padLeft(2, '0')}/${selDay.year}';
 
-      // 1. Tiến hành đặt cọc giữ chỗ và lấy phiếu cọc thế chân 100k
+      // 1. Tiến hành đặt cọc giữ chỗ và lấy phiếu cọc thế chân
       final giuCho = await DepositService.tienHanhDatCoc(
         room: _selectedRoom!,
         hoTen: name,
         soDt: phoneClean,
         ngayDuKienO: selDay,
         soNguoiO: _guestCount,
-        ghiChu: 'Hẹn xem $_selectedTimeSlot ngày $dateStr. ${_noteController.text.trim()}'.trim(),
+        ghiChu:
+            'Hẹn xem $_selectedTimeSlot ngày $dateStr. ${_noteController.text.trim()}'
+                .trim(),
       );
 
       // Lưu thông tin giữ chỗ gần nhất
@@ -497,11 +533,16 @@ class _BookingScreenState extends State<BookingScreen> {
                         onTap: () => Navigator.pop(context),
                         child: const Padding(
                           padding: EdgeInsets.all(10),
-                          child: Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+                          child: Icon(
+                            Icons.arrow_back_ios_new_rounded,
+                            size: 20,
+                          ),
                         ),
                       ),
                 title: Text(
-                  widget.isTabMode ? 'Đặt Lịch Hẹn Xem Phòng' : 'Đặt Lịch Xem Phòng',
+                  widget.isTabMode
+                      ? 'Đặt Lịch Hẹn Xem Phòng'
+                      : 'Đặt Lịch Xem Phòng',
                   style: const TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.bold,
@@ -518,7 +559,11 @@ class _BookingScreenState extends State<BookingScreen> {
                         color: Color(0xFF09638E),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.history_rounded, size: 18, color: Colors.white),
+                      child: const Icon(
+                        Icons.history_rounded,
+                        size: 18,
+                        color: Colors.white,
+                      ),
                     ),
                     onPressed: () {
                       Navigator.push(
@@ -539,12 +584,18 @@ class _BookingScreenState extends State<BookingScreen> {
                     // ====== HEADER BADGES ======
                     Container(
                       color: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
                       child: Row(
                         children: [
                           Expanded(
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 5,
+                              ),
                               decoration: BoxDecoration(
                                 color: const Color(0xFFEBF5FA),
                                 borderRadius: BorderRadius.circular(20),
@@ -552,8 +603,11 @@ class _BookingScreenState extends State<BookingScreen> {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: const [
-                                  Icon(Icons.home_work_rounded,
-                                      size: 13, color: Color(0xFF09638E)),
+                                  Icon(
+                                    Icons.home_work_rounded,
+                                    size: 13,
+                                    color: Color(0xFF09638E),
+                                  ),
                                   SizedBox(width: 4),
                                   Flexible(
                                     child: Text(
@@ -575,8 +629,6 @@ class _BookingScreenState extends State<BookingScreen> {
                       ),
                     ),
 
-
-
                     // ====== BANNER THÔNG TIN ĐẶT CỌC 10% & QUY ĐỊNH 5 NGÀY ======
                     Container(
                       color: Colors.white,
@@ -593,7 +645,11 @@ class _BookingScreenState extends State<BookingScreen> {
                           children: [
                             Row(
                               children: [
-                                const Icon(Icons.verified_user_outlined, color: Color(0xFF0284C7), size: 16),
+                                const Icon(
+                                  Icons.verified_user_outlined,
+                                  color: Color(0xFF0284C7),
+                                  size: 16,
+                                ),
                                 const SizedBox(width: 6),
                                 Expanded(
                                   child: Text(
@@ -613,7 +669,11 @@ class _BookingScreenState extends State<BookingScreen> {
                             Text(
                               '• Khóa phòng độc quyền: Giữ chỗ trong 5 ngày tới, không cho khách khác thuê.\n'
                               '• Trừ vào tiền cọc: Được trừ $theChanStr vào hợp đồng khi bạn nhận phòng.',
-                              style: const TextStyle(fontSize: 12, color: Color(0xFF0C4A6E), height: 1.45),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF0C4A6E),
+                                height: 1.45,
+                              ),
                             ),
                           ],
                         ),
@@ -638,17 +698,24 @@ class _BookingScreenState extends State<BookingScreen> {
                             ),
                             const SizedBox(height: 8),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                              ),
                               decoration: BoxDecoration(
                                 color: const Color(0xFFF8FAFC),
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: const Color(0xFFCBD5E1)),
+                                border: Border.all(
+                                  color: const Color(0xFFCBD5E1),
+                                ),
                               ),
                               child: DropdownButtonHideUnderline(
                                 child: DropdownButton<String>(
                                   value: _selectedRoom?.maPhong,
                                   isExpanded: true,
-                                  icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF09638E)),
+                                  icon: const Icon(
+                                    Icons.keyboard_arrow_down_rounded,
+                                    color: Color(0xFF09638E),
+                                  ),
                                   items: _rooms.map((r) {
                                     return DropdownMenuItem<String>(
                                       value: r.maPhong,
@@ -665,7 +732,9 @@ class _BookingScreenState extends State<BookingScreen> {
                                   onChanged: (newMaPhong) {
                                     if (newMaPhong != null) {
                                       setState(() {
-                                        _selectedRoom = _rooms.firstWhere((r) => r.maPhong == newMaPhong);
+                                        _selectedRoom = _rooms.firstWhere(
+                                          (r) => r.maPhong == newMaPhong,
+                                        );
                                       });
                                     }
                                   },
@@ -697,7 +766,10 @@ class _BookingScreenState extends State<BookingScreen> {
                                   height: 80,
                                   decoration: const BoxDecoration(
                                     gradient: LinearGradient(
-                                      colors: [Color(0xFF0F172A), Color(0xFF1E3A5F)],
+                                      colors: [
+                                        Color(0xFF0F172A),
+                                        Color(0xFF1E3A5F),
+                                      ],
                                     ),
                                   ),
                                   child: const Center(
@@ -734,10 +806,14 @@ class _BookingScreenState extends State<BookingScreen> {
                                       const SizedBox(width: 6),
                                       Container(
                                         padding: const EdgeInsets.symmetric(
-                                            horizontal: 6, vertical: 2),
+                                          horizontal: 6,
+                                          vertical: 2,
+                                        ),
                                         decoration: BoxDecoration(
                                           color: const Color(0xFF09638E),
-                                          borderRadius: BorderRadius.circular(6),
+                                          borderRadius: BorderRadius.circular(
+                                            6,
+                                          ),
                                         ),
                                         child: Text(
                                           'Tầng ${room.tang}',
@@ -770,7 +846,11 @@ class _BookingScreenState extends State<BookingScreen> {
                                   const SizedBox(height: 4),
                                   Row(
                                     children: const [
-                                      Icon(Icons.circle, size: 7, color: Color(0xFF22C55E)),
+                                      Icon(
+                                        Icons.circle,
+                                        size: 7,
+                                        color: Color(0xFF22C55E),
+                                      ),
                                       SizedBox(width: 4),
                                       Expanded(
                                         child: Text(
@@ -778,7 +858,9 @@ class _BookingScreenState extends State<BookingScreen> {
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                           style: TextStyle(
-                                              fontSize: 11, color: Color(0xFF16A34A)),
+                                            fontSize: 11,
+                                            color: Color(0xFF16A34A),
+                                          ),
                                         ),
                                       ),
                                     ],
@@ -814,7 +896,9 @@ class _BookingScreenState extends State<BookingScreen> {
                           Row(
                             children: [
                               Icon(
-                                _isDepositTab ? Icons.event_available_rounded : Icons.calendar_month_rounded,
+                                _isDepositTab
+                                    ? Icons.event_available_rounded
+                                    : Icons.calendar_month_rounded,
                                 size: 18,
                                 color: const Color(0xFF09638E),
                               ),
@@ -843,7 +927,7 @@ class _BookingScreenState extends State<BookingScreen> {
                           ),
                           const SizedBox(height: 3),
                           const Text(
-                            '100k giữ phòng tối đa 5 ngày tới. Nếu sau 5 ngày không coi phòng sẽ mất cọc.',
+                            'Giữ phòng tối đa 5 ngày tới. Nếu sau 5 ngày không coi phòng sẽ mất cọc.',
                             style: TextStyle(
                               fontSize: 11.5,
                               color: Color(0xFFD97706),
@@ -852,7 +936,7 @@ class _BookingScreenState extends State<BookingScreen> {
                           ),
                           const SizedBox(height: 14),
 
-                           // Day selector horizontal scroll
+                          // Day selector horizontal scroll
                           SizedBox(
                             height: 72,
                             child: ListView.builder(
@@ -861,17 +945,22 @@ class _BookingScreenState extends State<BookingScreen> {
                               itemCount: _displayDays.length,
                               itemBuilder: (context, index) {
                                 final day = _displayDays[index];
-                                final isSelected   = _selectedDayIndex == index;
-                                final isSunday     = day.weekday == DateTime.sunday;
-                                final hasSlots     = _dayHasAnySlot(day);
-                                final isDisabled   = !hasSlots;
-                                final isToday      = index == 0;
-                                final dayLabel     = isToday ? 'H.nay'
-                                    : (index == 1 ? 'N.mai' : _getVietnameseDayName(day));
-                                final subLabel     = _daySubLabel(day);
+                                final isSelected = _selectedDayIndex == index;
+                                final isSunday = day.weekday == DateTime.sunday;
+                                final hasSlots = _dayHasAnySlot(day);
+                                final isDisabled = !hasSlots;
+                                final isToday = index == 0;
+                                final dayLabel = isToday
+                                    ? 'H.nay'
+                                    : (index == 1
+                                          ? 'N.mai'
+                                          : _getVietnameseDayName(day));
+                                final subLabel = _daySubLabel(day);
 
                                 return GestureDetector(
-                                  onTap: isDisabled ? null : () => _onDaySelected(index),
+                                  onTap: isDisabled
+                                      ? null
+                                      : () => _onDaySelected(index),
                                   child: Opacity(
                                     opacity: isDisabled ? 0.45 : 1.0,
                                     child: Container(
@@ -881,8 +970,8 @@ class _BookingScreenState extends State<BookingScreen> {
                                         color: isSelected
                                             ? const Color(0xFF09638E)
                                             : isDisabled
-                                                ? const Color(0xFFF1F5F9)
-                                                : Colors.white,
+                                            ? const Color(0xFFF1F5F9)
+                                            : Colors.white,
                                         borderRadius: BorderRadius.circular(14),
                                         border: Border.all(
                                           color: isSelected
@@ -891,7 +980,8 @@ class _BookingScreenState extends State<BookingScreen> {
                                         ),
                                       ),
                                       child: Column(
-                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
                                         children: [
                                           if (isSunday)
                                             Icon(
@@ -918,10 +1008,12 @@ class _BookingScreenState extends State<BookingScreen> {
                                               fontSize: 11,
                                               fontWeight: FontWeight.w600,
                                               color: isSelected
-                                                  ? Colors.white.withValues(alpha: 0.9)
+                                                  ? Colors.white.withValues(
+                                                      alpha: 0.9,
+                                                    )
                                                   : isSunday
-                                                      ? const Color(0xFFCBD5E1)
-                                                      : const Color(0xFF64748B),
+                                                  ? const Color(0xFFCBD5E1)
+                                                  : const Color(0xFF64748B),
                                             ),
                                           ),
                                           Text(
@@ -929,10 +1021,12 @@ class _BookingScreenState extends State<BookingScreen> {
                                             style: TextStyle(
                                               fontSize: 9,
                                               color: isSelected
-                                                  ? Colors.white.withValues(alpha: 0.7)
+                                                  ? Colors.white.withValues(
+                                                      alpha: 0.7,
+                                                    )
                                                   : isSunday
-                                                      ? const Color(0xFFEF4444)
-                                                      : const Color(0xFF94A3B8),
+                                                  ? const Color(0xFFEF4444)
+                                                  : const Color(0xFF94A3B8),
                                             ),
                                           ),
                                         ],
@@ -949,8 +1043,8 @@ class _BookingScreenState extends State<BookingScreen> {
 
                     const SizedBox(height: 10),
 
-                      // ====== KHUNG GIỜ PHÙ HỢP ======
-                      Container(
+                    // ====== KHUNG GIỜ PHÙ HỢP ======
+                    Container(
                       color: Colors.white,
                       padding: const EdgeInsets.all(16),
                       child: Column(
@@ -958,8 +1052,11 @@ class _BookingScreenState extends State<BookingScreen> {
                         children: [
                           Row(
                             children: [
-                              const Icon(Icons.access_time_rounded,
-                                  size: 18, color: Color(0xFF09638E)),
+                              const Icon(
+                                Icons.access_time_rounded,
+                                size: 18,
+                                color: Color(0xFF09638E),
+                              ),
                               const SizedBox(width: 6),
                               const Expanded(
                                 child: Text(
@@ -976,7 +1073,9 @@ class _BookingScreenState extends State<BookingScreen> {
                               const SizedBox(width: 8),
                               Container(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 3),
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
                                 decoration: BoxDecoration(
                                   color: const Color(0xFFEBF5FA),
                                   borderRadius: BorderRadius.circular(8),
@@ -984,14 +1083,19 @@ class _BookingScreenState extends State<BookingScreen> {
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: const [
-                                    Icon(Icons.circle, size: 7, color: Color(0xFF22C55E)),
+                                    Icon(
+                                      Icons.circle,
+                                      size: 7,
+                                      color: Color(0xFF22C55E),
+                                    ),
                                     SizedBox(width: 4),
                                     Text(
                                       'Có người trực',
                                       style: TextStyle(
-                                          fontSize: 10,
-                                          color: Color(0xFF16A34A),
-                                          fontWeight: FontWeight.bold),
+                                        fontSize: 10,
+                                        color: Color(0xFF16A34A),
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -1002,37 +1106,53 @@ class _BookingScreenState extends State<BookingScreen> {
 
                           // Morning slots
                           _buildTimeGroup(
-                              icon: Icons.wb_sunny_outlined,
-                              label: 'Buổi sáng (08:30 - 11:30)',
-                              slots: _allSlots.where((s) => s['session'] == 'morning').toList()),
+                            icon: Icons.wb_sunny_outlined,
+                            label: 'Buổi sáng (08:30 - 11:30)',
+                            slots: _allSlots
+                                .where((s) => s['session'] == 'morning')
+                                .toList(),
+                          ),
                           const SizedBox(height: 14),
 
                           // Afternoon slots
                           _buildTimeGroup(
-                              icon: Icons.wb_cloudy_outlined,
-                              label: 'Buổi chiều (14:00 - 16:30)',
-                              slots: _allSlots.where((s) => s['session'] == 'afternoon').toList()),
+                            icon: Icons.wb_cloudy_outlined,
+                            label: 'Buổi chiều (14:00 - 16:30)',
+                            slots: _allSlots
+                                .where((s) => s['session'] == 'afternoon')
+                                .toList(),
+                          ),
                           const SizedBox(height: 14),
 
                           // Evening slots
                           _buildTimeGroup(
-                              icon: Icons.nights_stay_outlined,
-                              label: 'Buổi tối (Tan ca & Sau giờ học)',
-                              slots: _allSlots.where((s) => s['session'] == 'evening').toList(),
-                              trailingBadge: 'Rất thuận tiện'),
+                            icon: Icons.nights_stay_outlined,
+                            label: 'Buổi tối (Tan ca & Sau giờ học)',
+                            slots: _allSlots
+                                .where((s) => s['session'] == 'evening')
+                                .toList(),
+                            trailingBadge: 'Rất thuận tiện',
+                          ),
 
                           // Banner ngọ nghiệp vụ
-                          if (_displayDays[_selectedDayIndex].weekday == DateTime.sunday)
+                          if (_displayDays[_selectedDayIndex].weekday ==
+                              DateTime.sunday)
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
                                 color: const Color(0xFFFEE2E2),
                                 borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: const Color(0xFFFCA5A5)),
+                                border: Border.all(
+                                  color: const Color(0xFFFCA5A5),
+                                ),
                               ),
                               child: Row(
                                 children: const [
-                                  Icon(Icons.block_rounded, size: 16, color: Color(0xFFDC2626)),
+                                  Icon(
+                                    Icons.block_rounded,
+                                    size: 16,
+                                    color: Color(0xFFDC2626),
+                                  ),
                                   SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
@@ -1056,8 +1176,11 @@ class _BookingScreenState extends State<BookingScreen> {
                               ),
                               child: Row(
                                 children: const [
-                                  Icon(Icons.calendar_today_rounded,
-                                      size: 16, color: Color(0xFF64748B)),
+                                  Icon(
+                                    Icons.calendar_today_rounded,
+                                    size: 16,
+                                    color: Color(0xFF64748B),
+                                  ),
                                   SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
@@ -1114,24 +1237,38 @@ class _BookingScreenState extends State<BookingScreen> {
                             controller: _nameController,
                             decoration: InputDecoration(
                               hintText: 'Trần Minh Khang',
-                              hintStyle: const TextStyle(color: Color(0xFFCBD5E1)),
+                              hintStyle: const TextStyle(
+                                color: Color(0xFFCBD5E1),
+                              ),
                               labelText: 'Họ và tên của bạn',
-                              labelStyle: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
-                              prefixIcon: const Icon(Icons.person_outline,
-                                  size: 18, color: Color(0xFF94A3B8)),
+                              labelStyle: const TextStyle(
+                                fontSize: 13,
+                                color: Color(0xFF64748B),
+                              ),
+                              prefixIcon: const Icon(
+                                Icons.person_outline,
+                                size: 18,
+                                color: Color(0xFF94A3B8),
+                              ),
                               filled: true,
                               fillColor: const Color(0xFFF8FAFC),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                                borderSide: const BorderSide(
+                                  color: Color(0xFFE2E8F0),
+                                ),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 borderSide: const BorderSide(
-                                    color: Color(0xFF09638E), width: 1.5),
+                                  color: Color(0xFF09638E),
+                                  width: 1.5,
+                                ),
                               ),
                               contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 14, vertical: 12),
+                                horizontal: 14,
+                                vertical: 12,
+                              ),
                             ),
                           ),
                           const SizedBox(height: 12),
@@ -1143,13 +1280,21 @@ class _BookingScreenState extends State<BookingScreen> {
                             onChanged: _onPhoneChanged,
                             decoration: InputDecoration(
                               hintText: '0912 345 678',
-                              hintStyle: const TextStyle(color: Color(0xFFCBD5E1)),
+                              hintStyle: const TextStyle(
+                                color: Color(0xFFCBD5E1),
+                              ),
                               labelText: 'Số điện thoại liên hệ (Zalo)',
-                              labelStyle: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+                              labelStyle: const TextStyle(
+                                fontSize: 13,
+                                color: Color(0xFF64748B),
+                              ),
                               errorText: _phoneAccountError,
                               errorMaxLines: 2,
-                              prefixIcon: const Icon(Icons.phone_outlined,
-                                  size: 18, color: Color(0xFF94A3B8)),
+                              prefixIcon: const Icon(
+                                Icons.phone_outlined,
+                                size: 18,
+                                color: Color(0xFF94A3B8),
+                              ),
                               filled: true,
                               fillColor: _phoneAccountError != null
                                   ? const Color(0xFFFEF2F2)
@@ -1172,7 +1317,9 @@ class _BookingScreenState extends State<BookingScreen> {
                                 ),
                               ),
                               contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 14, vertical: 12),
+                                horizontal: 14,
+                                vertical: 12,
+                              ),
                             ),
                           ),
                           const SizedBox(height: 12),
@@ -1192,11 +1339,16 @@ class _BookingScreenState extends State<BookingScreen> {
                               final isSelected = _guestCount == count;
                               return Expanded(
                                 child: Padding(
-                                  padding: EdgeInsets.only(right: count < 3 ? 8 : 0),
+                                  padding: EdgeInsets.only(
+                                    right: count < 3 ? 8 : 0,
+                                  ),
                                   child: GestureDetector(
-                                    onTap: () => setState(() => _guestCount = count),
+                                    onTap: () =>
+                                        setState(() => _guestCount = count),
                                     child: Container(
-                                      padding: const EdgeInsets.symmetric(vertical: 10),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 10,
+                                      ),
                                       decoration: BoxDecoration(
                                         color: isSelected
                                             ? const Color(0xFF09638E)
@@ -1209,7 +1361,8 @@ class _BookingScreenState extends State<BookingScreen> {
                                         ),
                                       ),
                                       child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
                                         children: [
                                           Icon(
                                             count == 1
@@ -1249,19 +1402,28 @@ class _BookingScreenState extends State<BookingScreen> {
                               hintText:
                                   'Ví dụ: Tôi muốn xem thêm chỗ để xe máy và bạn cùng phòng đó...',
                               hintStyle: const TextStyle(
-                                  fontSize: 12, color: Color(0xFFCBD5E1)),
+                                fontSize: 12,
+                                color: Color(0xFFCBD5E1),
+                              ),
                               labelText: 'Ghi chú thêm cho chủ nhà (Tùy chọn)',
-                              labelStyle: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+                              labelStyle: const TextStyle(
+                                fontSize: 13,
+                                color: Color(0xFF64748B),
+                              ),
                               filled: true,
                               fillColor: const Color(0xFFF8FAFC),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                                borderSide: const BorderSide(
+                                  color: Color(0xFFE2E8F0),
+                                ),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 borderSide: const BorderSide(
-                                    color: Color(0xFF09638E), width: 1.5),
+                                  color: Color(0xFF09638E),
+                                  width: 1.5,
+                                ),
                               ),
                               contentPadding: const EdgeInsets.all(14),
                             ),
@@ -1281,8 +1443,11 @@ class _BookingScreenState extends State<BookingScreen> {
                         children: [
                           Row(
                             children: const [
-                              Icon(Icons.verified_user_outlined,
-                                  size: 18, color: Color(0xFF09638E)),
+                              Icon(
+                                Icons.verified_user_outlined,
+                                size: 18,
+                                color: Color(0xFF09638E),
+                              ),
                               SizedBox(width: 6),
                               Expanded(
                                 child: Text(
@@ -1300,26 +1465,33 @@ class _BookingScreenState extends State<BookingScreen> {
                           ),
                           const SizedBox(height: 12),
                           _buildCommitRow(
-                              Icons.check_circle_outline_rounded,
-                              'Miễn phí 100% dịch vụ: Trực tiếp ban quản lý nhà trọ tiếp đón, không qua môi giới, không thu bất kỳ khoản phí dẫn xem phòng nào.'),
+                            Icons.check_circle_outline_rounded,
+                            'Miễn phí 100% dịch vụ: Trực tiếp ban quản lý nhà trọ tiếp đón, không qua môi giới, không thu bất kỳ khoản phí dẫn xem phòng nào.',
+                          ),
                           const SizedBox(height: 8),
                           _buildCommitRow(
-                              Icons.access_time_rounded,
-                              'Ưu tiên giờ chót 24h: Nếu xem ưng ý, bạn được ưu tiên giữ phòng trong vòng 24 giờ trước khi mở lượt cho khách khác.'),
+                            Icons.access_time_rounded,
+                            'Ưu tiên giờ chót 24h: Nếu xem ưng ý, bạn được ưu tiên giữ phòng trong vòng 24 giờ trước khi mở lượt cho khách khác.',
+                          ),
                           const SizedBox(height: 12),
 
                           // Hotline row
                           Row(
                             children: [
-                              const Icon(Icons.phone_in_talk_rounded,
-                                  size: 16, color: Color(0xFF09638E)),
+                              const Icon(
+                                Icons.phone_in_talk_rounded,
+                                size: 16,
+                                color: Color(0xFF09638E),
+                              ),
                               const SizedBox(width: 6),
                               Expanded(
                                 child: Text.rich(
                                   TextSpan(
                                     text: 'Hotline quản lý Kiêu Giang: ',
                                     style: const TextStyle(
-                                        fontSize: 13, color: Color(0xFF475569)),
+                                      fontSize: 13,
+                                      color: Color(0xFF475569),
+                                    ),
                                     children: const [
                                       TextSpan(
                                         text: '0328.004.663',
@@ -1376,7 +1548,8 @@ class _BookingScreenState extends State<BookingScreen> {
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton.icon(
-                          onPressed: (_isSubmitting || _phoneAccountError != null)
+                          onPressed:
+                              (_isSubmitting || _phoneAccountError != null)
                               ? null
                               : _confirmBooking,
                           icon: _isSubmitting
@@ -1401,8 +1574,8 @@ class _BookingScreenState extends State<BookingScreen> {
                               _isSubmitting
                                   ? 'Đang tạo phiếu giữ chỗ...'
                                   : (_phoneAccountError != null
-                                      ? 'SĐT đã có tài khoản (Không thể cọc)'
-                                      : 'Tiến Hành Đặt Cọc ($theChanStr)'),
+                                        ? 'SĐT đã có tài khoản (Không thể cọc)'
+                                        : 'Tiến Hành Đặt Cọc ($theChanStr)'),
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 15.5,
@@ -1471,28 +1644,29 @@ class _BookingScreenState extends State<BookingScreen> {
             Text(
               label,
               style: const TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF475569)),
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF475569),
+              ),
             ),
-            if (trailingBadge != null) ...
-              [
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFEF3C7),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    trailingBadge,
-                    style: const TextStyle(
-                        fontSize: 10,
-                        color: Color(0xFFD97706),
-                        fontWeight: FontWeight.bold),
+            if (trailingBadge != null) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF3C7),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  trailingBadge,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    color: Color(0xFFD97706),
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-              ],
+              ),
+            ],
           ],
         ),
         const SizedBox(height: 8),
@@ -1502,7 +1676,8 @@ class _BookingScreenState extends State<BookingScreen> {
           children: slots.map((slot) {
             final status = _slotStatus(day, slot);
             final isAvailable = status == null;
-            final isSelected = _selectedTimeSlot == slot['label'] && isAvailable;
+            final isSelected =
+                _selectedTimeSlot == slot['label'] && isAvailable;
             return _buildTimeChip(
               slot['label'] as String,
               isSelected: isSelected,
@@ -1524,30 +1699,30 @@ class _BookingScreenState extends State<BookingScreen> {
     // Màu theo trạng thái
     Color bgColor, borderColor, textColor;
     if (!isAvailable) {
-      bgColor     = const Color(0xFFF8FAFC);
+      bgColor = const Color(0xFFF8FAFC);
       borderColor = const Color(0xFFE2E8F0);
-      textColor   = const Color(0xFFCBD5E1);
+      textColor = const Color(0xFFCBD5E1);
     } else if (isSelected) {
-      bgColor     = const Color(0xFF09638E);
+      bgColor = const Color(0xFF09638E);
       borderColor = const Color(0xFF09638E);
-      textColor   = Colors.white;
+      textColor = Colors.white;
     } else {
-      bgColor     = Colors.white;
+      bgColor = Colors.white;
       borderColor = const Color(0xFFE2E8F0);
-      textColor   = const Color(0xFF475569);
+      textColor = const Color(0xFF475569);
     }
 
     // Nhãn badge trạng thái khi không khả dụng
     String? badgeText;
-    Color?  badgeColor;
+    Color? badgeColor;
     if (status == 'passed') {
-      badgeText  = 'Đã qua';
+      badgeText = 'Đã qua';
       badgeColor = const Color(0xFF94A3B8);
     } else if (status == 'soon') {
-      badgeText  = 'Quá gần';
+      badgeText = 'Quá gần';
       badgeColor = const Color(0xFFD97706);
     } else if (status == 'sunday') {
-      badgeText  = 'Nghỉ';
+      badgeText = 'Nghỉ';
       badgeColor = const Color(0xFFEF4444);
     }
 
@@ -1573,25 +1748,24 @@ class _BookingScreenState extends State<BookingScreen> {
                 color: textColor,
               ),
             ),
-            if (badgeText != null) ...
-              [
-                const SizedBox(width: 5),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: badgeColor!.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    badgeText,
-                    style: TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.bold,
-                      color: badgeColor,
-                    ),
+            if (badgeText != null) ...[
+              const SizedBox(width: 5),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                decoration: BoxDecoration(
+                  color: badgeColor!.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  badgeText,
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                    color: badgeColor,
                   ),
                 ),
-              ],
+              ),
+            ],
           ],
         ),
       ),

@@ -175,15 +175,21 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
         debugPrint('Lỗi tải đơn giá dịch vụ: $e');
       }
 
-      final cleanHd = (widget.maHopDong.trim().isEmpty ? 'HD001' : widget.maHopDong).replaceAll(' ', '');
+      final cleanHd =
+          (widget.maHopDong.trim().isEmpty ? 'HD001' : widget.maHopDong)
+              .replaceAll(' ', '');
       final now = DateTime.now();
       final thang = now.month.toString().padLeft(2, '0');
       final nam = now.year.toString();
       final thangNam = '$thang/$nam';
       final cleanPhong = widget.maPhong.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');
-      final pPart = cleanPhong.length > 5 ? cleanPhong.substring(cleanPhong.length - 5) : cleanPhong;
+      final pPart = cleanPhong.length > 5
+          ? cleanPhong.substring(cleanPhong.length - 5)
+          : cleanPhong;
       final maKyPhong = 'KY${thang}_$pPart';
-      final hdPart = cleanHd.length > 5 ? cleanHd.substring(cleanHd.length - 5) : cleanHd;
+      final hdPart = cleanHd.length > 5
+          ? cleanHd.substring(cleanHd.length - 5)
+          : cleanHd;
       final maKyHd = 'KY${thang}_$hdPart';
 
       // 1.1 Kiểm tra xem phòng này có phải là phòng mới sau khi chuyển phòng hay không
@@ -198,8 +204,10 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
           final pMoi = pl['ma_phong_moi']?.toString() ?? '';
           final code = pl['ma_phu_luc']?.toString() ?? '';
           if (pMoi.isNotEmpty || code.startsWith('PLCP')) {
-            if (pMoi.trim().toLowerCase() == widget.maPhong.trim().toLowerCase() ||
-                pMoi.replaceAll(RegExp(r'[^0-9]'), '') == widget.maPhong.replaceAll(RegExp(r'[^0-9]'), '')) {
+            if (pMoi.trim().toLowerCase() ==
+                    widget.maPhong.trim().toLowerCase() ||
+                pMoi.replaceAll(RegExp(r'[^0-9]'), '') ==
+                    widget.maPhong.replaceAll(RegExp(r'[^0-9]'), '')) {
               final nl = pl['ngay_lap']?.toString();
               if (nl != null && nl.isNotEmpty) {
                 ngayChuyenPhong = DateTime.tryParse(nl);
@@ -238,12 +246,20 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
         }
 
         if (phongRow != null) {
-          phongChiSoDien = double.tryParse(phongRow['chi_so_dien']?.toString() ?? '');
-          phongChiSoNuoc = double.tryParse(phongRow['chi_so_nuoc']?.toString() ?? '');
+          phongChiSoDien = double.tryParse(
+            phongRow['chi_so_dien']?.toString() ?? '',
+          );
+          phongChiSoNuoc = double.tryParse(
+            phongRow['chi_so_nuoc']?.toString() ?? '',
+          );
           if (phongRow['ngay_cap_nhat_chi_so'] != null) {
-            phongNgayCapNhat = DateTime.tryParse(phongRow['ngay_cap_nhat_chi_so'].toString());
+            phongNgayCapNhat = DateTime.tryParse(
+              phongRow['ngay_cap_nhat_chi_so'].toString(),
+            );
           }
-          debugPrint('[METER] Đã tải từ bảng phong: dien=$phongChiSoDien, nuoc=$phongChiSoNuoc, ngay=$phongNgayCapNhat');
+          debugPrint(
+            '[METER] Đã tải từ bảng phong: dien=$phongChiSoDien, nuoc=$phongChiSoNuoc, ngay=$phongNgayCapNhat',
+          );
         }
       } catch (e) {
         debugPrint('Lỗi tải chỉ số từ bảng phong: $e');
@@ -274,13 +290,15 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
           // Bản ghi cũ của phòng trước (không chứa mã phòng mới trong ma_ky hoặc ghi trước ngày chuyển)
           // KHÔNG ĐƯỢC tính là đơn đã nộp của phòng mới!
           if (ngayChuyenPhong != null) {
-            final bool isFromThisRoom = maKyItem == maKyPhong || maKyItem.contains(pPart);
+            final bool isFromThisRoom =
+                maKyItem == maKyPhong || maKyItem.contains(pPart);
             if (!isFromThisRoom) {
               continue; // Bỏ qua bản ghi của phòng trước!
             }
           }
 
-          final bool matchKy = maKyItem == maKyPhong ||
+          final bool matchKy =
+              maKyItem == maKyPhong ||
               maKyItem == maKyHd ||
               thangNamItem == thangNam ||
               (ngayGhiNhan != null &&
@@ -299,15 +317,27 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
           final nuocMoi = recordKyNay['chi_so_nuoc_moi'];
           if (dienMoi != null) {
             final dVal = double.tryParse(dienMoi.toString());
-            _dienController.text = dVal != null ? (dVal % 1 == 0 ? dVal.toInt().toString() : dVal.toString()) : dienMoi.toString();
+            _dienController.text = dVal != null
+                ? (dVal % 1 == 0 ? dVal.toInt().toString() : dVal.toString())
+                : dienMoi.toString();
           }
           if (nuocMoi != null) {
             final nVal = double.tryParse(nuocMoi.toString());
-            _nuocController.text = nVal != null ? (nVal % 1 == 0 ? nVal.toInt().toString() : nVal.toString()) : nuocMoi.toString();
+            _nuocController.text = nVal != null
+                ? (nVal % 1 == 0 ? nVal.toInt().toString() : nVal.toString())
+                : nuocMoi.toString();
           }
 
-          _chiSoDienTruoc = double.tryParse(recordKyNay['chi_so_dien_cu']?.toString() ?? '') ?? (phongChiSoDien ?? 0.0);
-          _chiSoNuocTruoc = double.tryParse(recordKyNay['chi_so_nuoc_cu']?.toString() ?? '') ?? (phongChiSoNuoc ?? 0.0);
+          _chiSoDienTruoc =
+              double.tryParse(
+                recordKyNay['chi_so_dien_cu']?.toString() ?? '',
+              ) ??
+              (phongChiSoDien ?? 0.0);
+          _chiSoNuocTruoc =
+              double.tryParse(
+                recordKyNay['chi_so_nuoc_cu']?.toString() ?? '',
+              ) ??
+              (phongChiSoNuoc ?? 0.0);
 
           _urlAnhDienDaGui = recordKyNay['anh_dien']?.toString();
           _urlAnhNuocDaGui = recordKyNay['anh_nuoc']?.toString();
@@ -319,10 +349,20 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
             _chiSoNuocTruoc = phongChiSoNuoc ?? 0.0;
           } else if (list.isNotEmpty) {
             final latest = list.first;
-            final dienMoiCu = double.tryParse(latest['chi_so_dien_moi']?.toString() ?? '');
-            final nuocMoiCu = double.tryParse(latest['chi_so_nuoc_moi']?.toString() ?? '');
-            _chiSoDienTruoc = dienMoiCu ?? double.tryParse(latest['chi_so_dien_cu']?.toString() ?? '0') ?? 0.0;
-            _chiSoNuocTruoc = nuocMoiCu ?? double.tryParse(latest['chi_so_nuoc_cu']?.toString() ?? '0') ?? 0.0;
+            final dienMoiCu = double.tryParse(
+              latest['chi_so_dien_moi']?.toString() ?? '',
+            );
+            final nuocMoiCu = double.tryParse(
+              latest['chi_so_nuoc_moi']?.toString() ?? '',
+            );
+            _chiSoDienTruoc =
+                dienMoiCu ??
+                double.tryParse(latest['chi_so_dien_cu']?.toString() ?? '0') ??
+                0.0;
+            _chiSoNuocTruoc =
+                nuocMoiCu ??
+                double.tryParse(latest['chi_so_nuoc_cu']?.toString() ?? '0') ??
+                0.0;
           } else {
             _chiSoDienTruoc = 0.0;
             _chiSoNuocTruoc = 0.0;
@@ -358,8 +398,6 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
   double get _nuocMoi =>
       double.tryParse(_nuocController.text.replaceAll(',', '.')) ?? 0;
 
-
-
   ChiSoDienNuocModel get _model => ChiSoDienNuocModel(
     maPhong: widget.maPhong,
     tenPhong: widget.tenPhong,
@@ -387,7 +425,8 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
 
   bool get _canProceed {
     // 1. Phải nhập đủ cả 2 chỉ số
-    if (_dienController.text.trim().isEmpty || _nuocController.text.trim().isEmpty) {
+    if (_dienController.text.trim().isEmpty ||
+        _nuocController.text.trim().isEmpty) {
       return false;
     }
     // 2. Ràng buộc thực tế: Chỉ số mới phải lớn hơn hoặc bằng chỉ số cũ!
@@ -415,7 +454,8 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
       }
     }
 
-    final trangThai = _daGuiDonKyNay?['trang_thai_duyet']?.toString() ?? 'Chờ duyệt';
+    final trangThai =
+        _daGuiDonKyNay?['trang_thai_duyet']?.toString() ?? 'Chờ duyệt';
     final isDaDuyet = trangThai == 'Đã duyệt';
 
     showDialog(
@@ -449,8 +489,12 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Icon(
-                    isDaDuyet ? Icons.check_circle_rounded : Icons.hourglass_top_rounded,
-                    color: isDaDuyet ? const Color(0xFF16A34A) : const Color(0xFFD97706),
+                    isDaDuyet
+                        ? Icons.check_circle_rounded
+                        : Icons.hourglass_top_rounded,
+                    color: isDaDuyet
+                        ? const Color(0xFF16A34A)
+                        : const Color(0xFFD97706),
                     size: 20,
                   ),
                   const SizedBox(width: 8),
@@ -460,7 +504,9 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                       style: TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.bold,
-                        color: isDaDuyet ? const Color(0xFF166534) : const Color(0xFF92400E),
+                        color: isDaDuyet
+                            ? const Color(0xFF166534)
+                            : const Color(0xFF92400E),
                         height: 1.35,
                       ),
                     ),
@@ -475,7 +521,11 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
               '• Số nước nộp: ${_daGuiDonKyNay?['chi_so_nuoc_moi'] ?? _nuocController.text} m³\n\n'
               '⚠️ Quy định: Mỗi tháng hệ thống mở cổng từ ngày 28 và chỉ nhận 01 đơn chốt chỉ số duy nhất để Ban Quản Lý đối soát và lập hóa đơn.\n\n'
               '📅 Đợt chốt chỉ số tiếp theo sẽ mở vào ngày 28/$nextThang/$nextNam.',
-              style: const TextStyle(fontSize: 12.5, color: Color(0xFF334155), height: 1.45),
+              style: const TextStyle(
+                fontSize: 12.5,
+                color: Color(0xFF334155),
+                height: 1.45,
+              ),
             ),
           ],
         ),
@@ -485,9 +535,14 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF09638E),
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
-            child: const Text('Đã hiểu', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: const Text(
+              'Đã hiểu',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),
@@ -508,10 +563,16 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           title: Row(
             children: const [
-              Icon(Icons.calendar_month_rounded, color: Color(0xFFD97706), size: 24),
+              Icon(
+                Icons.calendar_month_rounded,
+                color: Color(0xFFD97706),
+                size: 24,
+              ),
               SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -535,7 +596,11 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.info_rounded, color: Color(0xFFD97706), size: 20),
+                    const Icon(
+                      Icons.info_rounded,
+                      color: Color(0xFFD97706),
+                      size: 20,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -554,7 +619,11 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
               const SizedBox(height: 12),
               Text(
                 'Hôm nay là ngày ${now.day}/${now.month}/${now.year} (còn $daysLeft ngày nữa mới đến ngày 28).\n\nTheo quy định của Ban Quản Lý Kiêu Giang, chỉ số điện nước chốt số vào ngày 28 hàng tháng để đối soát lập hóa đơn. Vui lòng quay lại gửi chỉ số từ ngày 28 bạn nhé!',
-                style: const TextStyle(fontSize: 12.5, color: Color(0xFF334155), height: 1.45),
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  color: Color(0xFF334155),
+                  height: 1.45,
+                ),
               ),
             ],
           ),
@@ -564,9 +633,14 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF09638E),
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
-              child: const Text('Đã hiểu', style: TextStyle(fontWeight: FontWeight.bold)),
+              child: const Text(
+                'Đã hiểu',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
             ),
           ],
         ),
@@ -588,13 +662,16 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
   void _showError() {
     String msg = '';
     if (_bytesDien == null || _bytesNuoc == null) {
-      msg = 'Vui lòng chụp ảnh minh chứng cả Công tơ Điện và Đồng hồ Nước để đối soát.';
+      msg =
+          'Vui lòng chụp ảnh minh chứng cả Công tơ Điện và Đồng hồ Nước để đối soát.';
     } else if (_dienController.text.isEmpty || _nuocController.text.isEmpty) {
       msg = 'Vui lòng nhập hoặc chụp ảnh để quét đủ chỉ số điện và nước.';
     } else if (_dienMoi < _chiSoDienTruoc) {
-      msg = 'Chỉ số điện mới ($_dienMoi kWh) phải ≥ chỉ số cũ ($_chiSoDienTruoc kWh).';
+      msg =
+          'Chỉ số điện mới ($_dienMoi kWh) phải ≥ chỉ số cũ ($_chiSoDienTruoc kWh).';
     } else if (_nuocMoi < _chiSoNuocTruoc) {
-      msg = 'Chỉ số nước mới ($_nuocMoi m³) phải ≥ chỉ số cũ ($_chiSoNuocTruoc m³).';
+      msg =
+          'Chỉ số nước mới ($_nuocMoi m³) phải ≥ chỉ số cũ ($_chiSoNuocTruoc m³).';
     }
     ThongBaoHelper.hienToast(
       context,
@@ -616,8 +693,9 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
       final nam = now.year.toString();
       final thangNam = '$thang/$nam';
 
-      final cleanHd = (widget.maHopDong.trim().isEmpty ? 'HD001' : widget.maHopDong)
-          .replaceAll(' ', '');
+      final cleanHd =
+          (widget.maHopDong.trim().isEmpty ? 'HD001' : widget.maHopDong)
+              .replaceAll(' ', '');
       final cleanPhong = widget.maPhong.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');
       final pPart = cleanPhong.length > 5
           ? cleanPhong.substring(cleanPhong.length - 5)
@@ -636,15 +714,24 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
       if (_bytesDien != null) {
         try {
           final pathDien = 'meters/${maKy}_dien.jpg';
-          await db.storage.from('contracts').uploadBinary(
-            pathDien,
-            _bytesDien!,
-            fileOptions: const FileOptions(contentType: 'image/jpeg', upsert: true),
-          );
+          await db.storage
+              .from('contracts')
+              .uploadBinary(
+                pathDien,
+                _bytesDien!,
+                fileOptions: const FileOptions(
+                  contentType: 'image/jpeg',
+                  upsert: true,
+                ),
+              );
           urlAnhDien = db.storage.from('contracts').getPublicUrl(pathDien);
-          debugPrint('[METER] Upload ảnh điện vào Storage thành công: $urlAnhDien');
+          debugPrint(
+            '[METER] Upload ảnh điện vào Storage thành công: $urlAnhDien',
+          );
         } catch (e) {
-          debugPrint('[METER] Storage upload điện notice: $e (Lưu fallback Base64)');
+          debugPrint(
+            '[METER] Storage upload điện notice: $e (Lưu fallback Base64)',
+          );
           urlAnhDien = 'data:image/jpeg;base64,${base64Encode(_bytesDien!)}';
         }
       }
@@ -652,15 +739,24 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
       if (_bytesNuoc != null) {
         try {
           final pathNuoc = 'meters/${maKy}_nuoc.jpg';
-          await db.storage.from('contracts').uploadBinary(
-            pathNuoc,
-            _bytesNuoc!,
-            fileOptions: const FileOptions(contentType: 'image/jpeg', upsert: true),
-          );
+          await db.storage
+              .from('contracts')
+              .uploadBinary(
+                pathNuoc,
+                _bytesNuoc!,
+                fileOptions: const FileOptions(
+                  contentType: 'image/jpeg',
+                  upsert: true,
+                ),
+              );
           urlAnhNuoc = db.storage.from('contracts').getPublicUrl(pathNuoc);
-          debugPrint('[METER] Upload ảnh nước vào Storage thành công: $urlAnhNuoc');
+          debugPrint(
+            '[METER] Upload ảnh nước vào Storage thành công: $urlAnhNuoc',
+          );
         } catch (e) {
-          debugPrint('[METER] Storage upload nước notice: $e (Lưu fallback Base64)');
+          debugPrint(
+            '[METER] Storage upload nước notice: $e (Lưu fallback Base64)',
+          );
           urlAnhNuoc = 'data:image/jpeg;base64,${base64Encode(_bytesNuoc!)}';
         }
       }
@@ -707,7 +803,9 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                 .or('ma_phong.eq.P$pNum,ma_phong.eq.$pNum');
           }
         }
-        debugPrint('[METER] Đã cập nhật 3 cột chi_so_dien=$_dienMoi, chi_so_nuoc=$_nuocMoi, ngay_cap_nhat_chi_so=$nowIso vào bảng phong!');
+        debugPrint(
+          '[METER] Đã cập nhật 3 cột chi_so_dien=$_dienMoi, chi_so_nuoc=$_nuocMoi, ngay_cap_nhat_chi_so=$nowIso vào bảng phong!',
+        );
       } catch (errPhong) {
         debugPrint('Lỗi cập nhật 3 cột vào bảng phong: $errPhong');
       }
@@ -717,7 +815,9 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
       _urlAnhDienDaGui = urlAnhDien;
       _urlAnhNuocDaGui = urlAnhNuoc;
 
-      debugPrint('[METER] Đã lưu thành công vào chi_so_dien_nuoc trên Supabase kèm ảnh: $maKy');
+      debugPrint(
+        '[METER] Đã lưu thành công vào chi_so_dien_nuoc trên Supabase kèm ảnh: $maKy',
+      );
 
       if (!mounted) return;
       setState(() => _step = 2);
@@ -772,16 +872,25 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
               ),
               const SizedBox(height: 14),
               ListTile(
-                leading: const Icon(Icons.camera_alt_rounded, color: Color(0xFF0284C7)),
+                leading: const Icon(
+                  Icons.camera_alt_rounded,
+                  color: Color(0xFF0284C7),
+                ),
                 title: const Text('Chụp ảnh trực tiếp bằng Camera'),
-                subtitle: const Text('Chụp rõ màn hình số, tránh lóa sáng', style: TextStyle(fontSize: 11)),
+                subtitle: const Text(
+                  'Chụp rõ màn hình số, tránh lóa sáng',
+                  style: TextStyle(fontSize: 11),
+                ),
                 onTap: () {
                   Navigator.pop(ctx);
                   _chupHoacChonAnh(ImageSource.camera, isDien);
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.photo_library_rounded, color: Color(0xFF0284C7)),
+                leading: const Icon(
+                  Icons.photo_library_rounded,
+                  color: Color(0xFF0284C7),
+                ),
                 title: const Text('Chọn ảnh từ Thư viện (Bộ sưu tập)'),
                 onTap: () {
                   Navigator.pop(ctx);
@@ -840,7 +949,9 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
         // OCR thành công → điền số và hiện popup kết quả (KHÔNG hiện toast cảnh báo)
         final soQuet = ketQua.chiSo!;
         setState(() {
-          final hienThiStr = (soQuet % 1 == 0 ? soQuet.toInt().toString() : soQuet.toStringAsFixed(1));
+          final hienThiStr = (soQuet % 1 == 0
+              ? soQuet.toInt().toString()
+              : soQuet.toStringAsFixed(1));
           if (isDien) {
             _dienController.text = hienThiStr;
             _thongBaoQuetDien = 'AI quét: $hienThiStr kWh (chạm để chỉnh)';
@@ -858,7 +969,8 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
           ThongBaoHelper.hienToast(
             context,
             tieuDe: 'Chưa đọc rõ chỉ số',
-            noiDung: ketQua.thongDiep ??
+            noiDung:
+                ketQua.thongDiep ??
                 'Chưa đọc rõ chỉ số trên ảnh. Vui lòng chụp lại gần hơn hoặc nhập tay nhé!',
             type: ThongBaoType.canhBao,
             duration: const Duration(seconds: 3),
@@ -884,9 +996,15 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
     final tieuThu = (soQuet - chiSoCu).clamp(0, double.infinity);
     final thanhTien = tieuThu * donGia;
 
-    final soQuetStr = (soQuet % 1 == 0 ? soQuet.toInt().toString() : soQuet.toStringAsFixed(1));
-    final chiSoCuStr = (chiSoCu % 1 == 0 ? chiSoCu.toInt().toString() : chiSoCu.toStringAsFixed(1));
-    final tieuThuStr = (tieuThu % 1 == 0 ? tieuThu.toInt().toString() : tieuThu.toStringAsFixed(1));
+    final soQuetStr = (soQuet % 1 == 0
+        ? soQuet.toInt().toString()
+        : soQuet.toStringAsFixed(1));
+    final chiSoCuStr = (chiSoCu % 1 == 0
+        ? chiSoCu.toInt().toString()
+        : chiSoCu.toStringAsFixed(1));
+    final tieuThuStr = (tieuThu % 1 == 0
+        ? tieuThu.toInt().toString()
+        : tieuThu.toStringAsFixed(1));
 
     showDialog(
       context: context,
@@ -906,16 +1024,22 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                   width: 56,
                   height: 56,
                   decoration: BoxDecoration(
-                    color: isDien ? const Color(0xFFFEF3C7) : const Color(0xFFDBEAFE),
+                    color: isDien
+                        ? const Color(0xFFFEF3C7)
+                        : const Color(0xFFDBEAFE),
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: isDien ? const Color(0xFFFCD34D) : const Color(0xFF93C5FD),
+                      color: isDien
+                          ? const Color(0xFFFCD34D)
+                          : const Color(0xFF93C5FD),
                       width: 2,
                     ),
                   ),
                   child: Icon(
                     isDien ? Icons.bolt_rounded : Icons.water_drop_rounded,
-                    color: isDien ? const Color(0xFFD97706) : const Color(0xFF2563EB),
+                    color: isDien
+                        ? const Color(0xFFD97706)
+                        : const Color(0xFF2563EB),
                     size: 32,
                   ),
                 ),
@@ -942,7 +1066,10 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                 const SizedBox(height: 14),
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFF8FAFC),
                     borderRadius: BorderRadius.circular(14),
@@ -956,7 +1083,9 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                         'Chỉ số mới (AI quét):',
                         '$soQuetStr $donVi',
                         isBold: true,
-                        color: isDien ? const Color(0xFFD97706) : const Color(0xFF2563EB),
+                        color: isDien
+                            ? const Color(0xFFD97706)
+                            : const Color(0xFF2563EB),
                       ),
                       const Padding(
                         padding: EdgeInsets.symmetric(vertical: 6),
@@ -975,14 +1104,21 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                 ),
                 const SizedBox(height: 10),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFF1F5F9),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Row(
                     children: [
-                      Icon(Icons.edit_note_rounded, size: 16, color: Color(0xFF64748B)),
+                      Icon(
+                        Icons.edit_note_rounded,
+                        size: 16,
+                        color: Color(0xFF64748B),
+                      ),
                       SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -1029,7 +1165,12 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
     );
   }
 
-  Widget _modalRow(String label, String value, {bool isBold = false, Color? color}) {
+  Widget _modalRow(
+    String label,
+    String value, {
+    bool isBold = false,
+    Color? color,
+  }) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -1152,23 +1293,27 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                   builder: (context) {
                     final isSent = _daGuiDonKyNay != null;
                     final isAfter28 = DateTime.now().day >= 28;
-                    final nextMonth = DateTime.now().month == 12 ? 1 : DateTime.now().month + 1;
+                    final nextMonth = DateTime.now().month == 12
+                        ? 1
+                        : DateTime.now().month + 1;
                     final daysLeft = 28 - DateTime.now().day;
 
                     return _buildPrimaryButton(
                       label: isSent
                           ? 'Đã gửi chỉ số Tháng ${DateTime.now().month} (Mở lại 28/$nextMonth)'
                           : (isAfter28
-                              ? 'Xác nhận & Gửi chỉ số cho Quản lý'
-                              : 'Chốt số ngày 28 hàng tháng (còn $daysLeft ngày)'),
+                                ? 'Xác nhận & Gửi chỉ số cho Quản lý'
+                                : 'Chốt số ngày 28 hàng tháng (còn $daysLeft ngày)'),
                       icon: isSent
                           ? Icons.check_circle_rounded
-                          : (isAfter28 ? Icons.send_rounded : Icons.lock_clock_rounded),
+                          : (isAfter28
+                                ? Icons.send_rounded
+                                : Icons.lock_clock_rounded),
                       gradientColors: isSent
                           ? const [Color(0xFF64748B), Color(0xFF475569)]
                           : (!isAfter28
-                              ? const [Color(0xFFD97706), Color(0xFFB45309)]
-                              : null),
+                                ? const [Color(0xFFD97706), Color(0xFFB45309)]
+                                : null),
                       onTap: _goToConfirm,
                     );
                   },
@@ -1208,9 +1353,7 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
     final String kyLabel = 'Tháng $thang/$nam';
     final String subLabel = isSent
         ? 'Mở đợt kế tiếp ngày 28/$nextThang'
-        : (isOpen
-            ? 'Đang trong đợt chốt số'
-            : 'Còn $daysLeft ngày nữa mở đợt');
+        : (isOpen ? 'Đang trong đợt chốt số' : 'Còn $daysLeft ngày nữa mở đợt');
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -1250,7 +1393,10 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 1.5,
+                      ),
                       decoration: BoxDecoration(
                         color: accentColor.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(5),
@@ -1266,7 +1412,10 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                     ),
                     if (isSent)
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 1.5,
+                        ),
                         decoration: BoxDecoration(
                           color: const Color(0xFFDCFCE7),
                           borderRadius: BorderRadius.circular(5),
@@ -1321,7 +1470,6 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
       ),
     );
   }
-
 
   Widget _buildMeterImageWidget({
     Uint8List? imageBytes,
@@ -1423,7 +1571,11 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.photo_rounded, color: Colors.white, size: 20),
+                  const Icon(
+                    Icons.photo_rounded,
+                    color: Colors.white,
+                    size: 20,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -1444,14 +1596,20 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                         color: Colors.white24,
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.close_rounded, color: Colors.white, size: 18),
+                      child: const Icon(
+                        Icons.close_rounded,
+                        color: Colors.white,
+                        size: 18,
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
             ClipRRect(
-              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
+              borderRadius: const BorderRadius.vertical(
+                bottom: Radius.circular(16),
+              ),
               child: Container(
                 constraints: BoxConstraints(
                   maxHeight: MediaQuery.of(context).size.height * 0.7,
@@ -1498,7 +1656,9 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
           GestureDetector(
             onTap: () {
               _showZoomImageDialog(
-                title: isDien ? 'Ảnh Công tơ Điện ($maMay)' : 'Ảnh Đồng hồ Nước ($maMay)',
+                title: isDien
+                    ? 'Ảnh Công tơ Điện ($maMay)'
+                    : 'Ảnh Đồng hồ Nước ($maMay)',
                 imageBytes: imageBytes,
                 imageUrlOrBase64: urlAnhDaLuu,
               );
@@ -1522,7 +1682,10 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                     right: 8,
                     bottom: 8,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3.5,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.black.withValues(alpha: 0.65),
                         borderRadius: BorderRadius.circular(6),
@@ -1530,11 +1693,19 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: const [
-                          Icon(Icons.zoom_in_rounded, color: Colors.white, size: 12),
+                          Icon(
+                            Icons.zoom_in_rounded,
+                            color: Colors.white,
+                            size: 12,
+                          ),
                           SizedBox(width: 4),
                           Text(
                             'Chạm xem ảnh lớn',
-                            style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600),
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ],
                       ),
@@ -1565,12 +1736,20 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                       children: [
                         const Text(
                           'Chỉ số cũ',
-                          style: TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF64748B),
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                         const SizedBox(height: 3),
                         Text(
                           '${chiSoTruoc.toStringAsFixed(chiSoTruoc % 1 == 0 ? 0 : 1)} $donVi',
-                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF334155),
+                          ),
                         ),
                       ],
                     ),
@@ -1581,12 +1760,20 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                       children: [
                         const Text(
                           'Chỉ số mới (đã chốt)',
-                          style: TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF64748B),
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                         const SizedBox(height: 3),
                         Text(
                           '${val.toStringAsFixed(val % 1 == 0 ? 0 : 1)} $donVi',
-                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: color),
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: color,
+                          ),
                         ),
                       ],
                     ),
@@ -1597,12 +1784,20 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                       children: [
                         const Text(
                           'Tiêu thụ',
-                          style: TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF64748B),
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                         const SizedBox(height: 3),
                         Text(
                           '+${diff.toStringAsFixed(diff % 1 == 0 ? 0 : 1)} $donVi',
-                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF16A34A)),
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF16A34A),
+                          ),
                         ),
                       ],
                     ),
@@ -1618,17 +1813,27 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                 children: [
                   Text(
                     'Đơn giá: ${_formatCurrency(donGia)}/$donVi',
-                    style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      color: Color(0xFF64748B),
+                    ),
                   ),
                   Row(
                     children: [
                       const Text(
                         'Thành tiền: ',
-                        style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF64748B),
+                        ),
                       ),
                       Text(
                         _formatCurrency(thanhTien),
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: color),
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: color,
+                        ),
                       ),
                     ],
                   ),
@@ -1640,7 +1845,11 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
         const SizedBox(height: 8),
         Row(
           children: [
-            const Icon(Icons.lock_outline_rounded, size: 13, color: Color(0xFF94A3B8)),
+            const Icon(
+              Icons.lock_outline_rounded,
+              size: 13,
+              color: Color(0xFF94A3B8),
+            ),
             const SizedBox(width: 5),
             const Expanded(
               child: Text(
@@ -1670,7 +1879,8 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
     required String? thongBaoQuet,
   }) {
     final isDaGui = _daGuiDonKyNay != null;
-    final hasImage = imageBytes != null || (urlAnhDaLuu != null && urlAnhDaLuu.isNotEmpty);
+    final hasImage =
+        imageBytes != null || (urlAnhDaLuu != null && urlAnhDaLuu.isNotEmpty);
     final val = double.tryParse(controller.text.replaceAll(',', '.')) ?? 0;
     final hasInput = controller.text.trim().isNotEmpty;
     final diff = val - chiSoTruoc;
@@ -1685,7 +1895,9 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
         border: Border.all(
           color: isNegative
               ? const Color(0xFFFCA5A5)
-              : (hasImage ? color.withValues(alpha: 0.3) : const Color(0xFFE2E8F0)),
+              : (hasImage
+                    ? color.withValues(alpha: 0.3)
+                    : const Color(0xFFE2E8F0)),
           width: isNegative ? 1.5 : 1,
         ),
         boxShadow: [
@@ -1735,7 +1947,10 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
               ),
               if (thongBaoQuet != null)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFDCFCE7),
                     borderRadius: BorderRadius.circular(20),
@@ -1744,7 +1959,11 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: const [
-                      Icon(Icons.auto_awesome, color: Color(0xFF16A34A), size: 13),
+                      Icon(
+                        Icons.auto_awesome,
+                        color: Color(0xFF16A34A),
+                        size: 13,
+                      ),
                       SizedBox(width: 4),
                       Text(
                         'AI đã quét',
@@ -1777,441 +1996,495 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
           else ...[
             // Ảnh chụp công tơ & AI Scanner
             GestureDetector(
-            onTap: () {
-              if (hasImage) {
-                _showZoomImageDialog(
-                  title: isDien ? 'Ảnh Công tơ Điện ($maMay)' : 'Ảnh Đồng hồ Nước ($maMay)',
-                  imageBytes: imageBytes,
-                  imageUrlOrBase64: urlAnhDaLuu,
-                );
-              } else {
-                _chonNguonAnhVaQuet(isDien);
-              }
-            },
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              width: double.infinity,
-              height: 125,
-              decoration: BoxDecoration(
-                color: hasImage ? Colors.black : bgColor.withValues(alpha: 0.35),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: isScanning
-                      ? color
-                      : (hasImage ? color.withValues(alpha: 0.6) : const Color(0xFFCBD5E1)),
-                  width: isScanning ? 2 : 1.5,
+              onTap: () {
+                if (hasImage) {
+                  _showZoomImageDialog(
+                    title: isDien
+                        ? 'Ảnh Công tơ Điện ($maMay)'
+                        : 'Ảnh Đồng hồ Nước ($maMay)',
+                    imageBytes: imageBytes,
+                    imageUrlOrBase64: urlAnhDaLuu,
+                  );
+                } else {
+                  _chonNguonAnhVaQuet(isDien);
+                }
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                width: double.infinity,
+                height: 125,
+                decoration: BoxDecoration(
+                  color: hasImage
+                      ? Colors.black
+                      : bgColor.withValues(alpha: 0.35),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: isScanning
+                        ? color
+                        : (hasImage
+                              ? color.withValues(alpha: 0.6)
+                              : const Color(0xFFCBD5E1)),
+                    width: isScanning ? 2 : 1.5,
+                  ),
                 ),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  if (hasImage)
-                    _buildMeterImageWidget(
-                      imageBytes: imageBytes,
-                      imageUrlOrBase64: urlAnhDaLuu,
-                    )
-                  else
-                    Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: color.withValues(alpha: 0.15),
-                                blurRadius: 8,
-                              ),
-                            ],
-                          ),
-                          child: Icon(
-                            Icons.camera_alt_rounded,
-                            color: color,
-                            size: 26,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Chụp trực tiếp để AI tự quét số',
-                          style: TextStyle(
-                            color: color,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        const Text(
-                          'Tự động nhận diện chỉ số mới & tính tiền',
-                          style: TextStyle(
-                            color: Color(0xFF64748B),
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
-                    ),
-
-                  // Overlay khi đang quét AI
-                  if (isScanning)
-                    Container(
-                      color: Colors.black.withValues(alpha: 0.65),
-                      child: Column(
+                clipBehavior: Clip.antiAlias,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    if (hasImage)
+                      _buildMeterImageWidget(
+                        imageBytes: imageBytes,
+                        imageUrlOrBase64: urlAnhDaLuu,
+                      )
+                    else
+                      Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const SizedBox(
-                            width: 28,
-                            height: 28,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.5,
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
                               color: Colors.white,
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: color.withValues(alpha: 0.15),
+                                  blurRadius: 8,
+                                ),
+                              ],
+                            ),
+                            child: Icon(
+                              Icons.camera_alt_rounded,
+                              color: color,
+                              size: 26,
                             ),
                           ),
-                          const SizedBox(height: 10),
-                          const Text(
-                            'AI đang quét số công tơ...',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
+                          const SizedBox(height: 8),
                           Text(
-                            'Đang trích xuất chỉ số $donVi',
-                            style: const TextStyle(
-                              color: Colors.white70,
+                            'Chụp trực tiếp để AI tự quét số',
+                            style: TextStyle(
+                              color: color,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          const Text(
+                            'Tự động nhận diện chỉ số mới & tính tiền',
+                            style: TextStyle(
+                              color: Color(0xFF64748B),
                               fontSize: 11,
                             ),
                           ),
                         ],
                       ),
-                    ),
 
-                  // Badge gợi ý chạm phóng to ảnh
-                  if (hasImage && !isScanning)
-                    Positioned(
-                      right: 8,
-                      bottom: 8,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.65),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: Colors.white30, width: 0.8),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: const [
-                            Icon(Icons.zoom_in_rounded, color: Colors.white, size: 13),
-                            SizedBox(width: 4),
-                            Text(
-                              'Chạm xem ảnh lớn',
+                    // Overlay khi đang quét AI
+                    if (isScanning)
+                      Container(
+                        color: Colors.black.withValues(alpha: 0.65),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const SizedBox(
+                              width: 28,
+                              height: 28,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            const Text(
+                              'AI đang quét số công tơ...',
                               style: TextStyle(
                                 color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Đang trích xuất chỉ số $donVi',
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 11,
                               ),
                             ),
                           ],
                         ),
                       ),
-                    ),
-                ],
+
+                    // Badge gợi ý chạm phóng to ảnh
+                    if (hasImage && !isScanning)
+                      Positioned(
+                        right: 8,
+                        bottom: 8,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.65),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: Colors.white30,
+                              width: 0.8,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: const [
+                              Icon(
+                                Icons.zoom_in_rounded,
+                                color: Colors.white,
+                                size: 13,
+                              ),
+                              SizedBox(width: 4),
+                              Text(
+                                'Chạm xem ảnh lớn',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
-          ),
 
-          if (hasImage && !isScanning) ...[
-            const SizedBox(height: 6),
-            if (isDaGui)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF0FDF4),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFF86EFAC)),
-                ),
-                child: Row(
-                  children: const [
-                    Icon(Icons.lock_rounded, size: 14, color: Color(0xFF16A34A)),
-                    SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        'Đã nộp chỉ số kỳ này (Đã khóa, mở đợt mới ngày 28 tháng sau)',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF15803D),
-                          fontWeight: FontWeight.w600,
+            if (hasImage && !isScanning) ...[
+              const SizedBox(height: 6),
+              if (isDaGui)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF0FDF4),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFF86EFAC)),
+                  ),
+                  child: Row(
+                    children: const [
+                      Icon(
+                        Icons.lock_rounded,
+                        size: 14,
+                        color: Color(0xFF16A34A),
+                      ),
+                      SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Đã nộp chỉ số kỳ này (Đã khóa, mở đợt mới ngày 28 tháng sau)',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF15803D),
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                Row(
+                  children: [
+                    if (thongBaoQuet != null)
+                      Expanded(
+                        child: Text(
+                          thongBaoQuet,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF16A34A),
+                          ),
+                        ),
+                      )
+                    else
+                      const Spacer(),
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: () => _chonNguonAnhVaQuet(isDien),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.refresh_rounded, size: 14, color: color),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Chụp lại ảnh khác',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: color,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
-              )
-            else
-              Row(
-                children: [
-                  if (thongBaoQuet != null)
-                    Expanded(
-                      child: Text(
-                        thongBaoQuet,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF16A34A),
-                        ),
-                      ),
-                    )
-                  else
-                    const Spacer(),
-                  const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: () => _chonNguonAnhVaQuet(isDien),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
+            ],
+
+            const SizedBox(height: 14),
+
+            // Hàng chỉ số cũ / mới
+            Row(
+              children: [
+                // Chỉ số cũ (tháng trước)
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.refresh_rounded, size: 14, color: color),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Chụp lại ảnh khác',
+                        const Text(
+                          'Số cũ tháng trước',
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: 11,
+                            color: Color(0xFF94A3B8),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          chiSoTruoc.toStringAsFixed(
+                            chiSoTruoc % 1 == 0 ? 0 : 1,
+                          ),
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
                             color: color,
-                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Text(
+                          donVi,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF94A3B8),
                           ),
                         ),
                       ],
                     ),
                   ),
-                ],
-              ),
-          ],
-
-          const SizedBox(height: 14),
-
-          // Hàng chỉ số cũ / mới
-          Row(
-            children: [
-              // Chỉ số cũ (tháng trước)
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Số cũ tháng trước',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF94A3B8),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        chiSoTruoc.toStringAsFixed(chiSoTruoc % 1 == 0 ? 0 : 1),
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: color,
-                        ),
-                      ),
-                      Text(
-                        donVi,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF94A3B8),
-                        ),
-                      ),
-                    ],
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Icon(
+                    Icons.arrow_forward_rounded,
+                    color: color.withValues(alpha: 0.6),
+                    size: 20,
                   ),
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Icon(
-                  Icons.arrow_forward_rounded,
-                  color: color.withValues(alpha: 0.6),
-                  size: 20,
+                // Chỉ số mới (AI tự điền hoặc chỉnh tay)
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isNegative
+                          ? const Color(0xFFFEF2F2)
+                          : bgColor.withValues(alpha: 0.35),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isNegative
+                            ? const Color(0xFFEF4444)
+                            : (controller.text.isNotEmpty
+                                  ? color.withValues(alpha: 0.7)
+                                  : const Color(0xFFE2E8F0)),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              'Số mới kỳ này',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: isNegative
+                                    ? const Color(0xFFDC2626)
+                                    : color.withValues(alpha: 0.8),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        TextFormField(
+                          controller: controller,
+                          readOnly: isDaGui,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r'[0-9.,]'),
+                            ),
+                          ],
+                          decoration: InputDecoration(
+                            isDense: true,
+                            border: InputBorder.none,
+                            hintText: '0',
+                            hintStyle: TextStyle(
+                              fontSize: 20,
+                              color: color.withValues(alpha: 0.3),
+                              fontWeight: FontWeight.bold,
+                            ),
+                            suffixIcon: isDaGui
+                                ? const Padding(
+                                    padding: EdgeInsets.only(right: 4),
+                                    child: Icon(
+                                      Icons.lock_rounded,
+                                      size: 16,
+                                      color: Color(0xFF64748B),
+                                    ),
+                                  )
+                                : null,
+                            suffixIconConstraints: const BoxConstraints(
+                              minWidth: 20,
+                              minHeight: 20,
+                            ),
+                            suffixText: donVi,
+                            suffixStyle: TextStyle(
+                              fontSize: 11,
+                              color: color.withValues(alpha: 0.7),
+                            ),
+                          ),
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: isNegative ? const Color(0xFFDC2626) : color,
+                          ),
+                          onChanged: (_) => setState(() {}),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-              // Chỉ số mới (AI tự điền hoặc chỉnh tay)
-              Expanded(
-                child: Container(
+              ],
+            ),
+
+            // ── RÀNG BUỘC THỰC TẾ & BÁO LỖI / TIÊU THỤ ────────
+            if (hasInput) ...[
+              const SizedBox(height: 10),
+              if (isNegative)
+                Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,
                     vertical: 8,
                   ),
                   decoration: BoxDecoration(
-                    color: isNegative
-                        ? const Color(0xFFFEF2F2)
-                        : bgColor.withValues(alpha: 0.35),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isNegative
-                          ? const Color(0xFFEF4444)
-                          : (controller.text.isNotEmpty
-                              ? color.withValues(alpha: 0.7)
-                              : const Color(0xFFE2E8F0)),
-                      width: 1.5,
-                    ),
+                    color: const Color(0xFFFEE2E2),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFFCA5A5)),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Row(
                     children: [
-                      Row(
+                      const Icon(
+                        Icons.error_outline_rounded,
+                        color: Color(0xFFDC2626),
+                        size: 16,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Ràng buộc: Số mới ($val $donVi) không thể nhỏ hơn số cũ ($chiSoTruoc $donVi)!',
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFFB91C1C),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else ...[
+                _buildConsumptionChip(
+                  isDien: isDien,
+                  color: color,
+                  bgColor: bgColor,
+                  donVi: donVi,
+                  tieu_thu: diff,
+                  thanh_tien: diff * (isDien ? _donGiaDien : _donGiaNuoc),
+                ),
+                if (isAbnormal)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF3C7),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFFDE68A)),
+                      ),
+                      child: Row(
                         children: [
-                          Text(
-                            'Số mới kỳ này',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: isNegative ? const Color(0xFFDC2626) : color.withValues(alpha: 0.8),
-                              fontWeight: FontWeight.w600,
+                          const Icon(
+                            Icons.warning_amber_rounded,
+                            color: Color(0xFFD97706),
+                            size: 15,
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              'Tiêu thụ tăng cao (${diff.toStringAsFixed(1)} $donVi). Hệ thống sẽ lưu kèm ảnh đối soát!',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFFB45309),
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 4),
-                      TextFormField(
-                        controller: controller,
-                        readOnly: isDaGui,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        inputFormatters: [
-                          FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
-                        ],
-                        decoration: InputDecoration(
-                          isDense: true,
-                          border: InputBorder.none,
-                          hintText: '0',
-                          hintStyle: TextStyle(
-                            fontSize: 20,
-                            color: color.withValues(alpha: 0.3),
-                            fontWeight: FontWeight.bold,
-                          ),
-                          suffixIcon: isDaGui
-                              ? const Padding(
-                                  padding: EdgeInsets.only(right: 4),
-                                  child: Icon(Icons.lock_rounded, size: 16, color: Color(0xFF64748B)),
-                                )
-                              : null,
-                          suffixIconConstraints: const BoxConstraints(minWidth: 20, minHeight: 20),
-                          suffixText: donVi,
-                          suffixStyle: TextStyle(
-                            fontSize: 11,
-                            color: color.withValues(alpha: 0.7),
-                          ),
-                        ),
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: isNegative ? const Color(0xFFDC2626) : color,
-                        ),
-                        onChanged: (_) => setState(() {}),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
-              ),
+              ],
             ],
-          ),
 
-          // ── RÀNG BUỘC THỰC TẾ & BÁO LỖI / TIÊU THỤ ────────
-          if (hasInput) ...[
-            const SizedBox(height: 10),
-            if (isNegative)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFEE2E2),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFFCA5A5)),
-                ),
+            if (!hasImage)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
                 child: Row(
                   children: [
-                    const Icon(Icons.error_outline_rounded, color: Color(0xFFDC2626), size: 16),
-                    const SizedBox(width: 8),
+                    Icon(
+                      Icons.info_outline,
+                      size: 13,
+                      color: color.withValues(alpha: 0.8),
+                    ),
+                    const SizedBox(width: 5),
                     Expanded(
                       child: Text(
-                        'Ràng buộc: Số mới ($val $donVi) không thể nhỏ hơn số cũ ($chiSoTruoc $donVi)!',
-                        style: const TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFFB91C1C),
+                        'Cần chụp ảnh công tơ làm minh chứng đối soát hợp lệ.',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: color.withValues(alpha: 0.9),
+                          fontStyle: FontStyle.italic,
                         ),
                       ),
                     ),
                   ],
                 ),
-              )
-            else ...[
-              _buildConsumptionChip(
-                isDien: isDien,
-                color: color,
-                bgColor: bgColor,
-                donVi: donVi,
-                tieu_thu: diff,
-                thanh_tien: diff * (isDien ? _donGiaDien : _donGiaNuoc),
               ),
-              if (isAbnormal)
-                Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFEF3C7),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFFFDE68A)),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.warning_amber_rounded, color: Color(0xFFD97706), size: 15),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            'Tiêu thụ tăng cao (${diff.toStringAsFixed(1)} $donVi). Hệ thống sẽ lưu kèm ảnh đối soát!',
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: Color(0xFFB45309),
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-            ],
-          ],
-
-          if (!hasImage)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Row(
-                children: [
-                  Icon(Icons.info_outline, size: 13, color: color.withValues(alpha: 0.8)),
-                  const SizedBox(width: 5),
-                  Expanded(
-                    child: Text(
-                      'Cần chụp ảnh công tơ làm minh chứng đối soát hợp lệ.',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: color.withValues(alpha: 0.9),
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
           ],
         ],
       ),
@@ -2234,11 +2507,7 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
       ),
       child: Row(
         children: [
-          Icon(
-            Icons.check_circle_rounded,
-            color: color,
-            size: 14,
-          ),
+          Icon(Icons.check_circle_rounded, color: color, size: 14),
           const SizedBox(width: 6),
           Expanded(
             child: Text(
@@ -2332,7 +2601,8 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
               Expanded(
                 child: _totalItem(
                   icon: Icons.bolt_rounded,
-                  label: '${m.tieu_thu_dien.toStringAsFixed(m.tieu_thu_dien % 1 == 0 ? 0 : 1)} kWh × ${_formatCurrency(_donGiaDien)}',
+                  label:
+                      '${m.tieu_thu_dien.toStringAsFixed(m.tieu_thu_dien % 1 == 0 ? 0 : 1)} kWh × ${_formatCurrency(_donGiaDien)}',
                   value: _formatCurrency(m.thanh_tien_dien),
                 ),
               ),
@@ -2345,7 +2615,8 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
               Expanded(
                 child: _totalItem(
                   icon: Icons.water_drop_rounded,
-                  label: '${m.tieu_thu_nuoc.toStringAsFixed(m.tieu_thu_nuoc % 1 == 0 ? 0 : 1)} m³ × ${_formatCurrency(_donGiaNuoc)}',
+                  label:
+                      '${m.tieu_thu_nuoc.toStringAsFixed(m.tieu_thu_nuoc % 1 == 0 ? 0 : 1)} m³ × ${_formatCurrency(_donGiaNuoc)}',
                   value: _formatCurrency(m.thanh_tien_nuoc),
                 ),
               ),
@@ -2613,7 +2884,9 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
     required String ma,
   }) {
     final tieuThu = (chiSo - chiSoTruoc).clamp(0.0, double.infinity);
-    final hasImg = imageBytes != null || (imageUrlOrBase64 != null && imageUrlOrBase64.isNotEmpty);
+    final hasImg =
+        imageBytes != null ||
+        (imageUrlOrBase64 != null && imageUrlOrBase64.isNotEmpty);
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -2660,7 +2933,9 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
             onTap: () {
               if (hasImg) {
                 _showZoomImageDialog(
-                  title: isDien ? 'Ảnh Công tơ Điện ($ma)' : 'Ảnh Đồng hồ Nước ($ma)',
+                  title: isDien
+                      ? 'Ảnh Công tơ Điện ($ma)'
+                      : 'Ảnh Đồng hồ Nước ($ma)',
                   imageBytes: imageBytes,
                   imageUrlOrBase64: imageUrlOrBase64,
                 );
@@ -3522,7 +3797,10 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                   widget.tenPhong,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF94A3B8),
+                  ),
                 ),
               ],
             ),
@@ -3546,14 +3824,16 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: gradientColors ?? const [Color(0xFF07516E), Color(0xFF0A8FCA)],
+            colors:
+                gradientColors ?? const [Color(0xFF07516E), Color(0xFF0A8FCA)],
             begin: Alignment.centerLeft,
             end: Alignment.centerRight,
           ),
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: (gradientColors?.first ?? const Color(0xFF09638E)).withValues(alpha: 0.4),
+              color: (gradientColors?.first ?? const Color(0xFF09638E))
+                  .withValues(alpha: 0.4),
               blurRadius: 12,
               offset: const Offset(0, 5),
             ),

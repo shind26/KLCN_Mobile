@@ -43,8 +43,8 @@ class _ThongTinXe {
     this.loaiXe = 'Xe tay ga',
     String bienSo = '',
     String ghiChu = '',
-  })  : bienSoController = TextEditingController(text: bienSo),
-        ghiChuController = TextEditingController(text: ghiChu);
+  }) : bienSoController = TextEditingController(text: bienSo),
+       ghiChuController = TextEditingController(text: ghiChu);
 
   void dispose() {
     bienSoController.dispose();
@@ -54,7 +54,8 @@ class _ThongTinXe {
 
 class _ManHinhBanGiaoVaCapNhatHoSoState
     extends State<ManHinhBanGiaoVaCapNhatHoSo> {
-  int _currentStep = 0; // 0: CCCD & Cá nhân, 1: Phương tiện, 2: Biên bản bàn giao (nếu là đại diện)
+  int _currentStep =
+      0; // 0: CCCD & Cá nhân, 1: Phương tiện, 2: Biên bản bàn giao (nếu là đại diện)
   bool _isDaiDien = true;
   int get _totalSteps => _isDaiDien ? 3 : 2;
 
@@ -64,8 +65,9 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
   final _cccdController = TextEditingController();
   final _diaChiController = TextEditingController();
   final _nguoiLienHeController = TextEditingController();
-  final _noiCapController =
-      TextEditingController(text: 'Cục Cảnh sát QLHC về TTXH');
+  final _noiCapController = TextEditingController(
+    text: 'Cục Cảnh sát QLHC về TTXH',
+  );
 
   String _gioiTinh = 'Nam';
   DateTime? _ngaySinh;
@@ -189,20 +191,102 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
               .maybeSingle();
           if (cthd != null && cthd['vai_tro'] != null) {
             final vt = cthd['vai_tro'].toString().toLowerCase();
-            if (vt.contains('đại diện') || vt.contains('daidien') || vt.contains('trưởng phòng')) {
+            if (vt.contains('đại diện') ||
+                vt.contains('daidien') ||
+                vt.contains('trưởng phòng')) {
               setState(() => _isDaiDien = true);
             }
           }
         } catch (_) {}
       }
 
-      final res = await db
-          .from('tai_san')
-          .select()
-          .eq('ma_phong', widget.maPhong)
-          .order('ma_tai_san');
+      List<Map<String, dynamic>> list = [];
+      try {
+        final res = await db
+            .from('tai_san')
+            .select()
+            .eq('ma_phong', widget.maPhong)
+            .order('ma_tai_san');
+        list = List<Map<String, dynamic>>.from(res);
+      } catch (eTs) {
+        debugPrint('Lỗi tải từ bảng tai_san: $eTs');
+      }
 
-      final list = List<Map<String, dynamic>>.from(res);
+      // Nếu bảng tai_san chưa có dòng nào, lấy từ bảng phong (noi_that_san_co, tien_ich)
+      if (list.isEmpty) {
+        try {
+          final pRow = await db
+              .from('phong')
+              .select('noi_that_san_co, tien_ich')
+              .eq('ma_phong', widget.maPhong)
+              .maybeSingle();
+
+          if (pRow != null) {
+            final Set<String> itemNames = {};
+            void parseList(dynamic val) {
+              if (val == null) return;
+              if (val is List) {
+                for (final e in val) {
+                  final s = e?.toString().trim() ?? '';
+                  if (s.isNotEmpty) itemNames.add(s);
+                }
+              } else if (val is String) {
+                final cleaned = val
+                    .replaceAll('{', '')
+                    .replaceAll('}', '')
+                    .replaceAll('"', '');
+                for (final s in cleaned.split(',')) {
+                  final t = s.trim();
+                  if (t.isNotEmpty) itemNames.add(t);
+                }
+              }
+            }
+
+            parseList(pRow['noi_that_san_co']);
+            parseList(pRow['tien_ich']);
+
+            if (itemNames.isNotEmpty) {
+              int idx = 1;
+              list = itemNames.map((name) {
+                return {
+                  'ma_tai_san': 'TS_${widget.maPhong}_${idx++}',
+                  'ten_tai_san': name,
+                  'so_luong': 1,
+                  'tinh_trang': 'Hoạt động tốt',
+                  'thuong_hieu': '',
+                  'ma_phong': widget.maPhong,
+                };
+              }).toList();
+            }
+          }
+        } catch (ePhong) {
+          debugPrint('Lỗi đọc nội thất từ bảng phong: $ePhong');
+        }
+      }
+
+      // Fallback danh mục trang thiết bị tiêu chuẩn phòng nếu cả 2 nguồn đều trống
+      if (list.isEmpty) {
+        final standardItems = [
+          'Máy lạnh Inverter',
+          'Tủ lạnh riêng 130L',
+          'Bình nóng lạnh Ariston',
+          'Giường gỗ & Nệm cao su',
+          'Kệ bếp nấu ăn & Bồn rửa inox',
+          'Quạt trần / Quạt treo tường',
+        ];
+        int idx = 1;
+        list = standardItems.map((name) {
+          return {
+            'ma_tai_san': 'TS_${widget.maPhong}_${idx++}',
+            'ten_tai_san': name,
+            'so_luong': 1,
+            'tinh_trang': 'Hoạt động tốt',
+            'thuong_hieu': '',
+            'ma_phong': widget.maPhong,
+          };
+        }).toList();
+      }
+
       setState(() {
         _danhSachTaiSan = list;
         _isLoadingTaiSan = false;
@@ -331,16 +415,28 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
               style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
             ),
             const SizedBox(height: 12),
-            _buildDialogRow('Họ và tên:', res.hoTen.isNotEmpty ? res.hoTen : 'Chưa nhận diện'),
-            _buildDialogRow('Số CCCD:', res.soCccd.isNotEmpty ? res.soCccd : 'Chưa nhận diện'),
-            if (res.gioiTinh != null) _buildDialogRow('Giới tính:', res.gioiTinh!),
-            if (res.ngaySinh != null) _buildDialogRow('Ngày sinh:', res.ngaySinh!),
+            _buildDialogRow(
+              'Họ và tên:',
+              res.hoTen.isNotEmpty ? res.hoTen : 'Chưa nhận diện',
+            ),
+            _buildDialogRow(
+              'Số CCCD:',
+              res.soCccd.isNotEmpty ? res.soCccd : 'Chưa nhận diện',
+            ),
+            if (res.gioiTinh != null)
+              _buildDialogRow('Giới tính:', res.gioiTinh!),
+            if (res.ngaySinh != null)
+              _buildDialogRow('Ngày sinh:', res.ngaySinh!),
             if (res.diaChiThuongTru != null)
               _buildDialogRow('Thường trú:', res.diaChiThuongTru!),
             const SizedBox(height: 8),
             const Text(
               'Bạn có thể rà soát và chỉnh sửa lại các thông tin nếu cần.',
-              style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Color(0xFF09638E)),
+              style: TextStyle(
+                fontSize: 12,
+                fontStyle: FontStyle.italic,
+                color: Color(0xFF09638E),
+              ),
             ),
           ],
         ),
@@ -350,7 +446,9 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF09638E),
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
             child: const Text('Đã hiểu & Tiếp tục'),
           ),
@@ -403,19 +501,25 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
     final diaChi = _diaChiController.text.trim();
     final noiCap = _noiCapController.text.trim();
     final nguoiLienHe = _nguoiLienHeController.text.trim();
-    final hasMatTruoc = _bytesMatTruoc != null || (_urlMatTruoc != null && _urlMatTruoc!.isNotEmpty);
-    final hasMatSau = _bytesMatSau != null || (_urlMatSau != null && _urlMatSau!.isNotEmpty);
+    final hasMatTruoc =
+        _bytesMatTruoc != null ||
+        (_urlMatTruoc != null && _urlMatTruoc!.isNotEmpty);
+    final hasMatSau =
+        _bytesMatSau != null || (_urlMatSau != null && _urlMatSau!.isNotEmpty);
 
     if (hoTen.isEmpty) {
-      if (showError) _baoLoi('Vui lòng nhập Họ và tên khách thuê (không được bỏ trống)!');
+      if (showError)
+        _baoLoi('Vui lòng nhập Họ và tên khách thuê (không được bỏ trống)!');
       return false;
     }
     if (soDt.isEmpty) {
-      if (showError) _baoLoi('Vui lòng nhập Số điện thoại liên hệ (không được bỏ trống)!');
+      if (showError)
+        _baoLoi('Vui lòng nhập Số điện thoại liên hệ (không được bỏ trống)!');
       return false;
     }
     if (cccd.isEmpty) {
-      if (showError) _baoLoi('Vui lòng nhập Số CCCD / Định danh (không được bỏ trống)!');
+      if (showError)
+        _baoLoi('Vui lòng nhập Số CCCD / Định danh (không được bỏ trống)!');
       return false;
     }
     if (cccd.length != 12 || !RegExp(r'^[0-9]{12}$').hasMatch(cccd)) {
@@ -423,31 +527,42 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
       return false;
     }
     if (_ngaySinh == null) {
-      if (showError) _baoLoi('Vui lòng chọn Ngày sinh của bạn (không được bỏ trống)!');
+      if (showError)
+        _baoLoi('Vui lòng chọn Ngày sinh của bạn (không được bỏ trống)!');
       return false;
     }
     if (diaChi.isEmpty) {
-      if (showError) _baoLoi('Vui lòng nhập Địa chỉ thường trú theo CCCD (không được bỏ trống)!');
+      if (showError)
+        _baoLoi(
+          'Vui lòng nhập Địa chỉ thường trú theo CCCD (không được bỏ trống)!',
+        );
       return false;
     }
     if (_ngayCapCccd == null) {
-      if (showError) _baoLoi('Vui lòng chọn Ngày cấp CCCD (không được bỏ trống)!');
+      if (showError)
+        _baoLoi('Vui lòng chọn Ngày cấp CCCD (không được bỏ trống)!');
       return false;
     }
     if (noiCap.isEmpty) {
-      if (showError) _baoLoi('Vui lòng nhập Nơi cấp CCCD (không được bỏ trống)!');
+      if (showError)
+        _baoLoi('Vui lòng nhập Nơi cấp CCCD (không được bỏ trống)!');
       return false;
     }
     if (nguoiLienHe.isEmpty) {
-      if (showError) _baoLoi('Vui lòng nhập Người & SĐT liên hệ khẩn cấp (không được bỏ trống)!');
+      if (showError)
+        _baoLoi(
+          'Vui lòng nhập Người & SĐT liên hệ khẩn cấp (không được bỏ trống)!',
+        );
       return false;
     }
     if (!hasMatTruoc) {
-      if (showError) _baoLoi('Vui lòng chụp hoặc tải lên ảnh Mặt trước CCCD (bắt buộc)!');
+      if (showError)
+        _baoLoi('Vui lòng chụp hoặc tải lên ảnh Mặt trước CCCD (bắt buộc)!');
       return false;
     }
     if (!hasMatSau) {
-      if (showError) _baoLoi('Vui lòng chụp hoặc tải lên ảnh Mặt sau CCCD (bắt buộc)!');
+      if (showError)
+        _baoLoi('Vui lòng chụp hoặc tải lên ảnh Mặt sau CCCD (bắt buộc)!');
       return false;
     }
     return true;
@@ -456,7 +571,8 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
   bool _kiemTraBuoc2({bool showError = true}) {
     if (_coPhuongTien) {
       if (_danhSachXe.isEmpty) {
-        if (showError) _baoLoi('Vui lòng thêm thông tin xe hoặc tắt tùy chọn gửi xe!');
+        if (showError)
+          _baoLoi('Vui lòng thêm thông tin xe hoặc tắt tùy chọn gửi xe!');
         return false;
       }
       for (int i = 0; i < _danhSachXe.length; i++) {
@@ -464,11 +580,17 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
         final bienSo = xe.bienSoController.text.trim();
         final ghiChu = xe.ghiChuController.text.trim();
         if (bienSo.isEmpty) {
-          if (showError) _baoLoi('Vui lòng nhập Biển số xe cho Phương tiện ${i + 1} (không được bỏ trống)!');
+          if (showError)
+            _baoLoi(
+              'Vui lòng nhập Biển số xe cho Phương tiện ${i + 1} (không được bỏ trống)!',
+            );
           return false;
         }
         if (ghiChu.isEmpty) {
-          if (showError) _baoLoi('Vui lòng nhập Hãng xe / Màu sơn cho Phương tiện ${i + 1} (không được bỏ trống)!');
+          if (showError)
+            _baoLoi(
+              'Vui lòng nhập Hãng xe / Màu sơn cho Phương tiện ${i + 1} (không được bỏ trống)!',
+            );
           return false;
         }
       }
@@ -479,11 +601,17 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
   bool _kiemTraBuoc3({bool showError = true}) {
     if (!_isDaiDien) return true;
     if (_ghiChuBanGiaoController.text.trim().isEmpty) {
-      if (showError) _baoLoi('Vui lòng nhập Ghi chú / Nhận xét khi nhận bàn giao phòng (không được bỏ trống)!');
+      if (showError)
+        _baoLoi(
+          'Vui lòng nhập Ghi chú / Nhận xét khi nhận bàn giao phòng (không được bỏ trống)!',
+        );
       return false;
     }
     if (!_camKetKiemTra) {
-      if (showError) _baoLoi('Vui lòng tích cam kết đã kiểm tra và đồng ý nhận bàn giao tài sản!');
+      if (showError)
+        _baoLoi(
+          'Vui lòng tích cam kết đã kiểm tra và đồng ý nhận bàn giao tài sản!',
+        );
       return false;
     }
     return true;
@@ -512,7 +640,8 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
 
     setState(() {
       _isSubmitting = true;
-      _submitProgressText = 'Đang tải ảnh CCCD và đồng bộ hồ sơ lên Supabase...';
+      _submitProgressText =
+          'Đang tải ảnh CCCD và đồng bộ hồ sơ lên Supabase...';
     });
 
     try {
@@ -524,31 +653,51 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
 
       if (_bytesMatTruoc != null) {
         try {
-          final path = 'cccd/${widget.maKhach}_truoc_${DateTime.now().millisecondsSinceEpoch}.jpg';
-          await db.storage.from('contracts').uploadBinary(
+          final path =
+              'cccd/${widget.maKhach}_truoc_${DateTime.now().millisecondsSinceEpoch}.jpg';
+          await db.storage
+              .from('contracts')
+              .uploadBinary(
                 path,
                 _bytesMatTruoc!,
-                fileOptions: const FileOptions(contentType: 'image/jpeg', upsert: true),
-              ).timeout(const Duration(seconds: 8));
+                fileOptions: const FileOptions(
+                  contentType: 'image/jpeg',
+                  upsert: true,
+                ),
+              )
+              .timeout(const Duration(seconds: 8));
           uploadedUrlMatTruoc = db.storage.from('contracts').getPublicUrl(path);
         } catch (eStorage) {
-          debugPrint('Storage upload mặt trước lỗi: $eStorage -> Fallback Base64 an toàn');
-          uploadedUrlMatTruoc = 'data:image/jpeg;base64,${base64Encode(_bytesMatTruoc!)}';
+          debugPrint(
+            'Storage upload mặt trước lỗi: $eStorage -> Fallback Base64 an toàn',
+          );
+          uploadedUrlMatTruoc =
+              'data:image/jpeg;base64,${base64Encode(_bytesMatTruoc!)}';
         }
       }
 
       if (_bytesMatSau != null) {
         try {
-          final path = 'cccd/${widget.maKhach}_sau_${DateTime.now().millisecondsSinceEpoch}.jpg';
-          await db.storage.from('contracts').uploadBinary(
+          final path =
+              'cccd/${widget.maKhach}_sau_${DateTime.now().millisecondsSinceEpoch}.jpg';
+          await db.storage
+              .from('contracts')
+              .uploadBinary(
                 path,
                 _bytesMatSau!,
-                fileOptions: const FileOptions(contentType: 'image/jpeg', upsert: true),
-              ).timeout(const Duration(seconds: 8));
+                fileOptions: const FileOptions(
+                  contentType: 'image/jpeg',
+                  upsert: true,
+                ),
+              )
+              .timeout(const Duration(seconds: 8));
           uploadedUrlMatSau = db.storage.from('contracts').getPublicUrl(path);
         } catch (eStorage) {
-          debugPrint('Storage upload mặt sau lỗi: $eStorage -> Fallback Base64 an toàn');
-          uploadedUrlMatSau = 'data:image/jpeg;base64,${base64Encode(_bytesMatSau!)}';
+          debugPrint(
+            'Storage upload mặt sau lỗi: $eStorage -> Fallback Base64 an toàn',
+          );
+          uploadedUrlMatSau =
+              'data:image/jpeg;base64,${base64Encode(_bytesMatSau!)}';
         }
       }
 
@@ -568,7 +717,9 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
         updateKt['ngay_sinh'] = DateFormat('yyyy-MM-dd').format(_ngaySinh!);
       }
       if (_ngayCapCccd != null) {
-        updateKt['ngay_cap_cccd'] = DateFormat('yyyy-MM-dd').format(_ngayCapCccd!);
+        updateKt['ngay_cap_cccd'] = DateFormat(
+          'yyyy-MM-dd',
+        ).format(_ngayCapCccd!);
       }
       if (uploadedUrlMatTruoc != null) {
         updateKt['anh_cccd_mat_truoc'] = uploadedUrlMatTruoc;
@@ -577,11 +728,41 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
         updateKt['anh_cccd_mat_sau'] = uploadedUrlMatSau;
       }
 
-      await db.from('khach_thue').update(updateKt).eq('ma_khach', widget.maKhach);
+      // Xử lý chống xung đột UNIQUE CCCD (khach_thue_cccd_key)
+      if (cccd.isNotEmpty) {
+        try {
+          final dupKt = await db
+              .from('khach_thue')
+              .select('ma_khach')
+              .eq('cccd', cccd)
+              .neq('ma_khach', widget.maKhach)
+              .maybeSingle();
+
+          if (dupKt != null && dupKt['ma_khach'] != null) {
+            final oldMaKhach = dupKt['ma_khach'].toString();
+            debugPrint(
+              'Phát hiện trùng CCCD với hồ sơ cũ $oldMaKhach, đang giải phóng CCCD cũ để cập nhật hồ sơ mới...',
+            );
+            await db
+                .from('khach_thue')
+                .update({'cccd': null})
+                .eq('ma_khach', oldMaKhach);
+          }
+        } catch (eDup) {
+          debugPrint('Lỗi kiểm tra giải phóng trùng CCCD: $eDup');
+        }
+      }
+
+      await db
+          .from('khach_thue')
+          .update(updateKt)
+          .eq('ma_khach', widget.maKhach);
 
       // ── BƯỚC C: LƯU PHƯƠNG TIỆN XE (NẾU CÓ) ──
       if (_coPhuongTien && _danhSachXe.isNotEmpty) {
-        setState(() => _submitProgressText = 'Đăng ký thông tin phương tiện xe...');
+        setState(
+          () => _submitProgressText = 'Đăng ký thông tin phương tiện xe...',
+        );
         // Xóa phương tiện cũ của khách thuê này để tránh trùng lặp
         try {
           await db.from('phuong_tien').delete().eq('ma_khach', widget.maKhach);
@@ -611,10 +792,13 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
       if (_isDaiDien) {
         setState(() => _submitProgressText = 'Ký biên bản bàn giao tài sản...');
         final nowStr = DateTime.now().toIso8601String();
-        await db.from('hop_dong').update({
-          'da_xac_nhan_ban_giao': true,
-          'ngay_xac_nhan_ban_giao': nowStr,
-        }).eq('ma_hop_dong', widget.maHopDong);
+        await db
+            .from('hop_dong')
+            .update({
+              'da_xac_nhan_ban_giao': true,
+              'ngay_xac_nhan_ban_giao': nowStr,
+            })
+            .eq('ma_hop_dong', widget.maHopDong);
       }
 
       // ── BƯỚC E: LẤY VAI TRÒ TỪ chi_tiet_hop_dong_khach_thue GÁN XUỐNG tai_khoan ──
@@ -628,7 +812,9 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
             .eq('ma_khach', widget.maKhach)
             .maybeSingle();
 
-        if (cthd != null && cthd['vai_tro'] != null && cthd['vai_tro'].toString().trim().isNotEmpty) {
+        if (cthd != null &&
+            cthd['vai_tro'] != null &&
+            cthd['vai_tro'].toString().trim().isNotEmpty) {
           vaiTroGan = cthd['vai_tro'].toString();
         } else {
           // Nếu là người ký đại diện trong hop_dong
@@ -649,16 +835,13 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
       }
 
       // Cập nhật xuống bảng tai_khoan
-      await db.from('tai_khoan').update({
-        'vai_tro': vaiTroGan,
-        'ho_ten': hoTen,
-      }).eq('ma_tai_khoan', widget.user.maTaiKhoan);
+      await db
+          .from('tai_khoan')
+          .update({'vai_tro': vaiTroGan, 'ho_ten': hoTen})
+          .eq('ma_tai_khoan', widget.user.maTaiKhoan);
 
       // Cập nhật phiên đăng nhập cục bộ
-      final updatedUser = widget.user.copyWith(
-        vaiTro: vaiTroGan,
-        hoTen: hoTen,
-      );
+      final updatedUser = widget.user.copyWith(vaiTro: vaiTroGan, hoTen: hoTen);
       await AuthService.updateCurrentUser(updatedUser);
 
       if (!mounted) return;
@@ -752,16 +935,26 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
                 ),
                 const SizedBox(height: 14),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFE0F2FE),
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFF38BDF8), width: 1),
+                    border: Border.all(
+                      color: const Color(0xFF38BDF8),
+                      width: 1,
+                    ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.badge_rounded, size: 18, color: Color(0xFF0369A1)),
+                      const Icon(
+                        Icons.badge_rounded,
+                        size: 18,
+                        color: Color(0xFF0369A1),
+                      ),
                       const SizedBox(width: 8),
                       Text(
                         'Vai trò: $vaiTro',
@@ -825,7 +1018,11 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
       backgroundColor: const Color(0xFFF1F5F9),
       appBar: AppBar(
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF0F172A), size: 19),
+          icon: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: Color(0xFF0F172A),
+            size: 19,
+          ),
           onPressed: () => Navigator.maybePop(context),
         ),
         title: Text(
@@ -871,7 +1068,10 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
               color: Colors.black.withValues(alpha: 0.6),
               child: Center(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 28,
+                    vertical: 24,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(20),
@@ -915,7 +1115,9 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
             offset: const Offset(0, 3),
           ),
         ],
-        border: const Border(bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1.5)),
+        border: const Border(
+          bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1.5),
+        ),
       ),
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       child: Column(
@@ -941,7 +1143,9 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  _currentStep < stepNames.length ? stepNames[_currentStep] : '',
+                  _currentStep < stepNames.length
+                      ? stepNames[_currentStep]
+                      : '',
                   style: const TextStyle(
                     fontSize: 13.5,
                     fontWeight: FontWeight.bold,
@@ -969,7 +1173,11 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
               _buildStepItem(1, '2. Phương tiện', Icons.two_wheeler_rounded),
               if (_isDaiDien) ...[
                 const SizedBox(width: 8),
-                _buildStepItem(2, '3. Bàn giao', Icons.assignment_turned_in_rounded),
+                _buildStepItem(
+                  2,
+                  '3. Bàn giao',
+                  Icons.assignment_turned_in_rounded,
+                ),
               ],
             ],
           ),
@@ -1043,8 +1251,14 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
                   title,
                   style: TextStyle(
                     fontSize: 10.5,
-                    fontWeight: isActive || isDone ? FontWeight.bold : FontWeight.w500,
-                    color: isActive ? const Color(0xFF0F172A) : (isDone ? const Color(0xFF047857) : const Color(0xFF64748B)),
+                    fontWeight: isActive || isDone
+                        ? FontWeight.bold
+                        : FontWeight.w500,
+                    color: isActive
+                        ? const Color(0xFF0F172A)
+                        : (isDone
+                              ? const Color(0xFF047857)
+                              : const Color(0xFF64748B)),
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -1064,7 +1278,9 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
       case 1:
         return _buildStep2PhuongTien();
       case 2:
-        return _isDaiDien ? _buildStep3BanGiaoTaiSan() : const SizedBox.shrink();
+        return _isDaiDien
+            ? _buildStep3BanGiaoTaiSan()
+            : const SizedBox.shrink();
       default:
         return const SizedBox.shrink();
     }
@@ -1122,7 +1338,11 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
                   color: Color(0xFF09638E),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.auto_awesome, color: Colors.white, size: 20),
+                child: const Icon(
+                  Icons.auto_awesome,
+                  color: Colors.white,
+                  size: 20,
+                ),
               ),
               const SizedBox(width: 12),
               const Expanded(
@@ -1189,7 +1409,10 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
                 SizedBox(
                   width: 18,
                   height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF09638E)),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Color(0xFF09638E),
+                  ),
                 ),
                 SizedBox(width: 12),
                 Expanded(
@@ -1323,7 +1546,9 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
             color: isSelected ? const Color(0xFF09638E) : Colors.white,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: isSelected ? const Color(0xFF09638E) : const Color(0xFFCBD5E1),
+              color: isSelected
+                  ? const Color(0xFF09638E)
+                  : const Color(0xFFCBD5E1),
               width: 1.5,
             ),
           ),
@@ -1385,16 +1610,26 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
           alignment: Alignment.center,
           children: [
             if (bytes != null)
-              Image.memory(bytes, fit: BoxFit.cover, width: double.infinity, height: double.infinity)
+              Image.memory(
+                bytes,
+                fit: BoxFit.cover,
+                width: double.infinity,
+                height: double.infinity,
+              )
             else if (url != null && url.isNotEmpty)
               url.startsWith('data:image')
                   ? Image.memory(
-                      base64Decode(url.contains(',') ? url.split(',').last : url),
+                      base64Decode(
+                        url.contains(',') ? url.split(',').last : url,
+                      ),
                       fit: BoxFit.cover,
                       width: double.infinity,
                       height: double.infinity,
                       errorBuilder: (_, __, ___) => const Center(
-                        child: Icon(Icons.broken_image_rounded, color: Color(0xFF94A3B8)),
+                        child: Icon(
+                          Icons.broken_image_rounded,
+                          color: Color(0xFF94A3B8),
+                        ),
                       ),
                     )
                   : Image.network(
@@ -1403,7 +1638,10 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
                       width: double.infinity,
                       height: double.infinity,
                       errorBuilder: (_, __, ___) => const Center(
-                        child: Icon(Icons.broken_image_rounded, color: Color(0xFF94A3B8)),
+                        child: Icon(
+                          Icons.broken_image_rounded,
+                          color: Color(0xFF94A3B8),
+                        ),
                       ),
                     )
             else
@@ -1416,16 +1654,26 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
                       color: const Color(0xFFF1F5F9),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.add_a_photo_rounded, color: Color(0xFF09638E), size: 24),
+                    child: const Icon(
+                      Icons.add_a_photo_rounded,
+                      color: Color(0xFF09638E),
+                      size: 24,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     title,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
                   ),
                   Text(
                     subtitle,
-                    style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: Color(0xFF64748B),
+                    ),
                   ),
                 ],
               ),
@@ -1462,11 +1710,17 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
             children: [
               Text(
                 'Tải ảnh ${isMatTruoc ? 'Mặt trước' : 'Mặt sau'} CCCD',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
               ),
               const SizedBox(height: 12),
               ListTile(
-                leading: const Icon(Icons.camera_alt_rounded, color: Color(0xFF09638E)),
+                leading: const Icon(
+                  Icons.camera_alt_rounded,
+                  color: Color(0xFF09638E),
+                ),
                 title: const Text('Chụp ảnh trực tiếp từ Camera'),
                 onTap: () {
                   Navigator.pop(ctx);
@@ -1474,7 +1728,10 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.photo_library_rounded, color: Color(0xFF09638E)),
+                leading: const Icon(
+                  Icons.photo_library_rounded,
+                  color: Color(0xFF09638E),
+                ),
                 title: const Text('Chọn ảnh từ Thư viện'),
                 onTap: () {
                   Navigator.pop(ctx);
@@ -1518,7 +1775,11 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
                   color: const Color(0xFF09638E).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.two_wheeler_rounded, color: Color(0xFF09638E), size: 24),
+                child: const Icon(
+                  Icons.two_wheeler_rounded,
+                  color: Color(0xFF09638E),
+                  size: 24,
+                ),
               ),
               const SizedBox(width: 14),
               const Expanded(
@@ -1527,7 +1788,10 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
                   children: [
                     Text(
                       'Tôi có phương tiện xe gửi tại trọ',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
                     ),
                     Text(
                       'Bật tùy chọn này để khai báo biển số xe và cấp thẻ gửi xe.',
@@ -1565,11 +1829,19 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
             child: const Center(
               child: Column(
                 children: [
-                  Icon(Icons.directions_walk_rounded, size: 40, color: Color(0xFF94A3B8)),
+                  Icon(
+                    Icons.directions_walk_rounded,
+                    size: 40,
+                    color: Color(0xFF94A3B8),
+                  ),
                   SizedBox(height: 10),
                   Text(
                     'Bạn đã chọn không đăng ký phương tiện',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF475569)),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: Color(0xFF475569),
+                    ),
                   ),
                   SizedBox(height: 4),
                   Text(
@@ -1598,7 +1870,9 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
               style: OutlinedButton.styleFrom(
                 foregroundColor: const Color(0xFF09638E),
                 side: const BorderSide(color: Color(0xFF09638E), width: 1.5),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 minimumSize: const Size(double.infinity, 44),
               ),
@@ -1647,18 +1921,29 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
                       color: const Color(0xFFE0F2FE),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(Icons.moped_rounded, color: Color(0xFF09638E), size: 18),
+                    child: const Icon(
+                      Icons.moped_rounded,
+                      color: Color(0xFF09638E),
+                      size: 18,
+                    ),
                   ),
                   const SizedBox(width: 8),
                   Text(
                     'Phương tiện ${index + 1}',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
                   ),
                 ],
               ),
               if (_danhSachXe.length > 1)
                 IconButton(
-                  icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFDC2626), size: 20),
+                  icon: const Icon(
+                    Icons.delete_outline_rounded,
+                    color: Color(0xFFDC2626),
+                    size: 20,
+                  ),
                   onPressed: () {
                     setState(() {
                       xe.dispose();
@@ -1673,14 +1958,21 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
           // Chọn loại xe
           const Text(
             'Loại xe *',
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF475569)),
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF475569),
+            ),
           ),
           const SizedBox(height: 6),
           DropdownButtonFormField<String>(
             value: xe.loaiXe,
             decoration: InputDecoration(
               isDense: true,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 12,
+              ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
                 borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
@@ -1691,7 +1983,12 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
               ),
             ),
             items: loaiXeOptions
-                .map((e) => DropdownMenuItem(value: e, child: Text(e, style: const TextStyle(fontSize: 13))))
+                .map(
+                  (e) => DropdownMenuItem(
+                    value: e,
+                    child: Text(e, style: const TextStyle(fontSize: 13)),
+                  ),
+                )
                 .toList(),
             onChanged: (val) {
               if (val != null) setState(() => xe.loaiXe = val);
@@ -1749,14 +2046,27 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Container(width: 20, height: 1.8, color: const Color(0xFFDC2626)),
+                    Container(
+                      width: 20,
+                      height: 1.8,
+                      color: const Color(0xFFDC2626),
+                    ),
                     const SizedBox(width: 8),
                     const Text(
                       'CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM',
-                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 11.5, letterSpacing: 0.6, color: Color(0xFF0F172A)),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 11.5,
+                        letterSpacing: 0.6,
+                        color: Color(0xFF0F172A),
+                      ),
                     ),
                     const SizedBox(width: 8),
-                    Container(width: 20, height: 1.8, color: const Color(0xFFDC2626)),
+                    Container(
+                      width: 20,
+                      height: 1.8,
+                      color: const Color(0xFFDC2626),
+                    ),
                   ],
                 ),
               ),
@@ -1784,7 +2094,10 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
               ),
               const SizedBox(height: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 5,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFF1F5F9),
                   borderRadius: BorderRadius.circular(20),
@@ -1795,11 +2108,19 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.meeting_room_rounded, size: 14, color: Color(0xFF09638E)),
+                      const Icon(
+                        Icons.meeting_room_rounded,
+                        size: 14,
+                        color: Color(0xFF09638E),
+                      ),
                       const SizedBox(width: 6),
                       Text(
                         'Phòng: ${widget.maPhong}  •  Hợp đồng: ${widget.maHopDong}',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF1E293B)),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                          color: Color(0xFF1E293B),
+                        ),
                       ),
                     ],
                   ),
@@ -1807,7 +2128,10 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
               ),
               const Divider(height: 22, color: Color(0xFFE2E8F0)),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFF8FAFC),
                   borderRadius: BorderRadius.circular(10),
@@ -1816,14 +2140,29 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
                   children: [
                     Row(
                       children: const [
-                        Icon(Icons.business_rounded, size: 15, color: Color(0xFF09638E)),
+                        Icon(
+                          Icons.business_rounded,
+                          size: 15,
+                          color: Color(0xFF09638E),
+                        ),
                         SizedBox(width: 8),
-                        Text('Bên giao:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF334155))),
+                        Text(
+                          'Bên giao:',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                            color: Color(0xFF334155),
+                          ),
+                        ),
                         SizedBox(width: 6),
                         Expanded(
                           child: Text(
                             'BQL Nhà Trọ Kiêu Giang',
-                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Color(0xFF0F172A)),
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: Color(0xFF0F172A),
+                            ),
                           ),
                         ),
                       ],
@@ -1831,14 +2170,29 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
                     const SizedBox(height: 6),
                     Row(
                       children: [
-                        const Icon(Icons.person_rounded, size: 15, color: Color(0xFF09638E)),
+                        const Icon(
+                          Icons.person_rounded,
+                          size: 15,
+                          color: Color(0xFF09638E),
+                        ),
                         SizedBox(width: 8),
-                        Text('Bên nhận:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF334155))),
+                        Text(
+                          'Bên nhận:',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                            color: Color(0xFF334155),
+                          ),
+                        ),
                         SizedBox(width: 6),
                         Expanded(
                           child: Text(
                             '${_hoTenController.text.trim()} (${_soDtController.text.trim()})',
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF0F172A),
+                            ),
                           ),
                         ),
                       ],
@@ -1855,7 +2209,11 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
         // DANH SÁCH TÀI SẢN LẤY TỪ BẢNG tai_san (Đã fix hoàn toàn lỗi tràn 43px màn hình)
         Row(
           children: [
-            const Icon(Icons.inventory_2_rounded, color: Color(0xFF09638E), size: 20),
+            const Icon(
+              Icons.inventory_2_rounded,
+              color: Color(0xFF09638E),
+              size: 20,
+            ),
             const SizedBox(width: 8),
             const Expanded(
               child: Text(
@@ -1898,7 +2256,11 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.lock_outline_rounded, size: 11, color: Color(0xFF2563EB)),
+                  Icon(
+                    Icons.lock_outline_rounded,
+                    size: 11,
+                    color: Color(0xFF2563EB),
+                  ),
                   SizedBox(width: 3),
                   Text(
                     'Mặc định phòng',
@@ -1985,7 +2347,8 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
                 scale: 1.15,
                 child: Checkbox(
                   value: _camKetKiemTra,
-                  onChanged: (val) => setState(() => _camKetKiemTra = val ?? false),
+                  onChanged: (val) =>
+                      setState(() => _camKetKiemTra = val ?? false),
                   activeColor: const Color(0xFF16A34A),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(4),
@@ -2026,15 +2389,20 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
 
   IconData _getIconForTaiSan(String ten) {
     final t = ten.toLowerCase();
-    if (t.contains('lạnh') || t.contains('điều hòa')) return Icons.ac_unit_rounded;
+    if (t.contains('lạnh') || t.contains('điều hòa'))
+      return Icons.ac_unit_rounded;
     if (t.contains('tủ lạnh')) return Icons.kitchen_rounded;
-    if (t.contains('nóng lạnh') || t.contains('nước nóng')) return Icons.water_drop_rounded;
+    if (t.contains('nóng lạnh') || t.contains('nước nóng'))
+      return Icons.water_drop_rounded;
     if (t.contains('giường') || t.contains('nệm')) return Icons.bed_rounded;
-    if (t.contains('tủ') || t.contains('quần áo')) return Icons.checkroom_rounded;
-    if (t.contains('bếp') || t.contains('kệ bếp') || t.contains('nấu')) return Icons.countertops_rounded;
+    if (t.contains('tủ') || t.contains('quần áo'))
+      return Icons.checkroom_rounded;
+    if (t.contains('bếp') || t.contains('kệ bếp') || t.contains('nấu'))
+      return Icons.countertops_rounded;
     if (t.contains('quạt')) return Icons.mode_fan_off_rounded;
     if (t.contains('khóa') || t.contains('chìa')) return Icons.vpn_key_rounded;
-    if (t.contains('bàn') || t.contains('ghế')) return Icons.table_restaurant_rounded;
+    if (t.contains('bàn') || t.contains('ghế'))
+      return Icons.table_restaurant_rounded;
     if (t.contains('giặt')) return Icons.local_laundry_service_rounded;
     if (t.contains('đèn')) return Icons.lightbulb_rounded;
     if (t.contains('wifi') || t.contains('router')) return Icons.wifi_rounded;
@@ -2043,11 +2411,15 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
 
   Color _getColorForTaiSan(String ten) {
     final t = ten.toLowerCase();
-    if (t.contains('lạnh') || t.contains('điều hòa')) return const Color(0xFF0284C7);
+    if (t.contains('lạnh') || t.contains('điều hòa'))
+      return const Color(0xFF0284C7);
     if (t.contains('tủ lạnh')) return const Color(0xFF0D9488);
-    if (t.contains('nóng lạnh') || t.contains('nước nóng')) return const Color(0xFFEA580C);
-    if (t.contains('giường') || t.contains('nệm')) return const Color(0xFF7C3AED);
-    if (t.contains('tủ') || t.contains('quần áo')) return const Color(0xFFD97706);
+    if (t.contains('nóng lạnh') || t.contains('nước nóng'))
+      return const Color(0xFFEA580C);
+    if (t.contains('giường') || t.contains('nệm'))
+      return const Color(0xFF7C3AED);
+    if (t.contains('tủ') || t.contains('quần áo'))
+      return const Color(0xFFD97706);
     if (t.contains('bếp') || t.contains('kệ')) return const Color(0xFFE11D48);
     if (t.contains('quạt')) return const Color(0xFF059669);
     return const Color(0xFF09638E);
@@ -2088,9 +2460,7 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: color.withValues(alpha: 0.22)),
             ),
-            child: Center(
-              child: Icon(icon, color: color, size: 22),
-            ),
+            child: Center(child: Icon(icon, color: color, size: 22)),
           ),
           const SizedBox(width: 12),
 
@@ -2113,7 +2483,10 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
                     ),
                     // Badge Tình trạng Hoạt động tốt
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 3,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFECFDF5),
                         borderRadius: BorderRadius.circular(8),
@@ -2122,7 +2495,11 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.check_circle_rounded, size: 12, color: Color(0xFF10B981)),
+                          const Icon(
+                            Icons.check_circle_rounded,
+                            size: 12,
+                            color: Color(0xFF10B981),
+                          ),
                           const SizedBox(width: 4),
                           Text(
                             tinhTrang,
@@ -2141,7 +2518,10 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFF1F5F9),
                         borderRadius: BorderRadius.circular(6),
@@ -2159,7 +2539,10 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
                       const SizedBox(width: 8),
                       Flexible(
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 7,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0xFFEFF6FF),
                             borderRadius: BorderRadius.circular(6),
@@ -2167,7 +2550,11 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.verified_rounded, size: 11, color: Color(0xFF2563EB)),
+                              const Icon(
+                                Icons.verified_rounded,
+                                size: 11,
+                                color: Color(0xFF2563EB),
+                              ),
                               const SizedBox(width: 3),
                               Flexible(
                                 child: Text(
@@ -2221,8 +2608,13 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
                 style: OutlinedButton.styleFrom(
                   foregroundColor: const Color(0xFF475569),
                   side: const BorderSide(color: Color(0xFFCBD5E1)),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
                 ),
                 child: const Text('← Quay lại'),
               ),
@@ -2248,7 +2640,9 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
                   backgroundColor: const Color(0xFF09638E),
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   elevation: 0,
                 ),
                 child: FittedBox(
@@ -2256,12 +2650,15 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
                   child: Text(
                     _isDaiDien
                         ? (_currentStep == 2
-                            ? 'Ký & Xác Nhận Bàn Giao Phòng ✓'
-                            : 'Tiếp tục sang ${_currentStep == 0 ? "Phương tiện xe" : "Biên bản bàn giao"} →')
+                              ? 'Ký & Xác Nhận Bàn Giao Phòng ✓'
+                              : 'Tiếp tục sang ${_currentStep == 0 ? "Phương tiện xe" : "Biên bản bàn giao"} →')
                         : (_currentStep == 1
-                            ? 'Hoàn Tất Hồ Sơ Cư Dân ✓'
-                            : 'Tiếp tục sang Phương tiện xe →'),
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                              ? 'Hoàn Tất Hồ Sơ Cư Dân ✓'
+                              : 'Tiếp tục sang Phương tiện xe →'),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
                   ),
                 ),
               ),
@@ -2301,7 +2698,11 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
               const SizedBox(width: 8),
               Text(
                 title,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A)),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: Color(0xFF0F172A),
+                ),
               ),
             ],
           ),
@@ -2349,7 +2750,10 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
             prefixIcon: Icon(icon, size: 18, color: const Color(0xFF09638E)),
             filled: readOnly,
             fillColor: readOnly ? const Color(0xFFF1F5F9) : Colors.white,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 12,
+            ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
@@ -2360,7 +2764,10 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFF09638E), width: 1.5),
+              borderSide: const BorderSide(
+                color: Color(0xFF09638E),
+                width: 1.5,
+              ),
             ),
           ),
         ),

@@ -39,7 +39,8 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
   BienBanThanhLyModel? _bienBan;
 
   // 4 thành phần chính của form
-  bool _isDungHan = false; // Đúng hạn vs Trước hạn (tự động tính toán theo ngày hết hạn)
+  bool _isDungHan =
+      false; // Đúng hạn vs Trước hạn (tự động tính toán theo ngày hết hạn)
   late DateTime _ngayDuKien; // Mặc định sau 15 ngày
   final TextEditingController _lyDoController = TextEditingController();
 
@@ -51,7 +52,11 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
       if (kt == null) return 0;
       // So sánh chỉ tính phần ngày (bỏ qua giờ phút)
       final dKt = DateTime(kt.year, kt.month, kt.day);
-      final dDk = DateTime(_ngayDuKien.year, _ngayDuKien.month, _ngayDuKien.day);
+      final dDk = DateTime(
+        _ngayDuKien.year,
+        _ngayDuKien.month,
+        _ngayDuKien.day,
+      );
       return dKt.difference(dDk).inDays;
     } catch (_) {
       return 0;
@@ -157,7 +162,11 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
     // 0. Kiểm tra ngày dự kiến dọn đi: Phải trong vòng 30 ngày tới kể từ hôm nay
     final nowCheck = DateTime.now();
     final todayOnly = DateTime(nowCheck.year, nowCheck.month, nowCheck.day);
-    final chosenOnly = DateTime(_ngayDuKien.year, _ngayDuKien.month, _ngayDuKien.day);
+    final chosenOnly = DateTime(
+      _ngayDuKien.year,
+      _ngayDuKien.month,
+      _ngayDuKien.day,
+    );
     final diffDays = chosenOnly.difference(todayOnly).inDays;
 
     if (diffDays < 1 || diffDays > 30) {
@@ -202,16 +211,24 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
           children: [
             Text(
               'Bạn xác nhận gửi đơn trả phòng vào ngày ${FormatUtils.formatDate(_ngayDuKien)}?',
-              style: const TextStyle(fontSize: 13.5, color: _textDark, fontWeight: FontWeight.w600),
+              style: const TextStyle(
+                fontSize: 13.5,
+                color: _textDark,
+                fontWeight: FontWeight.w600,
+              ),
             ),
             const SizedBox(height: 10),
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: _isDungHan ? const Color(0xFFF0FDF4) : const Color(0xFFFFFBEB),
+                color: _isDungHan
+                    ? const Color(0xFFF0FDF4)
+                    : const Color(0xFFFFFBEB),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                  color: _isDungHan ? const Color(0xFFBBF7D0) : const Color(0xFFFDE68A),
+                  color: _isDungHan
+                      ? const Color(0xFFBBF7D0)
+                      : const Color(0xFFFDE68A),
                 ),
               ),
               child: Column(
@@ -222,7 +239,9 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
                     style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.bold,
-                      color: _isDungHan ? const Color(0xFF16A34A) : const Color(0xFFB45309),
+                      color: _isDungHan
+                          ? const Color(0xFF16A34A)
+                          : const Color(0xFFB45309),
                     ),
                   ),
                   const SizedBox(height: 3),
@@ -231,7 +250,9 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
                     style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w600,
-                      color: _isDungHan ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
+                      color: _isDungHan
+                          ? const Color(0xFF16A34A)
+                          : const Color(0xFFDC2626),
                     ),
                   ),
                 ],
@@ -259,7 +280,10 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
                 borderRadius: BorderRadius.circular(10),
               ),
             ),
-            child: const Text('Gửi đơn', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: const Text(
+              'Gửi đơn',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),
@@ -287,11 +311,15 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
             .eq('ma_phong', _hd.maPhong)
             .maybeSingle();
         if (pRow != null) {
-          chiSoDienCuoi = double.tryParse(pRow['chi_so_dien']?.toString() ?? '') ?? 0.0;
-          chiSoNuocCuoi = double.tryParse(pRow['chi_so_nuoc']?.toString() ?? '') ?? 0.0;
+          chiSoDienCuoi =
+              double.tryParse(pRow['chi_so_dien']?.toString() ?? '') ?? 0.0;
+          chiSoNuocCuoi =
+              double.tryParse(pRow['chi_so_nuoc']?.toString() ?? '') ?? 0.0;
         }
       } catch (errP) {
-        debugPrint('Lỗi tải chỉ số điện nước từ bảng phong khi tạo biên bản thanh lý: $errP');
+        debugPrint(
+          'Lỗi tải chỉ số điện nước từ bảng phong khi tạo biên bản thanh lý: $errP',
+        );
       }
 
       final bbData = <String, dynamic>{
@@ -311,7 +339,8 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
       } catch (e) {
         debugPrint('Insert có cột trang_thai lỗi, thử fallback: $e');
         // Fallback ghi chú có tag trạng thái nếu bảng chưa thêm cột trang_thai
-        final fallbackData = Map<String, dynamic>.from(bbData)..remove('trang_thai');
+        final fallbackData = Map<String, dynamic>.from(bbData)
+          ..remove('trang_thai');
         fallbackData['ghi_chu'] =
             '[Trạng thái: CHO_DUYET] ${bbData['ghi_chu']}';
         await db.from('bien_ban_thanh_ly').insert(fallbackData);
@@ -320,7 +349,8 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
       // Thông báo hệ thống
       SystemNotificationService.show(
         title: 'Đã gửi yêu cầu trả phòng',
-        body: 'Đơn trả phòng ${_hd.maPhong} đã được gửi tới Ban Quản Lý (Trạng thái: Chờ duyệt).',
+        body:
+            'Đơn trả phòng ${_hd.maPhong} đã được gửi tới Ban Quản Lý (Trạng thái: Chờ duyệt).',
         tag: 'tl_${_hd.maHopDong}',
         loai: 'hop_dong',
       );
@@ -357,7 +387,10 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        title: const Text('Hủy yêu cầu trả phòng', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Hủy yêu cầu trả phòng',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
         content: const Text(
           'Bạn có chắc chắn muốn hủy đơn xin trả phòng này không?',
           style: TextStyle(fontSize: 13.5, color: _textDark),
@@ -373,9 +406,14 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
               backgroundColor: const Color(0xFFEF4444),
               foregroundColor: Colors.white,
               elevation: 0,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
-            child: const Text('Xác nhận hủy', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: const Text(
+              'Xác nhận hủy',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),
@@ -387,9 +425,15 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
     try {
       final db = Supabase.instance.client;
       if (_bienBan != null && _bienBan!.maThanhLy.isNotEmpty) {
-        await db.from('bien_ban_thanh_ly').delete().eq('ma_thanh_ly', _bienBan!.maThanhLy);
+        await db
+            .from('bien_ban_thanh_ly')
+            .delete()
+            .eq('ma_thanh_ly', _bienBan!.maThanhLy);
       } else {
-        await db.from('bien_ban_thanh_ly').delete().eq('ma_hop_dong', _hd.maHopDong);
+        await db
+            .from('bien_ban_thanh_ly')
+            .delete()
+            .eq('ma_hop_dong', _hd.maHopDong);
       }
 
       if (mounted) {
@@ -480,10 +524,15 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
       barrierDismissible: false,
       builder: (ctx) {
         return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
           elevation: 10,
           backgroundColor: Colors.white,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 24,
+            vertical: 24,
+          ),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(22, 24, 22, 20),
             child: Column(
@@ -567,16 +616,25 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
                             style: TextStyle(fontSize: 12, color: _textMuted),
                           ),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 9,
+                              vertical: 3.5,
+                            ),
                             decoration: BoxDecoration(
                               color: const Color(0xFFFEF3C7),
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: const Color(0xFFFDE68A)),
+                              border: Border.all(
+                                color: const Color(0xFFFDE68A),
+                              ),
                             ),
                             child: const Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.hourglass_top_rounded, size: 11, color: Color(0xFFD97706)),
+                                Icon(
+                                  Icons.hourglass_top_rounded,
+                                  size: 11,
+                                  color: Color(0xFFD97706),
+                                ),
                                 SizedBox(width: 4),
                                 Text(
                                   'CHỜ DUYỆT',
@@ -594,14 +652,22 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
                       const Divider(height: 16, color: Color(0xFFE2E8F0)),
                       _buildPopupRow('Mã yêu cầu', maTL),
                       const SizedBox(height: 8),
-                      _buildPopupRow('Phòng', '${widget.tenPhong} (${widget.maPhong})'),
+                      _buildPopupRow(
+                        'Phòng',
+                        '${widget.tenPhong} (${widget.maPhong})',
+                      ),
                       const SizedBox(height: 8),
-                      _buildPopupRow('Ngày dự kiến dọn', FormatUtils.formatDate(ngayTraStr)),
+                      _buildPopupRow(
+                        'Ngày dự kiến dọn',
+                        FormatUtils.formatDate(ngayTraStr),
+                      ),
                       const SizedBox(height: 8),
                       _buildPopupRow(
                         'Hình thức',
                         isDungHan ? 'Đúng hạn' : 'Trước hạn',
-                        valueColor: isDungHan ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
+                        valueColor: isDungHan
+                            ? const Color(0xFF16A34A)
+                            : const Color(0xFFDC2626),
                       ),
                       const Divider(height: 16, color: Color(0xFFE2E8F0)),
                       _buildPopupRow(
@@ -622,7 +688,10 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
                 // Lời dặn thực tế
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFF0FDF4),
                     borderRadius: BorderRadius.circular(12),
@@ -631,7 +700,11 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.info_outline_rounded, color: Color(0xFF16A34A), size: 16),
+                      const Icon(
+                        Icons.info_outline_rounded,
+                        color: Color(0xFF16A34A),
+                        size: 16,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -679,14 +752,16 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
     );
   }
 
-  Widget _buildPopupRow(String label, String value, {Color? valueColor, bool isBold = false}) {
+  Widget _buildPopupRow(
+    String label,
+    String value, {
+    Color? valueColor,
+    bool isBold = false,
+  }) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          label,
-          style: const TextStyle(fontSize: 12, color: _textMuted),
-        ),
+        Text(label, style: const TextStyle(fontSize: 12, color: _textMuted)),
         Text(
           value,
           style: TextStyle(
@@ -716,13 +791,21 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
       appBar: AppBar(
         title: const Text(
           'Yêu Cầu Trả Phòng',
-          style: TextStyle(fontSize: 16.5, fontWeight: FontWeight.bold, color: _textDark),
+          style: TextStyle(
+            fontSize: 16.5,
+            fontWeight: FontWeight.bold,
+            color: _textDark,
+          ),
         ),
         backgroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 19, color: _textDark),
+          icon: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            size: 19,
+            color: _textDark,
+          ),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
@@ -746,7 +829,8 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
     final bb = _bienBan!;
     // Đảm bảo: Nếu biên bản đang ở trạng thái chờ duyệt (CHO_DUYET) thì TUYỆT ĐỐI KHÔNG hiển thị ĐÃ DUYỆT
     final isChoDuyet = bb.isChoDuyet;
-    final isDaDuyet = !isChoDuyet && (bb.isDaDuyet || _hd.trangThai == 'Đã thanh lý');
+    final isDaDuyet =
+        !isChoDuyet && (bb.isDaDuyet || _hd.trangThai == 'Đã thanh lý');
     final lyDoHienThi = _lamSachGhiChu(bb.ghiChu);
 
     // Tính toán hình thức trả phòng thuần túy dựa vào logic ngày dọn đi so với ngày hết hạn HĐ trên App
@@ -758,7 +842,8 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
         final dKt = DateTime(kt.year, kt.month, kt.day);
         final dTra = DateTime(tra.year, tra.month, tra.day);
         final diff = dKt.difference(dTra).inDays;
-        isDungHanTheoNgay = diff <= 30; // Còn <= 30 ngày hoặc đã qua hạn thì coi là đúng hạn
+        isDungHanTheoNgay =
+            diff <= 30; // Còn <= 30 ngày hoặc đã qua hạn thì coi là đúng hạn
       } else {
         isDungHanTheoNgay = bb.tienCocHoanLai > 0;
       }
@@ -779,22 +864,22 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
               color: isDaDuyet
                   ? const Color(0xFFDCFCE7)
                   : isChoDuyet
-                      ? const Color(0xFFFEF3C7)
-                      : const Color(0xFFFEE2E2),
+                  ? const Color(0xFFFEF3C7)
+                  : const Color(0xFFFEE2E2),
               shape: BoxShape.circle,
             ),
             child: Icon(
               isDaDuyet
                   ? Icons.check_circle_rounded
                   : isChoDuyet
-                      ? Icons.hourglass_top_rounded
-                      : Icons.cancel_rounded,
+                  ? Icons.hourglass_top_rounded
+                  : Icons.cancel_rounded,
               size: 40,
               color: isDaDuyet
                   ? const Color(0xFF16A34A)
                   : isChoDuyet
-                      ? const Color(0xFFD97706)
-                      : const Color(0xFFDC2626),
+                  ? const Color(0xFFD97706)
+                  : const Color(0xFFDC2626),
             ),
           ),
           const SizedBox(height: 16),
@@ -802,8 +887,8 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
             isDaDuyet
                 ? 'Thanh Lý Phòng Thành Công 🎉'
                 : isChoDuyet
-                    ? 'Đang Chờ Ban Quản Lý Duyệt'
-                    : 'Yêu Cầu Chưa Được Duyệt',
+                ? 'Đang Chờ Ban Quản Lý Duyệt'
+                : 'Yêu Cầu Chưa Được Duyệt',
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontSize: 18,
@@ -816,10 +901,14 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
             isDaDuyet
                 ? 'Chủ trọ / Ban quản lý đã xác nhận thanh lý phòng thành công. Cảm ơn bạn đã đồng hành cùng tòa nhà!'
                 : isChoDuyet
-                    ? 'Đơn trả phòng đã được gửi lên hệ thống. Ban Quản Lý sẽ xem xét duyệt lịch hẹn, sau đó ngày dọn đi sẽ xuống nghiệm thu và tất toán cọc.'
-                    : 'Yêu cầu của bạn chưa được duyệt. Bạn có thể gửi lại yêu cầu hoặc liên hệ trực tiếp BQL.',
+                ? 'Đơn trả phòng đã được gửi lên hệ thống. Ban Quản Lý sẽ xem xét duyệt lịch hẹn, sau đó ngày dọn đi sẽ xuống nghiệm thu và tất toán cọc.'
+                : 'Yêu cầu của bạn chưa được duyệt. Bạn có thể gửi lại yêu cầu hoặc liên hệ trực tiếp BQL.',
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 13, color: _textMuted, height: 1.45),
+            style: const TextStyle(
+              fontSize: 13,
+              color: _textMuted,
+              height: 1.45,
+            ),
           ),
           const SizedBox(height: 24),
 
@@ -855,29 +944,32 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: isDaDuyet
                             ? const Color(0xFFDCFCE7)
                             : isChoDuyet
-                                ? const Color(0xFFFEF3C7)
-                                : const Color(0xFFFEE2E2),
+                            ? const Color(0xFFFEF3C7)
+                            : const Color(0xFFFEE2E2),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
                         isDaDuyet
                             ? 'ĐÃ DUYỆT'
                             : isChoDuyet
-                                ? 'CHỜ DUYỆT'
-                                : 'TỪ CHỐI',
+                            ? 'CHỜ DUYỆT'
+                            : 'TỪ CHỐI',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
                           color: isDaDuyet
                               ? const Color(0xFF16A34A)
                               : isChoDuyet
-                                  ? const Color(0xFFD97706)
-                                  : const Color(0xFFDC2626),
+                              ? const Color(0xFFD97706)
+                              : const Color(0xFFDC2626),
                         ),
                       ),
                     ),
@@ -885,10 +977,19 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
                 ),
                 const Divider(height: 20, color: Color(0xFFF1F5F9)),
 
-                _buildInfoRow('Mã yêu cầu', bb.maThanhLy.isNotEmpty ? bb.maThanhLy : 'TL001'),
-                _buildInfoRow('Phòng', '${widget.tenPhong} (${widget.maPhong})'),
+                _buildInfoRow(
+                  'Mã yêu cầu',
+                  bb.maThanhLy.isNotEmpty ? bb.maThanhLy : 'TL001',
+                ),
+                _buildInfoRow(
+                  'Phòng',
+                  '${widget.tenPhong} (${widget.maPhong})',
+                ),
                 _buildInfoRow('Hợp đồng', _hd.maHopDong),
-                _buildInfoRow('Ngày dự kiến dọn đi', FormatUtils.formatDate(bb.ngayTraPhong)),
+                _buildInfoRow(
+                  'Ngày dự kiến dọn đi',
+                  FormatUtils.formatDate(bb.ngayTraPhong),
+                ),
                 _buildInfoRow(
                   'Hình thức',
                   hinhThucHienThi,
@@ -896,8 +997,7 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
                       ? const Color(0xFF16A34A)
                       : const Color(0xFFDC2626),
                 ),
-                if (lyDoHienThi.isNotEmpty)
-                  _buildInfoRow('Lý do', lyDoHienThi),
+                if (lyDoHienThi.isNotEmpty) _buildInfoRow('Lý do', lyDoHienThi),
 
                 const Divider(height: 20, color: Color(0xFFF1F5F9)),
                 _buildInfoRow(
@@ -926,9 +1026,14 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
                   backgroundColor: _primary,
                   foregroundColor: Colors.white,
                   elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                 ),
-                child: const Text('Về Trang Chủ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5)),
+                child: const Text(
+                  'Về Trang Chủ',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5),
+                ),
               ),
             ),
           ] else if (isChoDuyet) ...[
@@ -941,9 +1046,17 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
                       onPressed: _huyYeuCau,
                       style: OutlinedButton.styleFrom(
                         side: const BorderSide(color: Color(0xFFCBD5E1)),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
                       ),
-                      child: const Text('Hủy Đơn', style: TextStyle(color: Color(0xFFEF4444), fontWeight: FontWeight.w600)),
+                      child: const Text(
+                        'Hủy Đơn',
+                        style: TextStyle(
+                          color: Color(0xFFEF4444),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -954,12 +1067,17 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
                     child: ElevatedButton.icon(
                       onPressed: _taiDuLieu,
                       icon: const Icon(Icons.refresh_rounded, size: 18),
-                      label: const Text('Làm Mới', style: TextStyle(fontWeight: FontWeight.bold)),
+                      label: const Text(
+                        'Làm Mới',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: _primary,
                         foregroundColor: Colors.white,
                         elevation: 0,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
                       ),
                     ),
                   ),
@@ -978,9 +1096,14 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
                   backgroundColor: _primary,
                   foregroundColor: Colors.white,
                   elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                 ),
-                child: const Text('Gửi Lại Yêu Cầu Mới', style: TextStyle(fontWeight: FontWeight.bold)),
+                child: const Text(
+                  'Gửi Lại Yêu Cầu Mới',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
               ),
             ),
           ],
@@ -1054,7 +1177,10 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
 
                 // Ghi chú quy trình thực tế
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 11,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFF1F5F9),
                     borderRadius: BorderRadius.circular(12),
@@ -1062,12 +1188,20 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
                   child: const Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.info_outline_rounded, size: 16, color: _textMuted),
+                      Icon(
+                        Icons.info_outline_rounded,
+                        size: 16,
+                        color: _textMuted,
+                      ),
                       SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           'Quy định trả phòng: Vui lòng chọn ngày dự kiến dọn đi trong vòng 30 ngày tới (thông báo trước tối thiểu 15 ngày). Vào ngày dọn đi, Ban Quản Lý sẽ gặp bạn trực tiếp tại phòng để chốt điện nước, kiểm tra đồ đạc và tất toán tiền cọc.',
-                          style: TextStyle(fontSize: 12, color: _textMuted, height: 1.4),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: _textMuted,
+                            height: 1.4,
+                          ),
                         ),
                       ),
                     ],
@@ -1116,7 +1250,11 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
                   color: const Color(0xFFE0F2FE),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.meeting_room_rounded, color: _primary, size: 22),
+                child: const Icon(
+                  Icons.meeting_room_rounded,
+                  color: _primary,
+                  size: 22,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -1149,10 +1287,15 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Hạn hợp đồng', style: TextStyle(fontSize: 11.5, color: _textMuted)),
+                    const Text(
+                      'Hạn hợp đồng',
+                      style: TextStyle(fontSize: 11.5, color: _textMuted),
+                    ),
                     const SizedBox(height: 3),
                     Text(
-                      _hd.ngayKtFormatted.isNotEmpty ? _hd.ngayKtFormatted : 'Theo hợp đồng',
+                      _hd.ngayKtFormatted.isNotEmpty
+                          ? _hd.ngayKtFormatted
+                          : 'Theo hợp đồng',
                       style: const TextStyle(
                         fontSize: 13.5,
                         fontWeight: FontWeight.w600,
@@ -1168,7 +1311,10 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Tiền cọc giữ chỗ', style: TextStyle(fontSize: 11.5, color: _textMuted)),
+                    const Text(
+                      'Tiền cọc giữ chỗ',
+                      style: TextStyle(fontSize: 11.5, color: _textMuted),
+                    ),
                     const SizedBox(height: 3),
                     Text(
                       FormatUtils.currency(_hd.tienDatCoc),
@@ -1217,7 +1363,11 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
                 color: const Color(0xFFF1F5F9),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(Icons.calendar_month_rounded, color: _primary, size: 22),
+              child: const Icon(
+                Icons.calendar_month_rounded,
+                color: _primary,
+                size: 22,
+              ),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -1234,7 +1384,9 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    diffDays > 0 ? 'Dự kiến sau $diffDays ngày (tối đa trong vòng 30 ngày)' : 'Hôm nay',
+                    diffDays > 0
+                        ? 'Dự kiến sau $diffDays ngày (tối đa trong vòng 30 ngày)'
+                        : 'Hôm nay',
                     style: const TextStyle(fontSize: 11.5, color: _textMuted),
                   ),
                 ],
@@ -1249,7 +1401,14 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
               ),
               child: const Row(
                 children: [
-                  Text('Đổi ngày', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: _primary)),
+                  Text(
+                    'Đổi ngày',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: _primary,
+                    ),
+                  ),
                   SizedBox(width: 4),
                   Icon(Icons.edit_calendar_rounded, size: 14, color: _primary),
                 ],
@@ -1279,7 +1438,8 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
                         ThongBaoHelper.hienToast(
                           context,
                           tieuDe: 'Trả Phòng Trước Hạn',
-                          noiDung: 'Hợp đồng còn $soNgayConLai ngày. Bạn chỉ có thể chọn Trước hạn.',
+                          noiDung:
+                              'Hợp đồng còn $soNgayConLai ngày. Bạn chỉ có thể chọn Trước hạn.',
                           type: ThongBaoType.canhBao,
                         );
                       },
@@ -1287,15 +1447,22 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
                 child: Opacity(
                   opacity: duDieuKien ? 1.0 : 0.45,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 14,
+                    ),
                     decoration: BoxDecoration(
                       color: duDieuKien
-                          ? (_isDungHan ? const Color(0xFFF0FDF4) : Colors.white)
+                          ? (_isDungHan
+                                ? const Color(0xFFF0FDF4)
+                                : Colors.white)
                           : const Color(0xFFF1F5F9),
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(
                         color: duDieuKien
-                            ? (_isDungHan ? const Color(0xFF16A34A) : _borderColor)
+                            ? (_isDungHan
+                                  ? const Color(0xFF16A34A)
+                                  : _borderColor)
                             : const Color(0xFFCBD5E1),
                         width: (duDieuKien && _isDungHan) ? 1.5 : 1,
                       ),
@@ -1309,12 +1476,14 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
                               !duDieuKien
                                   ? Icons.lock_outline_rounded
                                   : (_isDungHan
-                                      ? Icons.check_circle_rounded
-                                      : Icons.radio_button_unchecked_rounded),
+                                        ? Icons.check_circle_rounded
+                                        : Icons.radio_button_unchecked_rounded),
                               size: 18,
                               color: !duDieuKien
                                   ? _textMuted
-                                  : (_isDungHan ? const Color(0xFF16A34A) : _textMuted),
+                                  : (_isDungHan
+                                        ? const Color(0xFF16A34A)
+                                        : _textMuted),
                             ),
                             const SizedBox(width: 6),
                             Expanded(
@@ -1334,7 +1503,11 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
                           duDieuKien
                               ? 'Được hoàn cọc sau nghiệm thu'
                               : 'Khóa (HĐ còn $soNgayConLai ngày)',
-                          style: const TextStyle(fontSize: 11, color: _textMuted, height: 1.3),
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: _textMuted,
+                            height: 1.3,
+                          ),
                         ),
                       ],
                     ),
@@ -1350,12 +1523,17 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
                 onTap: () => setState(() => _isDungHan = false),
                 borderRadius: BorderRadius.circular(14),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 14,
+                  ),
                   decoration: BoxDecoration(
                     color: !_isDungHan ? const Color(0xFFFEF2F2) : Colors.white,
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: !_isDungHan ? const Color(0xFFDC2626) : _borderColor,
+                      color: !_isDungHan
+                          ? const Color(0xFFDC2626)
+                          : _borderColor,
                       width: !_isDungHan ? 1.5 : 1,
                     ),
                   ),
@@ -1369,7 +1547,9 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
                                 ? Icons.check_circle_rounded
                                 : Icons.radio_button_unchecked_rounded,
                             size: 18,
-                            color: !_isDungHan ? const Color(0xFFDC2626) : _textMuted,
+                            color: !_isDungHan
+                                ? const Color(0xFFDC2626)
+                                : _textMuted,
                           ),
                           const SizedBox(width: 6),
                           const Expanded(
@@ -1387,7 +1567,11 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
                       const SizedBox(height: 6),
                       const Text(
                         'Mất cọc theo hợp đồng',
-                        style: TextStyle(fontSize: 11, color: _textMuted, height: 1.3),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: _textMuted,
+                          height: 1.3,
+                        ),
                       ),
                     ],
                   ),
@@ -1411,7 +1595,11 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.info_outline_rounded, size: 16, color: Color(0xFFD97706)),
+                const Icon(
+                  Icons.info_outline_rounded,
+                  size: 16,
+                  color: Color(0xFFD97706),
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -1476,13 +1664,18 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
             foregroundColor: Colors.white,
             disabledBackgroundColor: _primary.withValues(alpha: 0.5),
             elevation: 0,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
           ),
           child: _isSubmitting
               ? const SizedBox(
                   width: 20,
                   height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
                 )
               : const Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -1491,7 +1684,10 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
                     SizedBox(width: 8),
                     Text(
                       'Gửi yêu cầu trả phòng',
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ],
                 ),
@@ -1526,7 +1722,10 @@ class _ManHinhChamDutHopDongState extends State<ManHinhChamDutHopDong> {
               alignment: Alignment.centerRight,
               child: badgeColor != null
                   ? Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: badgeColor.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(6),

@@ -31,7 +31,8 @@ class GiuChoModel {
       maGiuCho: json['ma_giu_cho']?.toString() ?? '',
       maPhong: json['ma_phong']?.toString() ?? '',
       maKhach: json['ma_khach']?.toString() ?? '',
-      soTienTheChan: num.tryParse(json['so_tien_the_chan']?.toString() ?? '0') ?? 0,
+      soTienTheChan:
+          num.tryParse(json['so_tien_the_chan']?.toString() ?? '0') ?? 0,
       thoiGianGiuCho: json['thoi_gian_giu_cho'] != null
           ? DateTime.tryParse(json['thoi_gian_giu_cho'].toString())
           : null,

@@ -185,14 +185,16 @@ class _ManHinhBaoSuCoState extends State<ManHinhBaoSuCo> {
         String imgData = '';
         try {
           final storagePath = 'incidents/${maSuCo}_$i.jpg';
-          await db.storage.from('contracts').uploadBinary(
-            storagePath,
-            bytes,
-            fileOptions: const FileOptions(
-              contentType: 'image/jpeg',
-              upsert: true,
-            ),
-          );
+          await db.storage
+              .from('contracts')
+              .uploadBinary(
+                storagePath,
+                bytes,
+                fileOptions: const FileOptions(
+                  contentType: 'image/jpeg',
+                  upsert: true,
+                ),
+              );
           imgData = db.storage.from('contracts').getPublicUrl(storagePath);
         } catch (storageError) {
           // Lưu chuỗi Data URI Base64 trực tiếp vào database Supabase

@@ -93,11 +93,17 @@ class _LoadingMeoMeoState extends State<LoadingMeoMeo>
     _blinkAnim = TweenSequence<double>([
       TweenSequenceItem(tween: ConstantTween<double>(1.0), weight: 88),
       TweenSequenceItem(
-        tween: Tween<double>(begin: 1.0, end: 0.05).chain(CurveTween(curve: Curves.easeIn)),
+        tween: Tween<double>(
+          begin: 1.0,
+          end: 0.05,
+        ).chain(CurveTween(curve: Curves.easeIn)),
         weight: 6,
       ),
       TweenSequenceItem(
-        tween: Tween<double>(begin: 0.05, end: 1.0).chain(CurveTween(curve: Curves.easeOut)),
+        tween: Tween<double>(
+          begin: 0.05,
+          end: 1.0,
+        ).chain(CurveTween(curve: Curves.easeOut)),
         weight: 6,
       ),
     ]).animate(_blinkController);
@@ -349,15 +355,24 @@ class _CatRunningInCirclePainter extends CustomPainter {
       canvas.translate(px, py);
       canvas.rotate(pAngle + (math.pi / 2));
 
-      final pPaint = Paint()..color = const Color(0xFF0284C7).withValues(alpha: opacity);
+      final pPaint = Paint()
+        ..color = const Color(0xFF0284C7).withValues(alpha: opacity);
 
       // Đệm bàn chân lớn
       canvas.drawOval(
-        Rect.fromCenter(center: Offset.zero, width: 4.5 * scale, height: 3.5 * scale),
+        Rect.fromCenter(
+          center: Offset.zero,
+          width: 4.5 * scale,
+          height: 3.5 * scale,
+        ),
         pPaint,
       );
       // 3 ngón chân nhỏ xinh
-      canvas.drawCircle(Offset(-2.0 * scale, -2.6 * scale), 0.9 * scale, pPaint);
+      canvas.drawCircle(
+        Offset(-2.0 * scale, -2.6 * scale),
+        0.9 * scale,
+        pPaint,
+      );
       canvas.drawCircle(Offset(0.0 * scale, -3.2 * scale), 1.0 * scale, pPaint);
       canvas.drawCircle(Offset(2.0 * scale, -2.6 * scale), 0.9 * scale, pPaint);
 
@@ -377,14 +392,17 @@ class _CatRunningInCirclePainter extends CustomPainter {
 
     // Vầng hào quang trung tâm
     final centerGlow = Paint()
-      ..shader = RadialGradient(
-        colors: [
-          const Color(0xFF09638E).withValues(alpha: 0.10),
-          const Color(0xFF09638E).withValues(alpha: 0.02),
-          Colors.transparent,
-        ],
-        stops: const [0.0, 0.7, 1.0],
-      ).createShader(Rect.fromCircle(center: Offset.zero, radius: trackRadius * 0.7));
+      ..shader =
+          RadialGradient(
+            colors: [
+              const Color(0xFF09638E).withValues(alpha: 0.10),
+              const Color(0xFF09638E).withValues(alpha: 0.02),
+              Colors.transparent,
+            ],
+            stops: const [0.0, 0.7, 1.0],
+          ).createShader(
+            Rect.fromCircle(center: Offset.zero, radius: trackRadius * 0.7),
+          );
     canvas.drawCircle(Offset.zero, trackRadius * 0.7, centerGlow);
 
     // Khuôn mặt mèo tròn xinh xắn ở tâm
@@ -419,11 +437,23 @@ class _CatRunningInCirclePainter extends CustomPainter {
 
     void drawCenterEye(double ex, double ey) {
       if (eyeOpenFactor > 0.25) {
-        canvas.drawCircle(Offset(ex, ey), 3.2 * scale, Paint()..color = eyeDark);
+        canvas.drawCircle(
+          Offset(ex, ey),
+          3.2 * scale,
+          Paint()..color = eyeDark,
+        );
         // Con ngươi liếc
-        canvas.drawCircle(Offset(ex + gazeX * 0.4, ey + gazeY * 0.4), 1.5 * scale, Paint()..color = const Color(0xFF38BDF8));
+        canvas.drawCircle(
+          Offset(ex + gazeX * 0.4, ey + gazeY * 0.4),
+          1.5 * scale,
+          Paint()..color = const Color(0xFF38BDF8),
+        );
         // Đốm sáng
-        canvas.drawCircle(Offset(ex - 0.9 * scale, ey - 0.9 * scale), 1.0 * scale, Paint()..color = Colors.white);
+        canvas.drawCircle(
+          Offset(ex - 0.9 * scale, ey - 0.9 * scale),
+          1.0 * scale,
+          Paint()..color = Colors.white,
+        );
       } else {
         // Híp mí cười ^_^
         final smile = Path()
@@ -444,8 +474,16 @@ class _CatRunningInCirclePainter extends CustomPainter {
     drawCenterEye(6.5 * scale, -2 * scale);
 
     // Má hồng tâm
-    canvas.drawCircle(Offset(-9.5 * scale, 3.5 * scale), 2.8 * scale, Paint()..color = blushPink.withValues(alpha: 0.5));
-    canvas.drawCircle(Offset(9.5 * scale, 3.5 * scale), 2.8 * scale, Paint()..color = blushPink.withValues(alpha: 0.5));
+    canvas.drawCircle(
+      Offset(-9.5 * scale, 3.5 * scale),
+      2.8 * scale,
+      Paint()..color = blushPink.withValues(alpha: 0.5),
+    );
+    canvas.drawCircle(
+      Offset(9.5 * scale, 3.5 * scale),
+      2.8 * scale,
+      Paint()..color = blushPink.withValues(alpha: 0.5),
+    );
 
     // Mũi & miệng chữ W
     final centerMouth = Path()
@@ -492,11 +530,20 @@ class _CatRunningInCirclePainter extends CustomPainter {
     canvas.drawPath(fishTail, fishPaint);
 
     // Mắt cá
-    canvas.drawCircle(Offset(1.5 * scale, -2.5 * scale), 1.0 * scale, Paint()..color = Colors.white);
-    canvas.drawCircle(Offset(1.8 * scale, -2.5 * scale), 0.5 * scale, Paint()..color = eyeDark);
+    canvas.drawCircle(
+      Offset(1.5 * scale, -2.5 * scale),
+      1.0 * scale,
+      Paint()..color = Colors.white,
+    );
+    canvas.drawCircle(
+      Offset(1.8 * scale, -2.5 * scale),
+      0.5 * scale,
+      Paint()..color = eyeDark,
+    );
 
     // Bong bóng lấp lánh sau cá
-    final bubblePaint = Paint()..color = const Color(0xFF38BDF8).withValues(alpha: 0.6);
+    final bubblePaint = Paint()
+      ..color = const Color(0xFF38BDF8).withValues(alpha: 0.6);
     canvas.drawCircle(Offset(-2 * scale, 14 * scale), 1.0 * scale, bubblePaint);
     canvas.drawCircle(Offset(1 * scale, 18 * scale), 1.4 * scale, bubblePaint);
 
@@ -542,7 +589,11 @@ class _CatRunningInCirclePainter extends CustomPainter {
     // 6.2. HAI CHÂN SAU ĐANG ĐẠP NỀN CHẠY
     void drawPaw(double px, double py) {
       canvas.drawOval(
-        Rect.fromCenter(center: Offset(px, py), width: 5.5 * scale, height: 4.2 * scale),
+        Rect.fromCenter(
+          center: Offset(px, py),
+          width: 5.5 * scale,
+          height: 4.2 * scale,
+        ),
         Paint()..color = creamWhite,
       );
       canvas.drawCircle(
@@ -552,12 +603,22 @@ class _CatRunningInCirclePainter extends CustomPainter {
       );
     }
 
-    drawPaw(-11 * scale - legSwingBack, -6.5 * scale); // Chân sau trái (phía trong)
-    drawPaw(-11 * scale + legSwingBack, 6.5 * scale); // Chân sau phải (phía ngoài)
+    drawPaw(
+      -11 * scale - legSwingBack,
+      -6.5 * scale,
+    ); // Chân sau trái (phía trong)
+    drawPaw(
+      -11 * scale + legSwingBack,
+      6.5 * scale,
+    ); // Chân sau phải (phía ngoài)
 
     // 6.3. THÂN MÈO BẦU BĨNH MŨM MĨM
     final bodyRect = RRect.fromRectAndRadius(
-      Rect.fromCenter(center: Offset(-2 * scale, 0), width: 24 * scale, height: 17 * scale),
+      Rect.fromCenter(
+        center: Offset(-2 * scale, 0),
+        width: 24 * scale,
+        height: 17 * scale,
+      ),
       Radius.circular(8.5 * scale),
     );
     canvas.drawRRect(bodyRect, Paint()..color = gingerMain);
@@ -576,8 +637,16 @@ class _CatRunningInCirclePainter extends CustomPainter {
       ..strokeWidth = 1.4 * scale
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
-    canvas.drawLine(Offset(-6 * scale, -6 * scale), Offset(-4 * scale, -2 * scale), stripePaint);
-    canvas.drawLine(Offset(-2 * scale, -6.5 * scale), Offset(0, -2.5 * scale), stripePaint);
+    canvas.drawLine(
+      Offset(-6 * scale, -6 * scale),
+      Offset(-4 * scale, -2 * scale),
+      stripePaint,
+    );
+    canvas.drawLine(
+      Offset(-2 * scale, -6.5 * scale),
+      Offset(0, -2.5 * scale),
+      stripePaint,
+    );
 
     // 6.4. HAI CHÂN TRƯỚC VƯƠN VỀ PHÍA TRƯỚC ĐUỔI THEO CÁ
     drawPaw(8 * scale + legSwingFront, -6.5 * scale); // Chân trước trái
@@ -589,7 +658,11 @@ class _CatRunningInCirclePainter extends CustomPainter {
 
     // Đốm sáng trên trán
     canvas.drawOval(
-      Rect.fromCenter(center: Offset(8 * scale, 0), width: 6 * scale, height: 4 * scale),
+      Rect.fromCenter(
+        center: Offset(8 * scale, 0),
+        width: 6 * scale,
+        height: 4 * scale,
+      ),
       Paint()..color = gingerLight,
     );
 
@@ -627,14 +700,27 @@ class _CatRunningInCirclePainter extends CustomPainter {
       final ex = 14.5 * scale;
       if (eyeOpenFactor > 0.25) {
         // Mắt đen tròn to
-        canvas.drawCircle(Offset(ex, ey), 2.6 * scale, Paint()..color = eyeDark);
+        canvas.drawCircle(
+          Offset(ex, ey),
+          2.6 * scale,
+          Paint()..color = eyeDark,
+        );
         // Điểm phản chiếu ánh sáng lấp lánh
-        canvas.drawCircle(Offset(ex + 0.8 * scale, ey - 0.7 * scale), 1.0 * scale, Paint()..color = Colors.white);
+        canvas.drawCircle(
+          Offset(ex + 0.8 * scale, ey - 0.7 * scale),
+          1.0 * scale,
+          Paint()..color = Colors.white,
+        );
       } else {
         // Híp mắt cười hạnh phúc
         final smile = Path()
           ..moveTo(ex - 1.5 * scale, ey - 1.5 * scale)
-          ..quadraticBezierTo(ex + 1.2 * scale, ey, ex - 1.5 * scale, ey + 1.5 * scale);
+          ..quadraticBezierTo(
+            ex + 1.2 * scale,
+            ey,
+            ex - 1.5 * scale,
+            ey + 1.5 * scale,
+          );
         canvas.drawPath(
           smile,
           Paint()
@@ -650,11 +736,23 @@ class _CatRunningInCirclePainter extends CustomPainter {
     drawRunningCatEye(3.8 * scale);
 
     // 6.8. MÁ HỒNG CHÚ MÈO
-    canvas.drawCircle(Offset(12.5 * scale, -6.0 * scale), 2.2 * scale, Paint()..color = blushPink.withValues(alpha: 0.55));
-    canvas.drawCircle(Offset(12.5 * scale, 6.0 * scale), 2.2 * scale, Paint()..color = blushPink.withValues(alpha: 0.55));
+    canvas.drawCircle(
+      Offset(12.5 * scale, -6.0 * scale),
+      2.2 * scale,
+      Paint()..color = blushPink.withValues(alpha: 0.55),
+    );
+    canvas.drawCircle(
+      Offset(12.5 * scale, 6.0 * scale),
+      2.2 * scale,
+      Paint()..color = blushPink.withValues(alpha: 0.55),
+    );
 
     // 6.9. MŨI & MIỆNG CHỮ W
-    canvas.drawCircle(Offset(18.0 * scale, 0), 1.0 * scale, Paint()..color = const Color(0xFFF43F5E));
+    canvas.drawCircle(
+      Offset(18.0 * scale, 0),
+      1.0 * scale,
+      Paint()..color = const Color(0xFFF43F5E),
+    );
     final catMouth = Path()
       ..moveTo(17.2 * scale, -2.0 * scale)
       ..quadraticBezierTo(18.5 * scale, -1.0 * scale, 17.5 * scale, 0)
@@ -674,8 +772,16 @@ class _CatRunningInCirclePainter extends CustomPainter {
       ..strokeWidth = 0.9 * scale
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
-    canvas.drawLine(Offset(16 * scale, -5 * scale), Offset(20 * scale, -8 * scale), whiskerPaint);
-    canvas.drawLine(Offset(16 * scale, 5 * scale), Offset(20 * scale, 8 * scale), whiskerPaint);
+    canvas.drawLine(
+      Offset(16 * scale, -5 * scale),
+      Offset(20 * scale, -8 * scale),
+      whiskerPaint,
+    );
+    canvas.drawLine(
+      Offset(16 * scale, 5 * scale),
+      Offset(20 * scale, 8 * scale),
+      whiskerPaint,
+    );
 
     canvas.restore(); // Kết thúc vẽ chú mèo
   }

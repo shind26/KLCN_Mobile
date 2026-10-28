@@ -44,7 +44,8 @@ class ManHinhThanhToanTheChan extends StatefulWidget {
   });
 
   @override
-  State<ManHinhThanhToanTheChan> createState() => _ManHinhThanhToanTheChanState();
+  State<ManHinhThanhToanTheChan> createState() =>
+      _ManHinhThanhToanTheChanState();
 }
 
 class _ManHinhThanhToanTheChanState extends State<ManHinhThanhToanTheChan>
@@ -75,7 +76,8 @@ class _ManHinhThanhToanTheChanState extends State<ManHinhThanhToanTheChan>
   bool _isProcessing = false;
   bool _isCheckingSePay = false;
   bool _isFirstSePayCheck = true;
-  bool _hasTransferred = false; // Chỉ khi đã chuyển tiền ảo / tiền thật thì mới cho phép bấm xác nhận
+  bool _hasTransferred =
+      false; // Chỉ khi đã chuyển tiền ảo / tiền thật thì mới cho phép bấm xác nhận
   final Set<String> _seenTxIds = {};
 
   late AnimationController _pulseController;
@@ -92,13 +94,22 @@ class _ManHinhThanhToanTheChanState extends State<ManHinhThanhToanTheChan>
       final proceed = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           title: Row(
             children: const [
-              Icon(Icons.check_circle_rounded, color: Color(0xFF16A34A), size: 26),
+              Icon(
+                Icons.check_circle_rounded,
+                color: Color(0xFF16A34A),
+                size: 26,
+              ),
               SizedBox(width: 8),
               Expanded(
-                child: Text('Đã Thanh Toán VNPAY', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                child: Text(
+                  'Đã Thanh Toán VNPAY',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
               ),
             ],
           ),
@@ -115,7 +126,9 @@ class _ManHinhThanhToanTheChanState extends State<ManHinhThanhToanTheChan>
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF16A34A),
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
               onPressed: () => Navigator.pop(ctx, true),
               child: const Text('Tôi đã chuyển tiền thành công'),
@@ -136,9 +149,16 @@ class _ManHinhThanhToanTheChanState extends State<ManHinhThanhToanTheChan>
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
           children: const [
-            Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626), size: 26),
+            Icon(
+              Icons.warning_amber_rounded,
+              color: Color(0xFFDC2626),
+              size: 26,
+            ),
             SizedBox(width: 8),
-            Text('Hủy Giữ Chỗ & Thoát?', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            Text(
+              'Hủy Giữ Chỗ & Thoát?',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
           ],
         ),
         content: Text(
@@ -154,7 +174,9 @@ class _ManHinhThanhToanTheChanState extends State<ManHinhThanhToanTheChan>
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFDC2626),
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Hủy & Thoát ra'),
@@ -184,7 +206,8 @@ class _ManHinhThanhToanTheChanState extends State<ManHinhThanhToanTheChan>
   Future<void> _payWithVnPay() async {
     _countdownTimer?.cancel();
     final vnpUrl = VnPayService.generatePaymentUrl(
-      orderId: '${widget.giuCho.maGiuCho}${DateTime.now().millisecondsSinceEpoch}',
+      orderId:
+          '${widget.giuCho.maGiuCho}${DateTime.now().millisecondsSinceEpoch}',
       amount: _depositAmount,
       orderInfo: 'The chan giu cho phong ${widget.room.maPhong}',
     );
@@ -242,7 +265,9 @@ class _ManHinhThanhToanTheChanState extends State<ManHinhThanhToanTheChan>
   }
 
   Future<void> _checkAccountSafety() async {
-    final hasAcc = await DepositService.hasExistingAccount(widget.customerPhone);
+    final hasAcc = await DepositService.hasExistingAccount(
+      widget.customerPhone,
+    );
     if (hasAcc && mounted && !_isCompleted) {
       _countdownTimer?.cancel();
       _pollingTimer?.cancel();
@@ -290,7 +315,9 @@ class _ManHinhThanhToanTheChanState extends State<ManHinhThanhToanTheChan>
 
   void _initRealtimeListener() {
     try {
-      _streamSub = DepositService.streamGiuCho(widget.giuCho.maGiuCho).listen((rows) {
+      _streamSub = DepositService.streamGiuCho(widget.giuCho.maGiuCho).listen((
+        rows,
+      ) {
         if (!mounted || _isCompleted || rows.isEmpty) return;
         final st = rows.first['trang_thai']?.toString() ?? '';
         if (st == 'Đã thanh toán' || st == 'DangGiu' || st == 'DaDatCoc') {
@@ -302,7 +329,9 @@ class _ManHinhThanhToanTheChanState extends State<ManHinhThanhToanTheChan>
 
   /// Tự động lắng nghe giao dịch Napas 24/7 MB Bank qua SePay v2 API và Supabase
   void _initAutoPaymentPolling() {
-    _pollingTimer = Timer.periodic(const Duration(milliseconds: 2500), (timer) async {
+    _pollingTimer = Timer.periodic(const Duration(milliseconds: 2500), (
+      timer,
+    ) async {
       if (!mounted || _isCompleted || _isProcessing) {
         if (_isCompleted) timer.cancel();
         return;
@@ -338,7 +367,9 @@ class _ManHinhThanhToanTheChanState extends State<ManHinhThanhToanTheChan>
     _isCheckingSePay = true;
 
     try {
-      final url = Uri.parse('https://userapi.sepay.vn/v2/transactions?limit=15');
+      final url = Uri.parse(
+        'https://userapi.sepay.vn/v2/transactions?limit=15',
+      );
       final response = await http
           .get(
             url,
@@ -369,10 +400,11 @@ class _ManHinhThanhToanTheChanState extends State<ManHinhThanhToanTheChan>
                   .toUpperCase();
               final amountIn =
                   num.tryParse(item['amount_in']?.toString() ?? '0') ?? 0;
-              final isMatchCode = cleanCode.isNotEmpty &&
+              final isMatchCode =
+                  cleanCode.isNotEmpty &&
                   (content.contains(cleanCode) ||
-                   content.contains(rawCode) ||
-                   (numSuffix.length >= 6 && content.contains(numSuffix)));
+                      content.contains(rawCode) ||
+                      (numSuffix.length >= 6 && content.contains(numSuffix)));
               final isMatchAmount = amountIn >= _depositAmount;
 
               if (isMatchCode && isMatchAmount) {
@@ -409,10 +441,11 @@ class _ManHinhThanhToanTheChanState extends State<ManHinhThanhToanTheChan>
             final amountIn =
                 num.tryParse(item['amount_in']?.toString() ?? '0') ?? 0;
 
-            final isMatchCode = cleanCode.isNotEmpty &&
+            final isMatchCode =
+                cleanCode.isNotEmpty &&
                 (content.contains(cleanCode) ||
-                 content.contains(rawCode) ||
-                 (numSuffix.length >= 6 && content.contains(numSuffix)));
+                    content.contains(rawCode) ||
+                    (numSuffix.length >= 6 && content.contains(numSuffix)));
             final isMatchAmount = amountIn >= _depositAmount;
 
             if (isMatchCode && isMatchAmount) {
@@ -475,7 +508,10 @@ class _ManHinhThanhToanTheChanState extends State<ManHinhThanhToanTheChan>
           children: const [
             Icon(Icons.timer_off_rounded, color: Color(0xFFDC2626), size: 26),
             SizedBox(width: 8),
-            Text('Hết Hạn Giữ Chỗ', style: TextStyle(fontWeight: FontWeight.bold)),
+            Text(
+              'Hết Hạn Giữ Chỗ',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
           ],
         ),
         content: Text(
@@ -486,7 +522,9 @@ class _ManHinhThanhToanTheChanState extends State<ManHinhThanhToanTheChan>
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: _primary,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
             onPressed: () {
               Navigator.pop(ctx);
@@ -581,7 +619,8 @@ class _ManHinhThanhToanTheChanState extends State<ManHinhThanhToanTheChan>
           room: widget.room,
           customerName: widget.customerName,
           customerPhone: widget.customerPhone,
-          appointmentDate: widget.appointmentDate ??
+          appointmentDate:
+              widget.appointmentDate ??
               (widget.giuCho.ngayDuKienO != null
                   ? DateFormat('dd/MM/yyyy').format(widget.giuCho.ngayDuKienO!)
                   : 'Hôm nay'),
@@ -656,677 +695,810 @@ class _ManHinhThanhToanTheChanState extends State<ManHinhThanhToanTheChan>
         backgroundColor: const Color(0xFFF1F6FA),
         appBar: AppBar(
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
+            icon: const Icon(
+              Icons.arrow_back_ios_new_rounded,
+              color: Colors.white,
+              size: 20,
+            ),
             tooltip: 'Hủy & Quay lại',
             onPressed: _handleBackPress,
           ),
           title: const Text(
             'Thanh Toán Tiền Thế Chân',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
           ),
           backgroundColor: _primary,
           elevation: 0,
           centerTitle: true,
         ),
-      body: SafeArea(
-        child: Stack(
-          children: [
-            SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              child: Column(
-                children: [
-                  // ====== BANNER ĐẾM NGƯỢC 15 PHÚT ======
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFFFEF3C7), Color(0xFFFDE68A)],
+        body: SafeArea(
+          child: Stack(
+            children: [
+              SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
+                child: Column(
+                  children: [
+                    // ====== BANNER ĐẾM NGƯỢC 15 PHÚT ======
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 11,
                       ),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: const Color(0xFFF59E0B), width: 1.2),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
-                          blurRadius: 8,
-                          offset: const Offset(0, 3),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFFEF3C7), Color(0xFFFDE68A)],
                         ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        FadeTransition(
-                          opacity: _pulseAnimation,
-                          child: const Icon(
-                            Icons.alarm_rounded,
-                            color: Color(0xFFB45309),
-                            size: 26,
-                          ),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: const Color(0xFFF59E0B),
+                          width: 1.2,
                         ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Thời gian giữ phòng còn lại',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF92400E),
-                                ),
-                              ),
-                              const SizedBox(height: 1),
-                              Text(
-                                'Hiệu lực 15 phút để hoàn tất cọc',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.amber.shade900,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(
+                              0xFFF59E0B,
+                            ).withValues(alpha: 0.15),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFB45309),
-                            borderRadius: BorderRadius.circular(10),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.15),
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Text(
-                            _countdownText,
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w900,
-                              color: Colors.white,
-                              letterSpacing: 1.0,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 14),
-
-                // ====== THẺ THÔNG TIN PHÒNG VÀ TIỀN THẾ CHÂN ======
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.04),
-                        blurRadius: 10,
-                        offset: const Offset(0, 3),
+                        ],
                       ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+                      child: Row(
                         children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: _primary.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(10),
+                          FadeTransition(
+                            opacity: _pulseAnimation,
+                            child: const Icon(
+                              Icons.alarm_rounded,
+                              color: Color(0xFFB45309),
+                              size: 26,
                             ),
-                            child: const Icon(Icons.meeting_room_rounded, color: _primary, size: 22),
                           ),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  widget.room.tenHienThi,
+                                const Text(
+                                  'Thời gian giữ phòng còn lại',
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 15,
+                                  style: TextStyle(
+                                    fontSize: 13,
                                     fontWeight: FontWeight.bold,
-                                    color: Color(0xFF0F172A),
+                                    color: Color(0xFF92400E),
                                   ),
                                 ),
+                                const SizedBox(height: 1),
                                 Text(
-                                  '${widget.room.toaNha} • Tầng ${widget.room.tang}',
-                                  style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                                  'Hiệu lực 15 phút để hoàn tất cọc',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.amber.shade900,
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
                               ],
                             ),
                           ),
+                          const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFDCFCE7),
-                              borderRadius: BorderRadius.circular(8),
+                              color: const Color(0xFFB45309),
+                              borderRadius: BorderRadius.circular(10),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.15),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
                             ),
-                            child: const Text(
-                              'Đang giữ chỗ',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF15803D),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const Divider(height: 24),
-                      _buildDetailRow('Người đặt:', widget.customerName),
-                      _buildDetailRow('Số điện thoại:', widget.customerPhone),
-                      _buildDetailRow('Số người ở:', '${widget.giuCho.soNguoiO} người'),
-                      _buildDetailRow(
-                        'Ngày dự kiến ở:',
-                        widget.giuCho.ngayDuKienO != null
-                            ? DateFormat('dd/MM/yyyy').format(widget.giuCho.ngayDuKienO!)
-                            : 'Chưa xác định',
-                      ),
-                      _buildDetailRow('Thời hạn giữ chỗ:', 'Tối đa 5 ngày'),
-                      const Divider(height: 20),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Tiền thế chân cọc (10%):',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF0F172A),
-                            ),
-                          ),
-                          Text(
-                            _depositAmountFormatted,
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w900,
-                              color: Colors.red.shade700,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 14),
-
-                // ====== KHUNG QUÉT MÃ VIETQR NAPAS 24/7 CHUYỂN KHOẢN CHỦ NHÀ ======
-                Container(
-                  padding: const EdgeInsets.all(18),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.04),
-                        blurRadius: 10,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: const [
-                          Icon(Icons.qr_code_2_rounded, color: _primary, size: 20),
-                          SizedBox(width: 6),
-                          Flexible(
                             child: Text(
-                              'Quét mã Napas 24/7 chuyển khoản',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 14.5,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF0F172A),
+                              _countdownText,
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w900,
+                                color: Colors.white,
+                                letterSpacing: 1.0,
                               ),
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'Chuyển khoản trực tiếp tới tài khoản chính chủ',
-                        style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
-                      ),
-                      const SizedBox(height: 14),
+                    ),
 
-                      // Mã QR MB Bank chuẩn VietQR Napas 24/7 (Có thể quét trực tiếp từ bất kỳ app ngân hàng nào)
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: const Color(0xFFCBD5E1)),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.04),
-                              blurRadius: 10,
-                              offset: const Offset(0, 3),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
-                              child: Image.network(
-                                qrImageUrl,
-                                width: 230,
-                                height: 230,
-                                fit: BoxFit.contain,
-                                loadingBuilder: (context, child, progress) {
-                                  if (progress == null) return child;
-                                  return SizedBox(
-                                    height: 230,
-                                    child: Center(
-                                      child: CircularProgressIndicator(
-                                        value: progress.expectedTotalBytes != null
-                                            ? progress.cumulativeBytesLoaded /
-                                                progress.expectedTotalBytes!
-                                            : null,
-                                        color: _primary,
-                                      ),
-                                    ),
-                                  );
-                                },
-                                errorBuilder: (context, error, stackTrace) {
-                                  return QrImageView(
-                                    data: qrData,
-                                    version: QrVersions.auto,
-                                    size: 210.0,
-                                  );
-                                },
+                    const SizedBox(height: 14),
+
+                    // ====== THẺ THÔNG TIN PHÒNG VÀ TIỀN THẾ CHÂN ======
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.04),
+                            blurRadius: 10,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: _primary.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Icon(
+                                  Icons.meeting_room_rounded,
+                                  color: _primary,
+                                  size: 22,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 10),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF1F5F9),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: const [
-                                  Icon(Icons.qr_code_scanner_rounded, size: 15, color: Color(0xFF09638E)),
-                                  SizedBox(width: 6),
-                                  Flexible(
-                                    child: Text(
-                                      'Quét được trên mọi App Ngân Hàng (MB, VCB, MoMo...)',
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      widget.room.tenHienThi,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.bold,
                                         color: Color(0xFF0F172A),
                                       ),
                                     ),
+                                    Text(
+                                      '${widget.room.toaNha} • Tầng ${widget.room.tang}',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Color(0xFF64748B),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFDCFCE7),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Text(
+                                  'Đang giữ chỗ',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF15803D),
                                   ),
-                                ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const Divider(height: 24),
+                          _buildDetailRow('Người đặt:', widget.customerName),
+                          _buildDetailRow(
+                            'Số điện thoại:',
+                            widget.customerPhone,
+                          ),
+                          _buildDetailRow(
+                            'Số người ở:',
+                            '${widget.giuCho.soNguoiO} người',
+                          ),
+                          _buildDetailRow(
+                            'Ngày dự kiến ở:',
+                            widget.giuCho.ngayDuKienO != null
+                                ? DateFormat(
+                                    'dd/MM/yyyy',
+                                  ).format(widget.giuCho.ngayDuKienO!)
+                                : 'Chưa xác định',
+                          ),
+                          _buildDetailRow('Thời hạn giữ chỗ:', 'Tối đa 5 ngày'),
+                          const Divider(height: 20),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                'Tiền thế chân cọc (10%):',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF0F172A),
+                                ),
+                              ),
+                              Text(
+                                _depositAmountFormatted,
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.red.shade700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 14),
+
+                    // ====== KHUNG QUÉT MÃ VIETQR NAPAS 24/7 CHUYỂN KHOẢN CHỦ NHÀ ======
+                    Container(
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.04),
+                            blurRadius: 10,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: const [
+                              Icon(
+                                Icons.qr_code_2_rounded,
+                                color: _primary,
+                                size: 20,
+                              ),
+                              SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  'Quét mã Napas 24/7 chuyển khoản',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 14.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF0F172A),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            'Chuyển khoản trực tiếp tới tài khoản chính chủ',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF64748B),
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+
+                          // Mã QR MB Bank chuẩn VietQR Napas 24/7 (Có thể quét trực tiếp từ bất kỳ app ngân hàng nào)
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 14,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: const Color(0xFFCBD5E1),
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.04),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              children: [
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Image.network(
+                                    qrImageUrl,
+                                    width: 230,
+                                    height: 230,
+                                    fit: BoxFit.contain,
+                                    loadingBuilder: (context, child, progress) {
+                                      if (progress == null) return child;
+                                      return SizedBox(
+                                        height: 230,
+                                        child: Center(
+                                          child: CircularProgressIndicator(
+                                            value:
+                                                progress.expectedTotalBytes !=
+                                                    null
+                                                ? progress.cumulativeBytesLoaded /
+                                                      progress
+                                                          .expectedTotalBytes!
+                                                : null,
+                                            color: _primary,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return QrImageView(
+                                        data: qrData,
+                                        version: QrVersions.auto,
+                                        size: 210.0,
+                                      );
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF1F5F9),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: const [
+                                      Icon(
+                                        Icons.qr_code_scanner_rounded,
+                                        size: 15,
+                                        color: Color(0xFF09638E),
+                                      ),
+                                      SizedBox(width: 6),
+                                      Flexible(
+                                        child: Text(
+                                          'Quét được trên mọi App Ngân Hàng (MB, VCB, MoMo...)',
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                            color: Color(0xFF0F172A),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(height: 14),
+
+                          // Bảng thông tin tài khoản
+                          _buildBankInfoRow(
+                            'Ngân hàng:',
+                            'MB Bank (Quân Đội)',
+                            copyText: 'MB Bank',
+                          ),
+                          _buildBankInfoRow(
+                            'Chủ tài khoản:',
+                            _accountName,
+                            copyText: _accountName,
+                          ),
+                          _buildBankInfoRow(
+                            'Số tài khoản:',
+                            _accountNo,
+                            copyText: _accountNo,
+                          ),
+                          _buildBankInfoRow(
+                            'Số tiền cọc:',
+                            _depositAmountFormatted,
+                            copyText: '${_depositAmount.toInt()}',
+                            isHighlight: true,
+                          ),
+                          _buildBankInfoRow(
+                            'Nội dung CK:',
+                            _memo,
+                            copyText: _memo,
+                            isHighlight: true,
+                          ),
+
+                          const SizedBox(height: 12),
+
+                          // Hộp trạng thái lắng nghe tự động (Không cần bấm nút xác nhận)
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 12,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF0FDF4),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: const Color(0xFF86EFAC),
                               ),
                             ),
-                          ],
+                            child: Row(
+                              children: [
+                                const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      Color(0xFF16A34A),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: const [
+                                      Text(
+                                        'Tự động ghi nhận chuyển khoản MB Bank',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF15803D),
+                                        ),
+                                      ),
+                                      SizedBox(height: 2),
+                                      Text(
+                                        'Sau khi chuyển khoản Napas247, hệ thống sẽ tự động đồng bộ API MB Bank và chuyển sang màn hình thành công trong vài giây (không cần thao tác bấm).',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: Color(0xFF166534),
+                                          height: 1.35,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // ====== PHƯƠNG THỨC THANH TOÁN VNPAY & XÁC NHẬN ======
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: _hasTransferred
+                              ? [
+                                  const Color(0xFFF0FDF4),
+                                  const Color(0xFFDCFCE7),
+                                ]
+                              : [
+                                  const Color(0xFFF0F7FF),
+                                  const Color(0xFFE0F2FE),
+                                ],
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: _hasTransferred
+                              ? const Color(0xFF16A34A)
+                              : const Color(0xFF005BAA),
+                          width: 1.5,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color:
+                                (_hasTransferred
+                                        ? const Color(0xFF16A34A)
+                                        : const Color(0xFF005BAA))
+                                    .withValues(alpha: 0.12),
+                            blurRadius: 10,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: _hasTransferred
+                                      ? const Color(0xFF16A34A)
+                                      : const Color(0xFF005BAA),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Icon(
+                                  _hasTransferred
+                                      ? Icons.check_circle_rounded
+                                      : Icons.payment_rounded,
+                                  color: Colors.white,
+                                  size: 24,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      _hasTransferred
+                                          ? '🎉 Đã Thanh Toán VNPAY Thành Công!'
+                                          : 'Cổng Thanh Toán Điện Tử VNPAY',
+                                      style: TextStyle(
+                                        fontSize: 14.5,
+                                        fontWeight: FontWeight.bold,
+                                        color: _hasTransferred
+                                            ? const Color(0xFF15803D)
+                                            : const Color(0xFF004080),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      _hasTransferred
+                                          ? 'Giao dịch $_depositAmountFormatted đã hoàn tất trên VNPAY. Hãy nhấn nút bên dưới để hoàn tất giữ chỗ!'
+                                          : 'Hỗ trợ VNPAY-QR, Thẻ ATM 40+ ngân hàng nội địa và thẻ Visa/Mastercard',
+                                      style: TextStyle(
+                                        fontSize: 11.5,
+                                        color: _hasTransferred
+                                            ? const Color(0xFF166534)
+                                            : const Color(0xFF0284C7),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // Nút Hủy giữ chỗ
+                    Center(
+                      child: TextButton.icon(
+                        onPressed: _handleBackPress,
+                        icon: const Icon(
+                          Icons.cancel_outlined,
+                          size: 16,
+                          color: Color(0xFFDC2626),
+                        ),
+                        label: const Text(
+                          'Hủy giữ chỗ & Thoát ra',
+                          style: TextStyle(
+                            color: Color(0xFFDC2626),
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
                         ),
                       ),
+                    ),
 
-                      const SizedBox(height: 14),
+                    const SizedBox(height: 16),
+                  ],
+                ),
+              ),
 
-                      // Bảng thông tin tài khoản
-                      _buildBankInfoRow('Ngân hàng:', 'MB Bank (Quân Đội)', copyText: 'MB Bank'),
-                      _buildBankInfoRow('Chủ tài khoản:', _accountName, copyText: _accountName),
-                      _buildBankInfoRow('Số tài khoản:', _accountNo, copyText: _accountNo),
-                      _buildBankInfoRow('Số tiền cọc:', _depositAmountFormatted, copyText: '${_depositAmount.toInt()}', isHighlight: true),
-                      _buildBankInfoRow('Nội dung CK:', _memo, copyText: _memo, isHighlight: true),
-
-                      const SizedBox(height: 12),
-
-                      // Hộp trạng thái lắng nghe tự động (Không cần bấm nút xác nhận)
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF0FDF4),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFF86EFAC)),
+              // Lớp phủ khi đang xác nhận dòng tiền tự động
+              if (_isProcessing)
+                Container(
+                  color: Colors.black38,
+                  child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 20,
+                      ),
+                      margin: const EdgeInsets.symmetric(horizontal: 40),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.12),
+                            blurRadius: 16,
+                          ),
+                        ],
+                      ),
+                      child: const LoadingMeoMeo(
+                        compact: true,
+                        size: 95,
+                        message: 'Đang hoàn tất giữ chỗ!',
+                        subMessage:
+                            'Hệ thống đang cập nhật trạng thái phòng sang Đã cọc...',
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        bottomNavigationBar: SafeArea(
+          top: false,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(20),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  blurRadius: 12,
+                  offset: const Offset(0, -3),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_hasTransferred) ...[
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF16A34A),
+                        foregroundColor: Colors.white,
+                        elevation: 3,
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
                         ),
-                        child: Row(
-                          children: [
+                      ),
+                      onPressed: _isProcessing
+                          ? null
+                          : () => _handleConfirmPayment(),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          if (_isProcessing)
                             const SizedBox(
                               width: 20,
                               height: 20,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2.2,
-                                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF16A34A)),
+                                color: Colors.white,
                               ),
+                            )
+                          else ...[
+                            const Icon(
+                              Icons.check_circle_rounded,
+                              color: Colors.white,
+                              size: 20,
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: const [
-                                  Text(
-                                    'Tự động ghi nhận chuyển khoản MB Bank',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.bold,
-                                      color: Color(0xFF15803D),
-                                    ),
-                                  ),
-                                  SizedBox(height: 2),
-                                  Text(
-                                    'Sau khi chuyển khoản Napas247, hệ thống sẽ tự động đồng bộ API MB Bank và chuyển sang màn hình thành công trong vài giây (không cần thao tác bấm).',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: Color(0xFF166534),
-                                      height: 1.35,
-                                    ),
-                                  ),
-                                ],
+                            const SizedBox(width: 8),
+                            const Flexible(
+                              child: Text(
+                                'Tôi đã chuyển tiền thành công',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
                               ),
                             ),
                           ],
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  const Text(
+                    'Nhấn để cập nhật ngay phòng sang trạng thái Đã cọc',
+                    style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                  ),
+                ] else ...[
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF005BAA),
+                        foregroundColor: Colors.white,
+                        elevation: 2,
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
                         ),
                       ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 16),
-
-                // ====== PHƯƠNG THỨC THANH TOÁN VNPAY & XÁC NHẬN ======
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: _hasTransferred
-                          ? [const Color(0xFFF0FDF4), const Color(0xFFDCFCE7)]
-                          : [const Color(0xFFF0F7FF), const Color(0xFFE0F2FE)],
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: _hasTransferred
-                          ? const Color(0xFF16A34A)
-                          : const Color(0xFF005BAA),
-                      width: 1.5,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: (_hasTransferred
-                                ? const Color(0xFF16A34A)
-                                : const Color(0xFF005BAA))
-                            .withValues(alpha: 0.12),
-                        blurRadius: 10,
-                        offset: const Offset(0, 3),
+                      onPressed: _isProcessing ? null : _payWithVnPay,
+                      icon: const Icon(
+                        Icons.payment_rounded,
+                        size: 20,
+                        color: Colors.white,
                       ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: _hasTransferred
-                                  ? const Color(0xFF16A34A)
-                                  : const Color(0xFF005BAA),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Icon(
-                              _hasTransferred
-                                  ? Icons.check_circle_rounded
-                                  : Icons.payment_rounded,
-                              color: Colors.white,
-                              size: 24,
-                            ),
+                      label: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          'Thanh Toán Qua VNPAY ($_depositAmountFormatted)',
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  _hasTransferred
-                                      ? '🎉 Đã Thanh Toán VNPAY Thành Công!'
-                                      : 'Cổng Thanh Toán Điện Tử VNPAY',
-                                  style: TextStyle(
-                                    fontSize: 14.5,
-                                    fontWeight: FontWeight.bold,
-                                    color: _hasTransferred
-                                        ? const Color(0xFF15803D)
-                                        : const Color(0xFF004080),
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  _hasTransferred
-                                      ? 'Giao dịch $_depositAmountFormatted đã hoàn tất trên VNPAY. Hãy nhấn nút bên dưới để hoàn tất giữ chỗ!'
-                                      : 'Hỗ trợ VNPAY-QR, Thẻ ATM 40+ ngân hàng nội địa và thẻ Visa/Mastercard',
-                                  style: TextStyle(
-                                    fontSize: 11.5,
-                                    color: _hasTransferred
-                                        ? const Color(0xFF166534)
-                                        : const Color(0xFF0284C7),
-                                  ),
-                                ),
-                              ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  InkWell(
+                    onTap: () {
+                      setState(() {
+                        _hasTransferred = true;
+                      });
+                    },
+                    borderRadius: BorderRadius.circular(8),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: const [
+                          Icon(
+                            Icons.check_circle_outline_rounded,
+                            size: 15,
+                            color: Color(0xFF16A34A),
+                          ),
+                          SizedBox(width: 5),
+                          Flexible(
+                            child: Text(
+                              'Tôi đã quét mã chuyển khoản MB Bank',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF15803D),
+                                decoration: TextDecoration.underline,
+                              ),
                             ),
                           ),
                         ],
                       ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 16),
-
-                // Nút Hủy giữ chỗ
-                Center(
-                  child: TextButton.icon(
-                    onPressed: _handleBackPress,
-                    icon: const Icon(Icons.cancel_outlined, size: 16, color: Color(0xFFDC2626)),
-                    label: const Text(
-                      'Hủy giữ chỗ & Thoát ra',
-                      style: TextStyle(
-                        color: Color(0xFFDC2626),
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                      ),
                     ),
                   ),
-                ),
-
-                const SizedBox(height: 16),
+                ],
               ],
             ),
           ),
-
-          // Lớp phủ khi đang xác nhận dòng tiền tự động
-          if (_isProcessing)
-            Container(
-              color: Colors.black38,
-              child: Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-                  margin: const EdgeInsets.symmetric(horizontal: 40),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.12),
-                        blurRadius: 16,
-                      ),
-                    ],
-                  ),
-                  child: const LoadingMeoMeo(
-                    compact: true,
-                    size: 95,
-                    message: 'Đang hoàn tất giữ chỗ!',
-                    subMessage: 'Hệ thống đang cập nhật trạng thái phòng sang Đã cọc...',
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    ),
-    bottomNavigationBar: SafeArea(
-      top: false,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.08),
-              blurRadius: 12,
-              offset: const Offset(0, -3),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (_hasTransferred) ...[
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF16A34A),
-                    foregroundColor: Colors.white,
-                    elevation: 3,
-                    padding: const EdgeInsets.symmetric(vertical: 13),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  ),
-                  onPressed: _isProcessing ? null : () => _handleConfirmPayment(),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      if (_isProcessing)
-                        const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white),
-                        )
-                      else ...[
-                        const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
-                        const SizedBox(width: 8),
-                        const Flexible(
-                          child: Text(
-                            'Tôi đã chuyển tiền thành công',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 5),
-              const Text(
-                'Nhấn để cập nhật ngay phòng sang trạng thái Đã cọc',
-                style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-              ),
-            ] else ...[
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF005BAA),
-                    foregroundColor: Colors.white,
-                    elevation: 2,
-                    padding: const EdgeInsets.symmetric(vertical: 13),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  ),
-                  onPressed: _isProcessing ? null : _payWithVnPay,
-                  icon: const Icon(Icons.payment_rounded, size: 20, color: Colors.white),
-                  label: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                      'Thanh Toán Qua VNPAY ($_depositAmountFormatted)',
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 6),
-              InkWell(
-                onTap: () {
-                  setState(() {
-                    _hasTransferred = true;
-                  });
-                },
-                borderRadius: BorderRadius.circular(8),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
-                      Icon(Icons.check_circle_outline_rounded, size: 15, color: Color(0xFF16A34A)),
-                      SizedBox(width: 5),
-                      Flexible(
-                        child: Text(
-                          'Tôi đã quét mã chuyển khoản MB Bank',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF15803D),
-                            decoration: TextDecoration.underline,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ],
         ),
       ),
-    ),
-  ),
-);
-}
+    );
+  }
 
   Widget _buildDetailRow(String label, String value) {
     return Padding(
@@ -1376,7 +1548,9 @@ class _ManHinhThanhToanTheChanState extends State<ManHinhThanhToanTheChan>
         color: isHighlight ? const Color(0xFFEFF6FF) : const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: isHighlight ? const Color(0xFFBFDBFE) : const Color(0xFFE2E8F0),
+          color: isHighlight
+              ? const Color(0xFFBFDBFE)
+              : const Color(0xFFE2E8F0),
         ),
       ),
       child: Row(
@@ -1389,7 +1563,9 @@ class _ManHinhThanhToanTheChanState extends State<ManHinhThanhToanTheChan>
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 12,
-                color: isHighlight ? const Color(0xFF1E40AF) : const Color(0xFF64748B),
+                color: isHighlight
+                    ? const Color(0xFF1E40AF)
+                    : const Color(0xFF64748B),
                 fontWeight: isHighlight ? FontWeight.bold : FontWeight.normal,
               ),
             ),
@@ -1403,7 +1579,9 @@ class _ManHinhThanhToanTheChanState extends State<ManHinhThanhToanTheChan>
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.bold,
-                color: isHighlight ? const Color(0xFF1E3A8A) : const Color(0xFF0F172A),
+                color: isHighlight
+                    ? const Color(0xFF1E3A8A)
+                    : const Color(0xFF0F172A),
               ),
             ),
           ),
@@ -1416,7 +1594,9 @@ class _ManHinhThanhToanTheChanState extends State<ManHinhThanhToanTheChan>
               child: Icon(
                 Icons.copy_rounded,
                 size: 16,
-                color: isHighlight ? const Color(0xFF2563EB) : const Color(0xFF64748B),
+                color: isHighlight
+                    ? const Color(0xFF2563EB)
+                    : const Color(0xFF64748B),
               ),
             ),
           ),
