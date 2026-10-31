@@ -1181,7 +1181,7 @@ Nội dung: ${widget.hoaDon.noiDungChuyenKhoan}''';
                         ),
                         const SizedBox(height: 3),
                         const Text(
-                          'Quý khách vui lòng thanh toán để hoàn tất nghĩa vụ tiền phòng kỳ này.',
+                          'Vui lòng thanh toán sớm để tránh phát sinh phí trễ hạn nhé.',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 10.5,
@@ -1454,7 +1454,7 @@ Nội dung: ${widget.hoaDon.noiDungChuyenKhoan}''';
                     child: Text(
                       isOverdue
                           ? 'Khoản nợ đã trễ hạn $_soNgayQuaHan ngày từ ngày ${widget.hoaDon.hanDongTienFormatted}. Quý khách vui lòng thanh toán ${FormatUtils.currency(_tongTien.toDouble())}đ để hoàn tất hóa đơn kỳ này.'
-                          : 'Hóa đơn đang còn nợ ${FormatUtils.currency(_tongTien.toDouble())}. Quý khách vui lòng chuyển khoản toàn bộ số tiền này để tất toán hóa đơn.',
+                          : 'Hóa đơn còn nợ ${FormatUtils.currency(_tongTien.toDouble())}. Bạn vui lòng thanh toán sớm nhé.',
                       style: TextStyle(
                         fontSize: 11.5,
                         color: isOverdue
@@ -1568,7 +1568,7 @@ Nội dung: ${widget.hoaDon.noiDungChuyenKhoan}''';
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Hóa đơn đã quá hạn thanh toán nên không áp dụng hình thức chia 2 đợt. Quý khách vui lòng thanh toán toàn bộ số tiền để tránh gián đoạn dịch vụ lưu trú.',
+                      'Hóa đơn đã quá hạn nên cần thanh toán toàn bộ một lần bạn nhé.',
                       style: const TextStyle(
                         fontSize: 11.5,
                         color: Color(0xFF7F1D1D),

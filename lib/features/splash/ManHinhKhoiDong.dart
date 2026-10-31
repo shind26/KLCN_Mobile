@@ -74,12 +74,10 @@ class _SplashScreenState extends State<SplashScreen>
             .select('trang_thai')
             .eq('ma_tai_khoan', currentUser.maTaiKhoan)
             .maybeSingle();
-        final status = accRes?['trang_thai']?.toString() ?? '';
-        if (status.toLowerCase() == 'tamkhoa' ||
-            (accRes != null && status.toLowerCase() != 'hoatdong')) {
+        final status = (accRes?['trang_thai']?.toString() ?? '').trim();
+        if (status.toLowerCase() == 'tamkhoa') {
           isAccountLocked = true;
-          lockedMessage =
-              'Tài khoản của bạn đã bị TẠM KHÓA do hóa đơn phòng quá hạn từ 10 ngày trở lên theo quy chế tòa nhà.\nVui lòng liên hệ Ban Quản Lý (0328.004.663) để được hỗ trợ mở lại!';
+          lockedMessage = 'Tài khoản đang bị tạm khóa. Vui lòng liên hệ BQL: 0328.004.663 để được hỗ trợ!';
           await AuthService.logout();
         }
       } catch (e) {

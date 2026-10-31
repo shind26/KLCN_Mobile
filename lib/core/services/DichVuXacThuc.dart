@@ -166,12 +166,11 @@ class AuthService {
       }
 
       final user = UserModel.fromJson(Map<String, dynamic>.from(res));
-      final dbStatus = res['trang_thai']?.toString() ?? user.trangThai;
-      if (dbStatus.toLowerCase() == 'tamkhoa' || !user.isActive) {
+      final dbStatus = (res['trang_thai']?.toString() ?? user.trangThai).trim();
+      if (dbStatus.toLowerCase() == 'tamkhoa') {
         return (
           success: false,
-          error:
-              'Tài khoản của bạn đã bị TẠM KHÓA do hóa đơn quá hạn từ 10 ngày trở lên. Vui lòng liên hệ Ban Quản Lý (0328.004.663) để được hỗ trợ mở lại!',
+          error: 'Tài khoản đang bị tạm khóa. Vui lòng liên hệ BQL (0328.004.663) để được hỗ trợ!',
           user: null,
         );
       }
@@ -216,12 +215,11 @@ class AuthService {
       UserModel user;
       if (res != null) {
         user = UserModel.fromJson(Map<String, dynamic>.from(res));
-        final dbStatus = res['trang_thai']?.toString() ?? user.trangThai;
-        if (dbStatus.toLowerCase() == 'tamkhoa' || !user.isActive) {
+        final dbStatus = (res['trang_thai']?.toString() ?? user.trangThai).trim();
+        if (dbStatus.toLowerCase() == 'tamkhoa') {
           return (
             success: false,
-            error:
-                'Tài khoản của bạn đã bị TẠM KHÓA do hóa đơn quá hạn từ 10 ngày trở lên. Vui lòng liên hệ Ban Quản Lý (0328.004.663) để được hỗ trợ mở lại!',
+            error: 'Tài khoản đang bị tạm khóa. Vui lòng liên hệ BQL (0328.004.663) để được hỗ trợ!',
             user: null,
           );
         }

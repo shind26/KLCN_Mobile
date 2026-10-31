@@ -46,10 +46,7 @@ class _LoginScreenState extends State<LoginScreen>
 
     if (widget.accountLockedMessage != null &&
         widget.accountLockedMessage!.isNotEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        _hienThiThongBaoKhoaTaiKhoan(widget.accountLockedMessage!);
-      });
+      _errorMessage = widget.accountLockedMessage;
     }
 
     // Background orb pulse animation
@@ -267,17 +264,12 @@ class _LoginScreenState extends State<LoginScreen>
           _errorMessage = err;
           _isLoading = false;
         });
-        if (err.toLowerCase().contains('khóa') ||
-            err.toLowerCase().contains('tamkhoa')) {
-          _hienThiThongBaoKhoaTaiKhoan(err);
-        } else {
-          ThongBaoHelper.hienToast(
-            context,
-            tieuDe: 'Đăng nhập thất bại',
-            noiDung: err,
-            type: ThongBaoType.thatBai,
-          );
-        }
+        ThongBaoHelper.hienToast(
+          context,
+          tieuDe: 'Đăng nhập thất bại',
+          noiDung: err,
+          type: ThongBaoType.thatBai,
+        );
         return;
       }
 
@@ -341,15 +333,14 @@ class _LoginScreenState extends State<LoginScreen>
           .select('trang_thai')
           .eq('ma_tai_khoan', user.maTaiKhoan)
           .maybeSingle();
-      final st = accRes?['trang_thai']?.toString() ?? '';
-      if (st.toLowerCase() == 'tamkhoa' ||
-          (accRes != null && st.toLowerCase() != 'hoatdong')) {
+      final st = (accRes?['trang_thai']?.toString() ?? '').trim();
+      if (st.toLowerCase() == 'tamkhoa') {
         await AuthService.logout();
         if (!mounted) return;
-        setState(() => _isLoading = false);
-        _hienThiThongBaoKhoaTaiKhoan(
-          'Tài khoản của bạn đã bị TẠM KHÓA do hóa đơn phòng quá hạn từ 10 ngày trở lên theo quy chế tòa nhà.\nVui lòng liên hệ Ban Quản Lý (0328.004.663) để được hỗ trợ mở lại!',
-        );
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'Tài khoản đang bị tạm khóa. Vui lòng liên hệ BQL: 0328.004.663 để được hỗ trợ!';
+        });
         return;
       }
     } catch (_) {}

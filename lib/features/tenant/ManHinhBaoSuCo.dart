@@ -145,7 +145,9 @@ class _ManHinhBaoSuCoState extends State<ManHinhBaoSuCo> {
       final maSuCo = 'SC${timestampStr.substring(timestampStr.length - 7)}';
 
       // 2. Xác định mã phòng & mã khách báo
-      String maPhong = widget.maPhong ?? 'P302';
+      String maPhong = (widget.maPhong != null && widget.maPhong!.isNotEmpty)
+          ? widget.maPhong!
+          : 'P203';
       String maKhach = '';
 
       if (user != null && user.maTaiKhoan.isNotEmpty) {

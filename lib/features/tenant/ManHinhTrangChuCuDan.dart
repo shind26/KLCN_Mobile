@@ -1178,11 +1178,10 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
               .select('trang_thai')
               .eq('ma_tai_khoan', user.maTaiKhoan)
               .maybeSingle();
-          final status = accRow?['trang_thai']?.toString() ?? '';
-          if (status.toLowerCase() == 'tamkhoa' ||
-              (accRow != null && status.toLowerCase() != 'hoatdong')) {
+          final status = (accRow?['trang_thai']?.toString() ?? '').trim();
+          if (status.toLowerCase() == 'tamkhoa') {
             debugPrint(
-              '[AUTO_LOCK_KICK] Tài khoản ${user.maTaiKhoan} có trạng thái $status trên Supabase -> Đá văng ra màn hình đăng nhập!',
+              '[AUTO_LOCK_KICK] Tài khoản ${user.maTaiKhoan} có trạng thái TamKhoa trên Supabase -> Điều hướng ra đăng nhập',
             );
             await _daVangRaDangNhapDoKhoaTaiKhoan();
             return;
@@ -1366,14 +1365,32 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
       // ── 7. Lấy danh sách sự cố bảo trì của phòng từ Supabase ──────────
       List<Map<String, dynamic>> suCoList = [];
       try {
-        final suCoRows = await db
-            .from('su_co_bao_tri')
-            .select()
-            .eq('ma_phong', hd.maPhong)
-            .order('ngay_bao_cao', ascending: false);
+        final maKhach = khachThueRow?['ma_khach']?.toString() ?? '';
+        final curRoom = hd.maPhong;
+        final cleanRoom = curRoom.replaceAll(RegExp(r'[^0-9]'), '');
+        final pVariants = {curRoom, 'P$cleanRoom', cleanRoom}
+            .where((s) => s.isNotEmpty)
+            .toList();
+
+        List<dynamic> suCoRows = [];
+        if (maKhach.isNotEmpty) {
+          final orFilter =
+              'ma_khach_bao.eq.$maKhach,ma_phong.in.(${pVariants.join(",")})';
+          suCoRows = await db
+              .from('su_co_bao_tri')
+              .select()
+              .or(orFilter)
+              .order('ngay_bao_cao', ascending: false);
+        } else {
+          suCoRows = await db
+              .from('su_co_bao_tri')
+              .select()
+              .inFilter('ma_phong', pVariants)
+              .order('ngay_bao_cao', ascending: false);
+        }
         suCoList = List<Map<String, dynamic>>.from(suCoRows as List);
       } catch (err) {
-        debugPrint('Lỗi tải su_co_bao_tri: rr');
+        debugPrint('Lỗi tải su_co_bao_tri: $err');
       }
 
       // ── 8. Tải danh sách tài sản phòng từ Supabase (fallback sang bảng phong) ──────────
@@ -1508,7 +1525,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
         builder: (_) => LoginScreen(
           accountLockedMessage:
               reason ??
-              'Tài khoản của bạn đã bị TẠM KHÓA do hóa đơn phòng quá hạn từ 10 ngày trở lên theo quy chế tòa nhà.\nVui lòng liên hệ Ban Quản Lý (0328.004.663) để được hỗ trợ mở lại!',
+              'Tài khoản đang bị tạm khóa. Vui lòng liên hệ BQL: 0328.004.663 để được hỗ trợ!',
         ),
       ),
       (route) => false,
@@ -3886,30 +3903,16 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                       ),
                     ],
                   ),
-                  const SizedBox(height: 10),
-                  const Divider(height: 1, color: Color(0xFFFECACA)),
                   const SizedBox(height: 8),
-                  const Text(
-                    'Quy định & Hướng xử lý bắt buộc:',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF991B1B),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
                   Text(
-                    isPartial
-                        ? '• Khoản nợ Đợt 2 đang quá hạn $overdueDays ngày (${FormatUtils.currency(tongTienThucTe)}).\n'
-                              '• Nhà trọ KHÔNG áp dụng chính sách gia hạn tiền phòng.\n'
-                              '• Quý khách vui lòng bấm "Thanh toán Đợt 2 / VietQR" bên dưới để hoàn tất đóng tiền.'
-                        : '• Hóa đơn tiền phòng đang quá hạn $overdueDays ngày (${FormatUtils.currency(tongTienThucTe)}).\n'
-                              '• Nhà trọ KHÔNG áp dụng chính sách gia hạn tiền phòng.\n'
-                              '• Quý khách vui lòng bấm "Thanh toán / VietQR" bên dưới để hoàn tất đóng tiền.',
+                    overdueDays >= 10
+                        ? 'Hóa đơn đã quá hạn $overdueDays ngày. Bạn vui lòng thanh toán sớm hoặc liên hệ BQL để được hỗ trợ nhé.'
+                        : 'Bạn vui lòng thanh toán sớm để tránh phát sinh phí trễ hạn nhé.',
                     style: const TextStyle(
-                      fontSize: 11.5,
-                      height: 1.45,
+                      fontSize: 12,
+                      height: 1.4,
                       color: Color(0xFF7F1D1D),
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                   if (overdueDays >= 10) ...[
@@ -3984,7 +3987,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                       onPressed: () => _showHuongDanQuaHanModal(hd),
                       icon: const Icon(Icons.gavel_rounded, size: 16),
                       label: const Text(
-                        'Xem quy định xử lý quá hạn & Hotline BQL',
+                        'Quy định trễ hạn & Hotline BQL',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
@@ -4156,16 +4159,19 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                 iconBg: const Color(0xFFFEE2E2),
                 title: 'Báo sự cố',
                 subtitle: 'Điện nước, điều hòa',
-                onTap: () {
-                  Navigator.push(
+                onTap: () async {
+                  final curRoom = _hopDong?.maPhong ?? widget.roomNumber ?? 'P203';
+                  await Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => const ManHinhBaoSuCo(
-                        tenPhong: 'Phòng 203 • Gác lửng',
-                        toaNha: 'Tòa A (Tầng 2)',
+                      builder: (_) => ManHinhBaoSuCo(
+                        tenPhong: _phong?.tenHienThi ?? 'Phòng $curRoom',
+                        toaNha: _phong?.toaNha ?? 'Kiêu Giang House',
+                        maPhong: curRoom,
                       ),
                     ),
                   );
+                  _fetchTenantData();
                 },
               ),
             ),
@@ -6476,10 +6482,13 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
 
   // ==================== TAB 4: SỰ CỐ & YÊU CẦU SỬA CHỮA ====================
   Widget _buildIncidentTab() {
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
-      child: Column(
+    return RefreshIndicator(
+      onRefresh: _fetchTenantData,
+      color: const Color(0xFF09638E),
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // 1. Tiêu đề và Nút Báo sự cố mới (Chuyển sang màn hình chụp ảnh thật)
@@ -6681,8 +6690,9 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
             ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildIncidentCardFromData(Map<String, dynamic> suCo) {
     final rawNoiDung = suCo['noi_dung']?.toString() ?? '';
@@ -9912,22 +9922,21 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Quy định nghiêm ngặt về tiền phòng & Quá hạn:',
+                        'Lưu ý về tiền phòng:',
                         style: TextStyle(
-                          fontSize: 12.5,
+                          fontSize: 13,
                           fontWeight: FontWeight.w700,
                           color: Color(0xFF1E293B),
                         ),
                       ),
                       SizedBox(height: 6),
                       Text(
-                        '• Hạn nộp định kỳ: Bắt buộc hoàn tất trước hoặc đúng ngày 04 hàng tháng.\n'
-                        '• Tòa nhà KHÔNG có chính sách cho gia hạn nợ tiền phòng.\n'
-                        '• Trễ hạn từ 5 ngày: BQL gửi thông báo cảnh báo trễ hạn đóng tiền phòng.\n'
-                        '• Trễ hạn từ 10 ngày: BQL sẽ liên hệ trực tiếp hoặc tạm ngưng tiện ích lưu trú nếu không thanh toán. Hotline BQL: ${LienHeHelper.defaultHotlineDisplay}.',
+                        '• Hạn đóng: Trước ngày 04 hàng tháng.\n'
+                        '• Trễ từ 5 ngày: BQL gửi thông báo nhắc nhở.\n'
+                        '• Trễ từ 10 ngày: Có thể tạm khóa dịch vụ lưu trú. Cần hỗ trợ xin liên hệ hotline: ${LienHeHelper.defaultHotlineDisplay}.',
                         style: TextStyle(
-                          fontSize: 11.5,
-                          height: 1.5,
+                          fontSize: 12,
+                          height: 1.45,
                           color: Color(0xFF475569),
                         ),
                       ),
@@ -9937,7 +9946,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
 
                 const SizedBox(height: 16),
                 const Text(
-                  'Hướng xử lý bắt buộc:',
+                  'Cách xử lý:',
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
@@ -9981,7 +9990,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                     ),
                   ),
                   subtitle: const Text(
-                    'Quét mã 24/7 gạch nợ tự động trong 30 giây để tránh bị phạt',
+                    'Quét mã QR gạch nợ tự động nhanh chóng',
                     style: TextStyle(fontSize: 11.5, color: Color(0xFF166534)),
                   ),
                   trailing: const Icon(
@@ -10022,7 +10031,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                     style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
                   ),
                   subtitle: const Text(
-                    'Liên hệ trực tiếp nếu có thắc mắc/sai lệch về chỉ số điện nước',
+                    'Giải đáp thắc mắc về tiền phòng, điện nước',
                     style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
                   ),
                   trailing: const Icon(
@@ -10376,7 +10385,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                         ),
                         SizedBox(height: 4),
                         Text(
-                          '• Chỉ được gửi yêu cầu khi hợp đồng sắp hết hạn (trong vòng 30 ngày cuối / còn 1 tháng).\n• Thời hạn gia hạn: Tối thiểu 6 tháng, tối đa 1 năm (12 tháng).',
+                          '• Chỉ gửi yêu cầu khi hợp đồng còn dưới 30 ngày.\n• Thời hạn gia hạn: Từ 6 đến 12 tháng.',
                           style: TextStyle(
                             fontSize: 12,
                             color: Color(0xFF475569),
@@ -10856,7 +10865,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
             ),
             const SizedBox(height: 14),
             const Text(
-              '📌 Giải thích quy định BQL:\nĐể đảm bảo ổn định an ninh và công tác bàn giao, dọn dẹp vệ sinh phòng trọ, cư dân cần ở tối thiểu 2 đến 3 tháng (ít nhất 60 ngày) tại phòng hiện tại trước khi làm thủ tục chuyển phòng. Nếu bạn có lý do đặc biệt bất khả kháng (sức khỏe, công tác khẩn), vui lòng liên hệ trực tiếp BQL để được hỗ trợ diện ngoại lệ.',
+              '📌 Lưu ý: Bạn cần ở tối thiểu 60 ngày tại phòng hiện tại trước khi chuyển phòng mới. Nếu có lý do đặc biệt, bạn liên hệ BQL để được hỗ trợ nhé.',
               style: TextStyle(
                 fontSize: 11.5,
                 color: Color(0xFF475569),
@@ -11084,7 +11093,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
             ),
             const SizedBox(height: 14),
             const Text(
-              '📌 Quy định BQL:\nSau khi được phê duyệt chuyển phòng thành công, cư dân cần lưu trú ổn định tối thiểu 2 đến 3 tháng (ít nhất 60 ngày) tại phòng mới trước khi tiếp tục làm thủ tục chuyển phòng tiếp theo. Quy định này nhằm đảm bảo tính ổn định trong công tác quản lý tài sản, chốt chỉ số điện nước và hợp đồng thuê.',
+              '📌 Lưu ý: Cần ở tối thiểu 60 ngày tại phòng mới trước khi tiếp tục đổi phòng bạn nhé.',
               style: TextStyle(
                 fontSize: 11.5,
                 color: Color(0xFF475569),
@@ -11271,7 +11280,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
             ),
             const SizedBox(height: 14),
             const Text(
-              '📌 Quy định Ban Quản Lý:\nTheo quy định thực tế, cư dân bắt buộc phải thanh toán toàn bộ hóa đơn tiền phòng và dịch vụ của kỳ trước (nếu có) trước khi tạo đơn xin chuyển phòng. Việc này nhằm quyết toán dứt điểm công nợ kỳ cũ trước khi chuyển giao quyền sử dụng phòng.',
+              '📌 Bạn vui lòng thanh toán hết hóa đơn còn nợ trước khi gửi yêu cầu chuyển phòng nhé.',
               style: TextStyle(
                 fontSize: 11.5,
                 color: Color(0xFF475569),
@@ -11548,7 +11557,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
               ),
               const SizedBox(height: 12),
               const Text(
-                '⚠️ Ràng buộc gửi đơn:\nTheo quy định, mỗi cư dân chỉ được tạo duy nhất 1 yêu cầu chuyển phòng tại một thời điểm để BQL kiểm tra hiện trạng và chuẩn bị phòng mới. Bạn không thể tạo thêm đơn thứ 2 khi đơn cũ chưa được giải quyết.',
+                '⚠️ Bạn đang có một đơn chuyển phòng chờ duyệt. BQL đang xử lý nên chưa thể gửi thêm đơn mới bạn nhé.',
                 style: TextStyle(
                   fontSize: 11.5,
                   color: Color(0xFF475569),
