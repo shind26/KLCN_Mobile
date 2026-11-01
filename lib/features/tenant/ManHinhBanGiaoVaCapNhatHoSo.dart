@@ -781,7 +781,7 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
               'bien_so_xe': bienSo,
               'ghi_chu': ghiChu,
               'ma_the_xe': null,
-              'trang_thai': 'Hoạt động',
+              'trang_thai': 'ChoDuyet',
               'ngay_dang_ky': DateTime.now().toIso8601String(),
             });
           }

@@ -114,14 +114,13 @@ class _ManHinhVnPayWebViewState extends State<ManHinhVnPayWebView> {
                 .from('hoa_don')
                 .update({
                   'trang_thai': 'Thanh toán một phần',
-                  'tong_tien': soTienConLai,
                   'han_dong_tien': hanChotDot2,
                 })
                 .eq('ma_hoa_don', maHD);
           } else {
             await db
                 .from('hoa_don')
-                .update({'trang_thai': 'Đã thanh toán', 'tong_tien': 0})
+                .update({'trang_thai': 'Đã thanh toán'})
                 .eq('ma_hoa_don', maHD);
           }
 

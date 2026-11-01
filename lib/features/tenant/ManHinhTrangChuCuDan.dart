@@ -9656,7 +9656,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                                             'ma_phong': activeRoom,
                                             'loai_xe': loaiXeSelected,
                                             'bien_so_xe': bienSo,
-                                            'trang_thai': 'Đang sử dụng',
+                                            'trang_thai': 'ChoDuyet',
                                             'ngay_dang_ky': DateTime.now()
                                                 .toIso8601String(),
                                           });

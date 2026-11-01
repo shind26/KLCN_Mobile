@@ -580,7 +580,7 @@ Nội dung: ${widget.hoaDon.noiDungChuyenKhoan}''';
       if (isAllOrStep2) {
         await db
             .from('hoa_don')
-            .update({'trang_thai': 'Đã thanh toán', 'tong_tien': 0})
+            .update({'trang_thai': 'Đã thanh toán'})
             .eq('ma_hoa_don', maHoaDon);
       } else {
         final num soTienConLai = _dotHai;
@@ -592,7 +592,6 @@ Nội dung: ${widget.hoaDon.noiDungChuyenKhoan}''';
             .from('hoa_don')
             .update({
               'trang_thai': 'Thanh toán một phần',
-              'tong_tien': soTienConLai,
               'han_dong_tien': hanChotDot2Str,
             })
             .eq('ma_hoa_don', maHoaDon);

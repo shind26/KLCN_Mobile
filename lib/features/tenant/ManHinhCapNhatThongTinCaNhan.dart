@@ -460,7 +460,7 @@ class _ManHinhCapNhatThongTinCaNhanState
               'loai_xe': xe.loaiXe,
               'bien_so_xe': bienSo,
               'ma_the_xe': null,
-              'trang_thai': 'Hoạt động',
+              'trang_thai': 'ChoDuyet',
               'ngay_dang_ky': DateTime.now().toIso8601String(),
             });
           }

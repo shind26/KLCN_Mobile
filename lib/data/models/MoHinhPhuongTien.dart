@@ -15,7 +15,7 @@ class PhuongTienModel {
     required this.loaiXe,
     required this.bienSoXe,
     this.maTheXe,
-    this.trangThai = 'Đang sử dụng',
+    this.trangThai = 'ChoDuyet',
     this.ngayDangKy,
   });
 
@@ -34,7 +34,7 @@ class PhuongTienModel {
       loaiXe: json['loai_xe']?.toString() ?? 'Xe máy',
       bienSoXe: json['bien_so_xe']?.toString() ?? '',
       maTheXe: json['ma_the_xe']?.toString(),
-      trangThai: json['trang_thai']?.toString() ?? 'Đang sử dụng',
+      trangThai: json['trang_thai']?.toString() ?? 'ChoDuyet',
       ngayDangKy: dt,
     );
   }
