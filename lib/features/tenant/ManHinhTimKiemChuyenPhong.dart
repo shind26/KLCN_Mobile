@@ -306,15 +306,15 @@ class _RoomTransferSearchScreenState extends State<RoomTransferSearchScreen> {
             desc.contains('gác') || tienIchList.any((t) => t.contains('gác'));
         if (!hasGac) return false;
       }
-      // Search
-      final query = _searchController.text.trim().toLowerCase();
+      // Search: Không phân biệt hoa thường và không phân biệt dấu tiếng Việt
+      final query = FormatUtils.removeDiacritics(_searchController.text.trim());
       if (query.isNotEmpty) {
-        final ma = room['maPhong'].toString().toLowerCase();
-        final toa = room['toaNha'].toString().toLowerCase();
-        final desc = room['dacDiem'].toString().toLowerCase();
+        final ma = FormatUtils.removeDiacritics(room['maPhong'].toString());
+        final toa = FormatUtils.removeDiacritics(room['toaNha'].toString());
+        final desc = FormatUtils.removeDiacritics(room['dacDiem'].toString());
         final tienIchList =
             (room['tienIch'] as List?)
-                ?.map((e) => e.toString().toLowerCase())
+                ?.map((e) => FormatUtils.removeDiacritics(e.toString()))
                 .toList() ??
             [];
         final tienIchMatch = tienIchList.any((t) => t.contains(query));

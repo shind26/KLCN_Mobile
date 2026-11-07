@@ -763,28 +763,53 @@ class _ManHinhBanGiaoVaCapNhatHoSoState
         setState(
           () => _submitProgressText = 'Đăng ký thông tin phương tiện xe...',
         );
-        // Xóa phương tiện cũ của khách thuê này để tránh trùng lặp
         try {
-          await db.from('phuong_tien').delete().eq('ma_khach', widget.maKhach);
-        } catch (_) {}
+          // Xóa phương tiện cũ của khách thuê này để tránh trùng lặp
+          try {
+            await db
+                .from('phuong_tien')
+                .delete()
+                .eq('ma_khach', widget.maKhach);
+          } catch (_) {}
 
-        for (final xe in _danhSachXe) {
-          final bienSo = xe.bienSoController.text.trim();
-          final ghiChu = xe.ghiChuController.text.trim();
-          if (bienSo.isNotEmpty) {
-            final maPt = 'PT${Random().nextInt(900000) + 100000}';
-            await db.from('phuong_tien').upsert({
-              'ma_phuong_tien': maPt,
-              'ma_khach': widget.maKhach,
-              'ma_phong': widget.maPhong,
-              'loai_xe': xe.loaiXe,
-              'bien_so_xe': bienSo,
-              'ghi_chu': ghiChu,
-              'ma_the_xe': null,
-              'trang_thai': 'ChoDuyet',
-              'ngay_dang_ky': DateTime.now().toIso8601String(),
-            });
+          for (final xe in _danhSachXe) {
+            final bienSo = xe.bienSoController.text.trim();
+            final ghiChu = xe.ghiChuController.text.trim();
+            if (bienSo.isNotEmpty) {
+              final maPt = 'PT${Random().nextInt(900000) + 100000}';
+              final loaiXeLuu =
+                  ghiChu.isNotEmpty ? '${xe.loaiXe} ($ghiChu)' : xe.loaiXe;
+              try {
+                await db.from('phuong_tien').upsert({
+                  'ma_phuong_tien': maPt,
+                  'ma_khach': widget.maKhach,
+                  'ma_phong': widget.maPhong,
+                  'loai_xe': loaiXeLuu,
+                  'bien_so_xe': bienSo,
+                  'ma_the_xe': null,
+                  'trang_thai': 'ChoDuyet',
+                  'ngay_dang_ky': DateTime.now().toIso8601String(),
+                });
+              } catch (_) {
+                try {
+                  await db.from('phuong_tien').upsert({
+                    'ma_phuong_tien': maPt,
+                    'ma_khach': widget.maKhach,
+                    'ma_phong': widget.maPhong,
+                    'loai_xe': xe.loaiXe,
+                    'bien_so_xe': bienSo,
+                    'ma_the_xe': null,
+                    'trang_thai': 'ChoDuyet',
+                    'ngay_dang_ky': DateTime.now().toIso8601String(),
+                  });
+                } catch (eInner) {
+                  debugPrint('Lỗi lưu từng phương tiện xe: $eInner');
+                }
+              }
+            }
           }
+        } catch (eXe) {
+          debugPrint('Lỗi chung khi lưu phương tiện xe (RLS): $eXe');
         }
       }
 

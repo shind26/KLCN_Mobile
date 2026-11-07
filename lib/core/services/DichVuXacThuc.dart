@@ -150,7 +150,7 @@ class AuthService {
       if (res == null) {
         return (
           success: false,
-          error: 'Tài khoản hoặc mật khẩu không chính xác!',
+          error: 'Số điện thoại chưa được đăng ký trong hệ thống cư dân',
           user: null,
         );
       }
@@ -160,7 +160,7 @@ class AuthService {
       if (!verifyPassword(password, dbPassword)) {
         return (
           success: false,
-          error: 'Tài khoản hoặc mật khẩu không chính xác!',
+          error: 'Mật khẩu không chính xác. Vui lòng kiểm tra lại!',
           user: null,
         );
       }

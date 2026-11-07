@@ -11,6 +11,7 @@ import 'package:nhatro_kieugiang/features/guest/ManHinhLichSuDatPhong.dart';
 import 'package:nhatro_kieugiang/features/tenant/ManHinhTrangChuCuDan.dart';
 import 'package:nhatro_kieugiang/core/services/DichVuDatCoc.dart';
 import 'package:nhatro_kieugiang/core/utils/ThongBaoHelper.dart';
+import 'package:nhatro_kieugiang/core/utils/TienIchDinhDang.dart';
 import 'package:nhatro_kieugiang/core/utils/LienHeHelper.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -27,6 +28,8 @@ class _GuestHomeScreenState extends State<GuestHomeScreen> {
   bool _isLoading = true;
   String _selectedCategory = 'Tất cả';
   bool _sortAscending = true;
+  int _selectedPriceFilter = 0; // 0: Tất cả, 1: < 3tr, 2: 3-3.5tr, 3: 3.5-4tr, 4: > 4tr, 5: Tùy chỉnh
+  RangeValues _customPriceRange = const RangeValues(2000000, 5000000);
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   RealtimeChannel? _homeBookingRealtimeChannel;
@@ -419,14 +422,61 @@ class _GuestHomeScreenState extends State<GuestHomeScreen> {
     List<RoomModel> list = List.from(_allRooms);
 
     // Lọc theo từ khóa tìm kiếm (tiện ích dịch vụ, sức chứa / số người, mô tả, loại phòng...)
+    // Tự động loại bỏ dấu tiếng Việt và không phân biệt hoa thường (VD: "bAn cong" -> "ban cong")
     if (_searchQuery.trim().isNotEmpty) {
-      final q = _searchQuery.trim().toLowerCase();
+      final rawQ = FormatUtils.removeDiacritics(_searchQuery).trim();
+
+      // Danh sách từ khóa mở rộng (hỗ trợ từ đồng nghĩa thông minh)
+      final Set<String> matchTerms = {rawQ};
+      if (rawQ.contains('may lanh') || rawQ.contains('dieu hoa')) {
+        matchTerms.addAll(['may lanh', 'dieu hoa']);
+      }
+      if (rawQ.contains('tu lanh')) {
+        matchTerms.add('tu lanh');
+      }
+      if (rawQ.contains('may giat')) {
+        matchTerms.add('may giat');
+      }
+      if (rawQ.contains('ban cong') || rawQ.contains('balcon')) {
+        matchTerms.addAll(['ban cong', 'balcon']);
+      }
+      if (rawQ.contains('gac lung') || rawQ == 'gac') {
+        matchTerms.addAll(['gac lung', 'gac']);
+      }
+      if (rawQ.contains('bep')) {
+        matchTerms.addAll(['bep', 'ke bep', 'bep tu']);
+      }
+      if (rawQ.contains('nong lanh') || rawQ.contains('nuoc nong')) {
+        matchTerms.addAll(['nuoc nong', 'nong lanh', 'ariston']);
+      }
+      if (rawQ.contains('van tay') || rawQ.contains('khoa')) {
+        matchTerms.addAll(['van tay', 'khoa']);
+      }
+      if (rawQ.contains('nguoi')) {
+        matchTerms.addAll(['nguoi', '2 - 3 nguoi', 'toi da']);
+      }
+
       list = list.where((r) {
-        final nameMatch = r.tenHienThi.toLowerCase().contains(q);
-        final amenityMatch = r.tienIch.any((t) => t.toLowerCase().contains(q));
-        final descMatch = r.moTaNgan.toLowerCase().contains(q);
-        final buildingMatch = r.toaNha.toLowerCase().contains(q);
-        return nameMatch || amenityMatch || descMatch || buildingMatch;
+        final nameNorm = FormatUtils.removeDiacritics(r.tenHienThi);
+        final descNorm = FormatUtils.removeDiacritics(r.moTaNgan);
+        final buildingNorm = FormatUtils.removeDiacritics(r.toaNha);
+        final roomCodeNorm = FormatUtils.removeDiacritics(r.maPhong);
+        final amenitiesNorm =
+            r.tienIch.map((t) => FormatUtils.removeDiacritics(t)).toList();
+        final furnituresNorm =
+            r.noiThatSanCo.map((n) => FormatUtils.removeDiacritics(n)).toList();
+
+        return matchTerms.any((term) {
+          if (nameNorm.contains(term) ||
+              descNorm.contains(term) ||
+              buildingNorm.contains(term) ||
+              roomCodeNorm.contains(term)) {
+            return true;
+          }
+          if (amenitiesNorm.any((t) => t.contains(term))) return true;
+          if (furnituresNorm.any((n) => n.contains(term))) return true;
+          return false;
+        });
       }).toList();
     }
 
@@ -434,25 +484,52 @@ class _GuestHomeScreenState extends State<GuestHomeScreen> {
       list = list
           .where(
             (r) =>
-                r.tenHienThi.contains('Gác lửng') || r.maLoaiPhong == 'LP_GAC',
+                FormatUtils.removeDiacritics(r.tenHienThi).contains('gac lung') ||
+                FormatUtils.removeDiacritics(r.moTaNgan).contains('gac lung') ||
+                r.maLoaiPhong == 'LP_GAC',
           )
           .toList();
     } else if (_selectedCategory == 'Ban công') {
       list = list
           .where(
             (r) =>
-                r.tenHienThi.contains('Ban công') || r.maLoaiPhong == 'LP_BC',
+                FormatUtils.removeDiacritics(r.tenHienThi).contains('ban cong') ||
+                FormatUtils.removeDiacritics(r.moTaNgan).contains('ban cong') ||
+                r.maLoaiPhong == 'LP_BC',
           )
           .toList();
     } else if (_selectedCategory == 'Studio') {
       list = list
           .where(
-            (r) => r.tenHienThi.contains('Studio') || r.maLoaiPhong == 'LP_STD',
+            (r) =>
+                FormatUtils.removeDiacritics(r.tenHienThi).contains('studio') ||
+                FormatUtils.removeDiacritics(r.moTaNgan).contains('studio') ||
+                r.maLoaiPhong == 'LP_STD',
           )
           .toList();
     } else if (_selectedCategory == 'Tiết kiệm') {
       list = list
           .where((r) => r.giaThue <= 3000000 || r.maLoaiPhong == 'LP_TIET')
+          .toList();
+    }
+
+    // Lọc theo khoảng giá phòng
+    if (_selectedPriceFilter == 1) {
+      // Dưới 3 triệu
+      list = list.where((r) => r.giaThue < 3000000).toList();
+    } else if (_selectedPriceFilter == 2) {
+      // 3 - 3.5 triệu
+      list = list.where((r) => r.giaThue >= 3000000 && r.giaThue <= 3500000).toList();
+    } else if (_selectedPriceFilter == 3) {
+      // 3.5 - 4 triệu
+      list = list.where((r) => r.giaThue > 3500000 && r.giaThue <= 4000000).toList();
+    } else if (_selectedPriceFilter == 4) {
+      // Trên 4 triệu
+      list = list.where((r) => r.giaThue > 4000000).toList();
+    } else if (_selectedPriceFilter == 5) {
+      // Tùy chỉnh theo thanh trượt
+      list = list
+          .where((r) => r.giaThue >= _customPriceRange.start && r.giaThue <= _customPriceRange.end)
           .toList();
     }
 
@@ -517,7 +594,7 @@ class _GuestHomeScreenState extends State<GuestHomeScreen> {
 
                             const SizedBox(height: 14),
 
-                            // THANH THÔNG BÁO SỐ PHÒNG TRỐNG & SẮP XẾP GIÁ
+                            // THANH THÔNG BÁO SỐ PHÒNG TRỐNG & BỘ LỌC BẢNG GIÁ
                             _buildInfoAndSortRow(),
 
                             const SizedBox(height: 14),
@@ -1424,7 +1501,8 @@ class _GuestHomeScreenState extends State<GuestHomeScreen> {
               ),
               ...quickTags.map((tag) {
                 final isSelected =
-                    _searchQuery.toLowerCase() == tag.toLowerCase();
+                    FormatUtils.removeDiacritics(_searchQuery) ==
+                    FormatUtils.removeDiacritics(tag);
                 return Padding(
                   padding: const EdgeInsets.only(right: 6),
                   child: InkWell(
@@ -1539,6 +1617,8 @@ class _GuestHomeScreenState extends State<GuestHomeScreen> {
                 setState(() {
                   _searchQuery = '';
                   _selectedCategory = 'Tất cả';
+                  _selectedPriceFilter = 0;
+                  _customPriceRange = const RangeValues(2000000, 5000000);
                 });
                 _applyFilter();
               }
@@ -1643,8 +1723,454 @@ class _GuestHomeScreenState extends State<GuestHomeScreen> {
     );
   }
 
-  // INFO & SORT ROW
+  // BỘ LỌC BẢNG GIÁ & SẮP XẾP PHÒNG (MODAL BOTTOM SHEET)
+  void _showPriceFilterBottomSheet() {
+    int tempFilter = _selectedPriceFilter;
+    RangeValues tempRange = _customPriceRange;
+    bool tempSortAsc = _sortAscending;
+
+    final pricePresets = [
+      {'id': 0, 'label': 'Tất cả giá'},
+      {'id': 1, 'label': '< 3 triệu'},
+      {'id': 2, 'label': '3 - 3.5 triệu'},
+      {'id': 3, 'label': '3.5 - 4 triệu'},
+      {'id': 4, 'label': '> 4 triệu'},
+      {'id': 5, 'label': 'Tùy chỉnh'},
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) {
+          return Container(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.85,
+            ),
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Thanh gạt modal
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFCBD5E1),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Header
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.tune_rounded,
+                        color: Color(0xFF09638E),
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          'Lọc Bảng Giá & Sắp Xếp',
+                          style: TextStyle(
+                            fontSize: 16.5,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF0F172A),
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      TextButton.icon(
+                        onPressed: () {
+                          setModalState(() {
+                            tempFilter = 0;
+                            tempRange = const RangeValues(2000000, 5000000);
+                            tempSortAsc = true;
+                          });
+                        },
+                        icon: const Icon(Icons.restart_alt_rounded, size: 16),
+                        label: const Text('Đặt lại', style: TextStyle(fontSize: 12.5)),
+                      ),
+                    ],
+                  ),
+                  const Divider(color: Color(0xFFF1F5F9), height: 16),
+
+                  // MỤC 1: SẮP XẾP THEO GIÁ
+                  const Text(
+                    'Thứ tự sắp xếp theo giá',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF475569),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: InkWell(
+                          onTap: () {
+                            setModalState(() => tempSortAsc = true);
+                          },
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                            decoration: BoxDecoration(
+                              color: tempSortAsc ? const Color(0xFFE0F2FE) : const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: tempSortAsc ? const Color(0xFF09638E) : const Color(0xFFE2E8F0),
+                                width: tempSortAsc ? 1.5 : 1,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.arrow_upward_rounded,
+                                  size: 16,
+                                  color: tempSortAsc ? const Color(0xFF09638E) : const Color(0xFF64748B),
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Giá Thấp → Cao',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: tempSortAsc ? FontWeight.bold : FontWeight.w500,
+                                    color: tempSortAsc ? const Color(0xFF09638E) : const Color(0xFF334155),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: InkWell(
+                          onTap: () {
+                            setModalState(() => tempSortAsc = false);
+                          },
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                            decoration: BoxDecoration(
+                              color: !tempSortAsc ? const Color(0xFFE0F2FE) : const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: !tempSortAsc ? const Color(0xFF09638E) : const Color(0xFFE2E8F0),
+                                width: !tempSortAsc ? 1.5 : 1,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.arrow_downward_rounded,
+                                  size: 16,
+                                  color: !tempSortAsc ? const Color(0xFF09638E) : const Color(0xFF64748B),
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Giá Cao → Thấp',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: !tempSortAsc ? FontWeight.bold : FontWeight.w500,
+                                    color: !tempSortAsc ? const Color(0xFF09638E) : const Color(0xFF334155),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+
+                  // MỤC 2: KHOẢNG GIÁ
+                  const Text(
+                    'Khoảng giá thuê',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF475569),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: pricePresets.map((p) {
+                      final id = p['id'] as int;
+                      final isSelected = tempFilter == id;
+                      return ChoiceChip(
+                        showCheckmark: false,
+                        label: Text(p['label'] as String),
+                        labelStyle: TextStyle(
+                          fontSize: 12,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                          color: isSelected ? Colors.white : const Color(0xFF334155),
+                        ),
+                        selected: isSelected,
+                        selectedColor: const Color(0xFF09638E),
+                        backgroundColor: const Color(0xFFF8FAFC),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: BorderSide(
+                            color: isSelected ? const Color(0xFF09638E) : const Color(0xFFE2E8F0),
+                          ),
+                        ),
+                        onSelected: (val) {
+                          setModalState(() {
+                            tempFilter = id;
+                            if (id == 1) {
+                              tempRange = const RangeValues(2000000, 3000000);
+                            } else if (id == 2) {
+                              tempRange = const RangeValues(3000000, 3500000);
+                            } else if (id == 3) {
+                              tempRange = const RangeValues(3500000, 4000000);
+                            } else if (id == 4) {
+                              tempRange = const RangeValues(4000000, 6000000);
+                            }
+                          });
+                        },
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Thanh trượt tùy chỉnh
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF0F9FF),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: const Color(0xFFBAE6FD)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              tempFilter == 5
+                                  ? 'Tùy chỉnh khoảng giá:'
+                                  : 'Khoảng giá chi tiết:',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF0369A1),
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: const Color(0xFFBAE6FD),
+                                ),
+                              ),
+                              child: Text(
+                                '${FormatUtils.currencyShort(tempRange.start)} - ${FormatUtils.currencyShort(tempRange.end)}',
+                                style: const TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF09638E),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 6,
+                                  horizontal: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: const Color(0xFFE2E8F0),
+                                  ),
+                                ),
+                                child: Column(
+                                  children: [
+                                    const Text(
+                                      'Tối thiểu',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: Color(0xFF64748B),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Text(
+                                        FormatUtils.currency(tempRange.start),
+                                        style: const TextStyle(
+                                          fontSize: 12.5,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF0F172A),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 8),
+                              child: Icon(
+                                Icons.arrow_forward_rounded,
+                                size: 14,
+                                color: Color(0xFF94A3B8),
+                              ),
+                            ),
+                            Expanded(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 6,
+                                  horizontal: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: const Color(0xFFE2E8F0),
+                                  ),
+                                ),
+                                child: Column(
+                                  children: [
+                                    const Text(
+                                      'Tối đa',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: Color(0xFF64748B),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Text(
+                                        FormatUtils.currency(tempRange.end),
+                                        style: const TextStyle(
+                                          fontSize: 12.5,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF0F172A),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        RangeSlider(
+                          values: tempRange,
+                          min: 2000000,
+                          max: 6000000,
+                          divisions: 40,
+                          activeColor: const Color(0xFF09638E),
+                          inactiveColor: const Color(0xFFCBD5E1),
+                          labels: RangeLabels(
+                            FormatUtils.currencyShort(tempRange.start),
+                            FormatUtils.currencyShort(tempRange.end),
+                          ),
+                          onChanged: (values) {
+                            setModalState(() {
+                              tempRange = values;
+                              tempFilter = 5; // Tự động chuyển sang tùy chỉnh khi kéo slider
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Nút Áp dụng
+                  SizedBox(
+                    width: double.infinity,
+                    height: 46,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        setState(() {
+                          _selectedPriceFilter = tempFilter;
+                          _customPriceRange = tempRange;
+                          _sortAscending = tempSortAsc;
+                        });
+                        _applyFilter();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF09638E),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: const Text(
+                        'Áp dụng bộ lọc',
+                        style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  String _getPriceFilterDisplayLabel() {
+    final arrow = _sortAscending ? '↑' : '↓';
+    switch (_selectedPriceFilter) {
+      case 1:
+        return '< 3tr ($arrow)';
+      case 2:
+        return '3 - 3.5tr ($arrow)';
+      case 3:
+        return '3.5 - 4tr ($arrow)';
+      case 4:
+        return '> 4tr ($arrow)';
+      case 5:
+        return '${FormatUtils.currencyShort(_customPriceRange.start)}-${FormatUtils.currencyShort(_customPriceRange.end)} ($arrow)';
+      default:
+        return 'Lọc bảng giá ($arrow)';
+    }
+  }
+
+  // INFO & SORT ROW (ĐÃ TÍCH HỢP BỘ LỌC BẢNG GIÁ)
   Widget _buildInfoAndSortRow() {
+    final bool isPriceFiltered = _selectedPriceFilter != 0;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
@@ -1665,6 +2191,8 @@ class _GuestHomeScreenState extends State<GuestHomeScreen> {
           Expanded(
             child: Text(
               'Còn ${_filteredRooms.length} phòng trống ngay hôm nay',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
@@ -1673,32 +2201,48 @@ class _GuestHomeScreenState extends State<GuestHomeScreen> {
             ),
           ),
 
-          // Dropdown sort button
+          // Dropdown button Lọc bảng giá thay thế cho nút sắp xếp cũ
           InkWell(
-            onTap: () {
-              setState(() {
-                _sortAscending = !_sortAscending;
-              });
-              _applyFilter();
-            },
-            borderRadius: BorderRadius.circular(8),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+            onTap: _showPriceFilterBottomSheet,
+            borderRadius: BorderRadius.circular(10),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: isPriceFiltered ? const Color(0xFF09638E) : Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: isPriceFiltered ? const Color(0xFF09638E) : const Color(0xFFCBD5E1),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+              ),
               child: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(
-                    Icons.swap_vert_rounded,
-                    size: 16,
-                    color: Color(0xFF64748B),
+                  Icon(
+                    Icons.tune_rounded,
+                    size: 14,
+                    color: isPriceFiltered ? Colors.white : const Color(0xFF09638E),
+                  ),
+                  const SizedBox(width: 5),
+                  Text(
+                    _getPriceFilterDisplayLabel(),
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.bold,
+                      color: isPriceFiltered ? Colors.white : const Color(0xFF1E293B),
+                    ),
                   ),
                   const SizedBox(width: 2),
-                  Text(
-                    _sortAscending ? 'Giá: Thấp → Cao' : 'Giá: Cao → Thấp',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF475569),
-                    ),
+                  Icon(
+                    Icons.arrow_drop_down_rounded,
+                    size: 16,
+                    color: isPriceFiltered ? Colors.white : const Color(0xFF64748B),
                   ),
                 ],
               ),

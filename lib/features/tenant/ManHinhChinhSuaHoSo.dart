@@ -115,6 +115,267 @@ class _ManHinhChinhSuaHoSoState extends State<ManHinhChinhSuaHoSo> {
     } catch (_) {}
   }
 
+  /// Thông báo dạng popup hộp thoại khi đăng ký hoặc cập nhật phương tiện thành công
+  void _showThongBaoDangKyXeThanhCong({
+    required String loaiXe,
+    required String bienSo,
+    required bool isEditing,
+  }) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        backgroundColor: Colors.white,
+        elevation: 10,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(22, 26, 22, 22),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF10B981), Color(0xFF059669)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF10B981).withValues(alpha: 0.35),
+                      blurRadius: 16,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: const Center(
+                  child: Icon(
+                    Icons.check_circle_rounded,
+                    color: Colors.white,
+                    size: 40,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                isEditing
+                    ? 'Cập Nhật Phương Tiện Thành Công'
+                    : 'Đăng Ký Phương Tiện Thành Công!',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 17.5,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                isEditing
+                    ? 'Thông tin phương tiện xe của bạn đã được cập nhật thành công trên hệ thống.'
+                    : 'Yêu cầu đăng ký giữ xe đã được ghi nhận vào hệ thống nhà trọ Kiêu Giang.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFF64748B),
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Loại xe',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF64748B),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.two_wheeler_rounded,
+                              size: 16,
+                              color: Color(0xFF09638E),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              loaiXe,
+                              style: const TextStyle(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF0F172A),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: Divider(height: 1, color: Color(0xFFE2E8F0)),
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Biển số xe',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF64748B),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 3.5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF09638E).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: const Color(0xFF09638E).withValues(alpha: 0.25),
+                            ),
+                          ),
+                          child: Text(
+                            bienSo,
+                            style: const TextStyle(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF09638E),
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: Divider(height: 1, color: Color(0xFFE2E8F0)),
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Trạng thái',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF64748B),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 9,
+                            vertical: 3.5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFEF3C7),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: const Color(0xFFFDE68A)),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.access_time_rounded,
+                                size: 13,
+                                color: Color(0xFFB45309),
+                              ),
+                              SizedBox(width: 4),
+                              Text(
+                                'Chờ duyệt cấp thẻ',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFFB45309),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFBFDBFE)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Icon(
+                      Icons.info_outline_rounded,
+                      size: 18,
+                      color: Color(0xFF1D4ED8),
+                    ),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Vui lòng liên hệ Ban Quản Lý tòa nhà hoặc Bảo vệ để nhận thẻ xe vật lý / kích hoạt thẻ giữ xe.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF1E40AF),
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
+              SizedBox(
+                width: double.infinity,
+                height: 46,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF09638E),
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    'Đã hiểu',
+                    style: TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   void _showModalSuaPhuongTien(Map<String, dynamic>? phuongTienHienTai) {
     final isEditing = phuongTienHienTai != null;
     final maPt = phuongTienHienTai?['ma_phuong_tien']?.toString() ?? '';
@@ -376,10 +637,17 @@ class _ManHinhChinhSuaHoSoState extends State<ManHinhChinhSuaHoSo> {
                                         setModalState(
                                           () => isSubmitting = false,
                                         );
+                                        final errStr = err.toString();
+                                        final bool isRlsError = errStr.contains('42501') ||
+                                            errStr.toLowerCase().contains('row-level security') ||
+                                            errStr.toLowerCase().contains('unauthorized');
+                                        final thongBaoLoi = isRlsError
+                                            ? 'Bảng "phuong_tien" trên Supabase đang bật Row Level Security (RLS) chưa cấp quyền xóa.\nVui lòng tắt RLS trên Supabase để thực hiện.'
+                                            : 'Không thể xóa phương tiện: $err';
                                         ThongBaoHelper.hienToast(
                                           context,
                                           tieuDe: 'Lỗi',
-                                          noiDung: '$err',
+                                          noiDung: thongBaoLoi,
                                           type: ThongBaoType.thatBai,
                                         );
                                       }
@@ -451,13 +719,10 @@ class _ManHinhChinhSuaHoSoState extends State<ManHinhChinhSuaHoSo> {
                                         }
                                         if (mounted) {
                                           Navigator.pop(ctx);
-                                          ThongBaoHelper.hienToast(
-                                            context,
-                                            tieuDe: 'Thành công',
-                                            noiDung: isEditing
-                                                ? 'Đã cập nhật phương tiện!'
-                                                : 'Đã thêm phương tiện mới!',
-                                            type: ThongBaoType.thanhCong,
+                                          _showThongBaoDangKyXeThanhCong(
+                                            loaiXe: loaiXeSelected,
+                                            bienSo: bienSo,
+                                            isEditing: isEditing,
                                           );
                                           _taiDanhSachPhuongTien();
                                         }
@@ -465,10 +730,17 @@ class _ManHinhChinhSuaHoSoState extends State<ManHinhChinhSuaHoSo> {
                                         setModalState(
                                           () => isSubmitting = false,
                                         );
+                                        final errStr = err.toString();
+                                        final bool isRlsError = errStr.contains('42501') ||
+                                            errStr.toLowerCase().contains('row-level security') ||
+                                            errStr.toLowerCase().contains('unauthorized');
+                                        final thongBaoLoi = isRlsError
+                                            ? 'Bảng "phuong_tien" trên Supabase đang bật Row Level Security (RLS) nên chặn quyền lưu.\n\nVui lòng tắt RLS hoặc cấp quyền Policy cho bảng "phuong_tien" trên Supabase để thực hiện.'
+                                            : 'Không thể lưu phương tiện: $err';
                                         ThongBaoHelper.hienToast(
                                           context,
-                                          tieuDe: 'Lỗi',
-                                          noiDung: '$err',
+                                          tieuDe: 'Lỗi Lưu Phương Tiện',
+                                          noiDung: thongBaoLoi,
                                           type: ThongBaoType.thatBai,
                                         );
                                       }

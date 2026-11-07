@@ -4,8 +4,13 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ManHinhDoiMatKhauLanDau extends StatefulWidget {
   final String tenDangNhap;
+  final String? matKhauCu;
 
-  const ManHinhDoiMatKhauLanDau({super.key, required this.tenDangNhap});
+  const ManHinhDoiMatKhauLanDau({
+    super.key,
+    required this.tenDangNhap,
+    this.matKhauCu,
+  });
 
   @override
   State<ManHinhDoiMatKhauLanDau> createState() =>
@@ -21,6 +26,31 @@ class _ManHinhDoiMatKhauLanDauState extends State<ManHinhDoiMatKhauLanDau> {
   bool _obscureXacNhan = true;
   bool _isLoading = false;
   String? _errorMessage;
+  String? _currentDbPassword;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentDbPassword = widget.matKhauCu;
+    _taiMatKhauHienTai();
+  }
+
+  Future<void> _taiMatKhauHienTai() async {
+    try {
+      final db = Supabase.instance.client;
+      final row = await db
+          .from('tai_khoan')
+          .select('mat_khau')
+          .eq('ten_dang_nhap', widget.tenDangNhap)
+          .maybeSingle();
+      if (row != null && mounted) {
+        setState(() {
+          _currentDbPassword =
+              row['mat_khau']?.toString() ?? _currentDbPassword;
+        });
+      }
+    } catch (_) {}
+  }
 
   @override
   void dispose() {
@@ -38,6 +68,23 @@ class _ManHinhDoiMatKhauLanDauState extends State<ManHinhDoiMatKhauLanDau> {
     final pass = _matKhauMoiController.text.trim();
     if (user.isEmpty || pass.isEmpty) return true;
     return pass != user;
+  }
+
+  bool get _isNotOldPassword {
+    final pass = _matKhauMoiController.text.trim();
+    if (pass.isEmpty) return true;
+    if (widget.matKhauCu != null &&
+        widget.matKhauCu!.isNotEmpty &&
+        pass == widget.matKhauCu!.trim()) {
+      return false;
+    }
+    if (_currentDbPassword != null && _currentDbPassword!.isNotEmpty) {
+      if (pass == _currentDbPassword ||
+          AuthService.verifyPassword(pass, _currentDbPassword!)) {
+        return false;
+      }
+    }
+    return true;
   }
 
   bool get _isMatch =>
@@ -68,6 +115,13 @@ class _ManHinhDoiMatKhauLanDauState extends State<ManHinhDoiMatKhauLanDau> {
       );
       return;
     }
+    if (!_isNotOldPassword) {
+      setState(
+        () => _errorMessage =
+            'Mật khẩu mới không được trùng với mật khẩu cũ do chủ nhà cấp. Vui lòng đặt mật khẩu khác!',
+      );
+      return;
+    }
     if (!_isMatch) {
       setState(() => _errorMessage = 'Mật khẩu xác nhận không trùng khớp');
       return;
@@ -80,6 +134,30 @@ class _ManHinhDoiMatKhauLanDauState extends State<ManHinhDoiMatKhauLanDau> {
 
     try {
       final db = Supabase.instance.client;
+
+      // Kiểm tra lần cuối với dữ liệu trong database
+      final row = await db
+          .from('tai_khoan')
+          .select('mat_khau')
+          .eq('ten_dang_nhap', widget.tenDangNhap)
+          .maybeSingle();
+
+      if (row != null) {
+        final currentHashOrPass = row['mat_khau']?.toString() ?? '';
+        final isOld = (widget.matKhauCu != null && passMoi == widget.matKhauCu) ||
+            passMoi == currentHashOrPass ||
+            AuthService.verifyPassword(passMoi, currentHashOrPass);
+        if (isOld) {
+          if (mounted) {
+            setState(() {
+              _isLoading = false;
+              _errorMessage =
+                  'Mật khẩu mới không được trùng với mật khẩu cũ do chủ trọ cấp. Vui lòng thiết lập mật khẩu khác!';
+            });
+          }
+          return;
+        }
+      }
 
       // Cập nhật mật khẩu mới (được mã hóa BCrypt) và set da_doi_mat_khau = true
       final hashedPass = AuthService.hashPassword(passMoi);
@@ -327,6 +405,10 @@ class _ManHinhDoiMatKhauLanDauState extends State<ManHinhDoiMatKhauLanDau> {
                       _hasLetter && _hasDigit,
                     ),
                     _buildCriteriaItem('Khác tên đăng nhập', _isNotUser),
+                    _buildCriteriaItem(
+                      'Không trùng mật khẩu cũ chủ cấp',
+                      _isNotOldPassword,
+                    ),
                     _buildCriteriaItem(
                       'Mật khẩu xác nhận trùng khớp',
                       _isMatch,

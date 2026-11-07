@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:nhatro_kieugiang/core/services/DichVuSms.dart';
 import 'package:nhatro_kieugiang/core/services/DichVuXacThuc.dart';
 import 'package:nhatro_kieugiang/data/models/MoHinhNguoiDung.dart';
@@ -29,6 +30,8 @@ class _LoginScreenState extends State<LoginScreen>
   bool _obscurePassword = true;
   bool _isLoading = false;
   String? _errorMessage;
+  String? _usernameError;
+  String? _passwordError;
   bool _usernameFocused = false;
   bool _passwordFocused = false;
 
@@ -232,18 +235,149 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
+  void _hienThiThongBaoTaiKhoanKhongTonTai(String phone) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        contentPadding: const EdgeInsets.fromLTRB(22, 24, 22, 20),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF2F2),
+                shape: BoxShape.circle,
+                border: Border.all(color: const Color(0xFFFECACA), width: 1.5),
+              ),
+              child: const Icon(
+                Icons.person_off_rounded,
+                color: Color(0xFFEF4444),
+                size: 32,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'TÀI KHOẢN KHÔNG TỒN TẠI',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF991B1B),
+                letterSpacing: 0.3,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFFDF5),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFFEF3C7)),
+              ),
+              child: Column(
+                children: [
+                  const Text(
+                    'Số điện thoại chưa được đăng ký trong hệ thống cư dân',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFFB45309),
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Số điện thoại $phone chưa từng được cấp tài khoản cư dân tại Nhà trọ Kiêu Giang. Vui lòng kiểm tra lại hoặc liên hệ BQL để được hỗ trợ.',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF64748B),
+                      height: 1.45,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 18),
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.pop(ctx);
+                LienHeHelper.hienThiLuaChonLienHe(context);
+              },
+              icon: const Icon(Icons.phone_in_talk_rounded, size: 18),
+              label: const Text(
+                'Liên hệ Ban Quản Lý (0328.004.663)',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF09638E),
+                foregroundColor: Colors.white,
+                minimumSize: const Size(double.infinity, 44),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 0,
+              ),
+            ),
+            const SizedBox(height: 6),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text(
+                'Đã hiểu',
+                style: TextStyle(
+                  color: Color(0xFF64748B),
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _handleLogin() async {
     if (_isLoading) return;
     FocusScope.of(context).unfocus();
 
-    setState(() => _errorMessage = null);
+    setState(() {
+      _errorMessage = null;
+      _usernameError = null;
+      _passwordError = null;
+    });
+
     final username = _usernameController.text.trim();
     final password = _passwordController.text;
 
-    if (username.isEmpty || password.isEmpty) {
-      setState(
-        () => _errorMessage = 'Vui lòng nhập đầy đủ tài khoản và mật khẩu',
-      );
+    String? userErr;
+    String? passErr;
+
+    if (username.isEmpty) {
+      userErr = 'Vui lòng nhập số điện thoại';
+    } else if (!RegExp(r'^0[0-9]{9}$').hasMatch(username) &&
+        !username.contains('@') &&
+        username != 'admin') {
+      userErr = 'Vui lòng nhập đúng 10 chữ số';
+    }
+
+    if (password.isEmpty) {
+      passErr = 'Vui lòng nhập mật khẩu';
+    }
+
+    if (userErr != null || passErr != null) {
+      setState(() {
+        _usernameError = userErr;
+        _passwordError = passErr;
+        _errorMessage = null;
+      });
       return;
     }
 
@@ -261,8 +395,28 @@ class _LoginScreenState extends State<LoginScreen>
       if (!result.success || result.user == null) {
         final err = result.error ?? 'Đăng nhập thất bại. Vui lòng thử lại!';
         setState(() {
-          _errorMessage = err;
           _isLoading = false;
+        });
+
+        // 1. Nếu số điện thoại chưa từng được đăng ký trong hệ thống
+        if (err.contains('chưa được đăng ký') || err.contains('không tồn tại')) {
+          setState(() {
+            _usernameError = 'Số điện thoại không tồn tại trong hệ thống';
+            _errorMessage = null;
+          });
+          _hienThiThongBaoTaiKhoanKhongTonTai(username);
+          return;
+        }
+
+        // 2. Nếu tài khoản bị tạm khóa
+        if (err.contains('tạm khóa')) {
+          _hienThiThongBaoKhoaTaiKhoan(err);
+          return;
+        }
+
+        // 3. Các lỗi khác (sai mật khẩu...)
+        setState(() {
+          _errorMessage = err;
         });
         ThongBaoHelper.hienToast(
           context,
@@ -282,7 +436,10 @@ class _LoginScreenState extends State<LoginScreen>
         final passMoi = await Navigator.push<String>(
           context,
           MaterialPageRoute(
-            builder: (_) => ManHinhDoiMatKhauLanDau(tenDangNhap: username),
+            builder: (_) => ManHinhDoiMatKhauLanDau(
+              tenDangNhap: username,
+              matKhauCu: password,
+            ),
           ),
         );
 
@@ -826,8 +983,10 @@ class _LoginScreenState extends State<LoginScreen>
                                   ),
                                   const SizedBox(height: 20),
 
-                                  // Error Banner
-                                  if (_errorMessage != null) ...[
+                                  // Error Banner (chỉ hiển thị khi có lỗi từ server, không trùng với lỗi ô nhập liệu)
+                                  if (_errorMessage != null &&
+                                      _usernameError == null &&
+                                      _passwordError == null) ...[
                                     Container(
                                       padding: const EdgeInsets.symmetric(
                                         horizontal: 14,
@@ -866,16 +1025,32 @@ class _LoginScreenState extends State<LoginScreen>
                                     const SizedBox(height: 16),
                                   ],
 
-                                  // Username Field
-                                  _buildLabel('Tên đăng nhập'),
+                                  // Phone Field
+                                  _buildLabel('Số điện thoại'),
                                   const SizedBox(height: 7),
                                   _buildInputField(
                                     controller: _usernameController,
                                     focusNode: _usernameFocus,
                                     isFocused: _usernameFocused,
-                                    prefixIcon: Icons.person_outline_rounded,
-                                    hint: 'Nhập tên đăng nhập của bạn',
-                                    keyboardType: TextInputType.text,
+                                    prefixIcon: Icons.phone_android_rounded,
+                                    hint: 'Nhập số điện thoại (10 số)',
+                                    errorText: _usernameError,
+                                    keyboardType: TextInputType.phone,
+                                    maxLength: 10,
+                                    inputFormatters: [
+                                      FilteringTextInputFormatter.digitsOnly,
+                                      LengthLimitingTextInputFormatter(10),
+                                    ],
+                                    onChanged: (val) {
+                                      if (_usernameError != null) {
+                                        setState(() {
+                                          _usernameError = null;
+                                          if (_passwordError == null) {
+                                            _errorMessage = null;
+                                          }
+                                        });
+                                      }
+                                    },
                                     onSubmitted: (_) =>
                                         _passwordFocus.requestFocus(),
                                   ),
@@ -1084,107 +1259,211 @@ class _LoginScreenState extends State<LoginScreen>
     required bool isFocused,
     required IconData prefixIcon,
     required String hint,
+    String? errorText,
+    int? maxLength,
+    List<TextInputFormatter>? inputFormatters,
     TextInputType? keyboardType,
+    void Function(String)? onChanged,
     void Function(String)? onSubmitted,
   }) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      decoration: BoxDecoration(
-        color: isFocused ? Colors.white : const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(13),
-        border: Border.all(
-          color: isFocused ? const Color(0xFF09638E) : const Color(0xFFE2E8F0),
-          width: isFocused ? 1.8 : 1,
+    final hasError = errorText != null && errorText.isNotEmpty;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          decoration: BoxDecoration(
+            color: isFocused ? Colors.white : const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(13),
+            border: Border.all(
+              color: hasError
+                  ? const Color(0xFFE11D48)
+                  : (isFocused ? const Color(0xFF09638E) : const Color(0xFFE2E8F0)),
+              width: hasError ? 1.5 : (isFocused ? 1.8 : 1),
+            ),
+            boxShadow: hasError
+                ? [
+                    BoxShadow(
+                      color: const Color(0xFFE11D48).withValues(alpha: 0.12),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : (isFocused
+                    ? [
+                        BoxShadow(
+                          color: const Color(0xFF09638E).withValues(alpha: 0.12),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
+                        ),
+                      ]
+                    : []),
+          ),
+          child: TextField(
+            controller: controller,
+            focusNode: focusNode,
+            keyboardType: keyboardType,
+            maxLength: maxLength,
+            buildCounter: maxLength != null
+                ? (context, {required currentLength, required isFocused, maxLength}) => null
+                : null,
+            inputFormatters: inputFormatters,
+            onChanged: onChanged,
+            onSubmitted: onSubmitted,
+            decoration: InputDecoration(
+              prefixIcon: Icon(
+                prefixIcon,
+                size: 19,
+                color: hasError
+                    ? const Color(0xFFE11D48)
+                    : (isFocused
+                        ? const Color(0xFF09638E)
+                        : const Color(0xFF94A3B8)),
+              ),
+              hintText: hint,
+              hintStyle: const TextStyle(fontSize: 13, color: Color(0xFFCBD5E1)),
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(
+                vertical: 14,
+                horizontal: 14,
+              ),
+            ),
+          ),
         ),
-        boxShadow: isFocused
-            ? [
-                BoxShadow(
-                  color: const Color(0xFF09638E).withValues(alpha: 0.12),
-                  blurRadius: 10,
-                  offset: const Offset(0, 3),
+        if (hasError) ...[
+          const SizedBox(height: 5),
+          Padding(
+            padding: const EdgeInsets.only(left: 4),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.error_outline_rounded,
+                  color: Color(0xFFE11D48),
+                  size: 13,
                 ),
-              ]
-            : [],
-      ),
-      child: TextField(
-        controller: controller,
-        focusNode: focusNode,
-        keyboardType: keyboardType,
-        onSubmitted: onSubmitted,
-        decoration: InputDecoration(
-          prefixIcon: Icon(
-            prefixIcon,
-            size: 19,
-            color: isFocused
-                ? const Color(0xFF09638E)
-                : const Color(0xFF94A3B8),
+                const SizedBox(width: 4),
+                Text(
+                  errorText,
+                  style: const TextStyle(
+                    color: Color(0xFFE11D48),
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
           ),
-          hintText: hint,
-          hintStyle: const TextStyle(fontSize: 13, color: Color(0xFFCBD5E1)),
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(
-            vertical: 14,
-            horizontal: 14,
-          ),
-        ),
-      ),
+        ],
+      ],
     );
   }
 
   Widget _buildPasswordField() {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      decoration: BoxDecoration(
-        color: _passwordFocused ? Colors.white : const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(13),
-        border: Border.all(
-          color: _passwordFocused
-              ? const Color(0xFF09638E)
-              : const Color(0xFFE2E8F0),
-          width: _passwordFocused ? 1.8 : 1,
-        ),
-        boxShadow: _passwordFocused
-            ? [
-                BoxShadow(
-                  color: const Color(0xFF09638E).withValues(alpha: 0.12),
-                  blurRadius: 10,
-                  offset: const Offset(0, 3),
-                ),
-              ]
-            : [],
-      ),
-      child: TextField(
-        controller: _passwordController,
-        focusNode: _passwordFocus,
-        obscureText: _obscurePassword,
-        onSubmitted: (_) => _handleLogin(),
-        decoration: InputDecoration(
-          prefixIcon: Icon(
-            Icons.lock_outline_rounded,
-            size: 19,
-            color: _passwordFocused
-                ? const Color(0xFF09638E)
-                : const Color(0xFF94A3B8),
+    final hasError = _passwordError != null && _passwordError!.isNotEmpty;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          decoration: BoxDecoration(
+            color: _passwordFocused ? Colors.white : const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(13),
+            border: Border.all(
+              color: hasError
+                  ? const Color(0xFFE11D48)
+                  : (_passwordFocused
+                      ? const Color(0xFF09638E)
+                      : const Color(0xFFE2E8F0)),
+              width: hasError ? 1.5 : (_passwordFocused ? 1.8 : 1),
+            ),
+            boxShadow: hasError
+                ? [
+                    BoxShadow(
+                      color: const Color(0xFFE11D48).withValues(alpha: 0.12),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : (_passwordFocused
+                    ? [
+                        BoxShadow(
+                          color: const Color(0xFF09638E).withValues(alpha: 0.12),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
+                        ),
+                      ]
+                    : []),
           ),
-          suffixIcon: GestureDetector(
-            onTap: () => setState(() => _obscurePassword = !_obscurePassword),
-            child: Icon(
-              _obscurePassword
-                  ? Icons.visibility_outlined
-                  : Icons.visibility_off_outlined,
-              size: 19,
-              color: const Color(0xFF94A3B8),
+          child: TextField(
+            controller: _passwordController,
+            focusNode: _passwordFocus,
+            obscureText: _obscurePassword,
+            onChanged: (val) {
+              if (_passwordError != null) {
+                setState(() {
+                  _passwordError = null;
+                  if (_usernameError == null) {
+                    _errorMessage = null;
+                  }
+                });
+              }
+            },
+            onSubmitted: (_) => _handleLogin(),
+            decoration: InputDecoration(
+              prefixIcon: Icon(
+                Icons.lock_outline_rounded,
+                size: 19,
+                color: hasError
+                    ? const Color(0xFFE11D48)
+                    : (_passwordFocused
+                        ? const Color(0xFF09638E)
+                        : const Color(0xFF94A3B8)),
+              ),
+              suffixIcon: GestureDetector(
+                onTap: () => setState(() => _obscurePassword = !_obscurePassword),
+                child: Icon(
+                  _obscurePassword
+                      ? Icons.visibility_outlined
+                      : Icons.visibility_off_outlined,
+                  size: 19,
+                  color: const Color(0xFF94A3B8),
+                ),
+              ),
+              hintText: '••••••••',
+              hintStyle: const TextStyle(fontSize: 14, color: Color(0xFFCBD5E1)),
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(
+                vertical: 14,
+                horizontal: 14,
+              ),
             ),
           ),
-          hintText: '••••••••',
-          hintStyle: const TextStyle(fontSize: 14, color: Color(0xFFCBD5E1)),
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(
-            vertical: 14,
-            horizontal: 14,
-          ),
         ),
-      ),
+        if (hasError) ...[
+          const SizedBox(height: 5),
+          Padding(
+            padding: const EdgeInsets.only(left: 4),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.error_outline_rounded,
+                  color: Color(0xFFE11D48),
+                  size: 13,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  _passwordError!,
+                  style: const TextStyle(
+                    color: Color(0xFFE11D48),
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
     );
   }
 
@@ -1507,6 +1786,10 @@ class _ForgotPasswordSheetState extends State<_ForgotPasswordSheet> {
       setState(() => _errorMsg = 'Vui lòng nhập số điện thoại');
       return;
     }
+    if (!RegExp(r'^0[0-9]{9}$').hasMatch(phone)) {
+      setState(() => _errorMsg = 'Vui lòng nhập đúng 10 chữ số');
+      return;
+    }
 
     setState(() {
       _isLoading = true;
@@ -1637,6 +1920,30 @@ class _ForgotPasswordSheetState extends State<_ForgotPasswordSheet> {
 
     try {
       final db = Supabase.instance.client;
+
+      // Không cho đặt trùng mật khẩu hiện tại
+      final userRow = await db
+          .from('tai_khoan')
+          .select('mat_khau')
+          .eq('ten_dang_nhap', _tenDangNhapFound)
+          .maybeSingle();
+
+      if (userRow != null) {
+        final currentHashOrPass = userRow['mat_khau']?.toString() ?? '';
+        final isOld = pass == currentHashOrPass ||
+            AuthService.verifyPassword(pass, currentHashOrPass);
+        if (isOld) {
+          if (mounted) {
+            setState(() {
+              _isLoading = false;
+              _errorMsg =
+                  'Mật khẩu mới không được trùng với mật khẩu hiện tại của tài khoản!';
+            });
+          }
+          return;
+        }
+      }
+
       final hashedPass = AuthService.hashPassword(pass);
       await db
           .from('tai_khoan')
@@ -1905,6 +2212,12 @@ class _ForgotPasswordSheetState extends State<_ForgotPasswordSheet> {
                 child: TextField(
                   controller: _phoneCtrl,
                   keyboardType: TextInputType.phone,
+                  maxLength: 10,
+                  buildCounter: (_, {required currentLength, required isFocused, maxLength}) => null,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(10),
+                  ],
                   style: const TextStyle(
                     fontSize: 14.5,
                     fontWeight: FontWeight.w600,
