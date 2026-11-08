@@ -31,7 +31,6 @@ class RoomDetailScreen extends StatefulWidget {
 }
 
 class _RoomDetailScreenState extends State<RoomDetailScreen> {
-  bool _isFavorite = false;
   List<ThongSoPhongModel> _thongSo = [];
   bool _loadingSpec = true;
   List<DichVuModel> _dichVuList = [];
@@ -329,29 +328,8 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
                   ),
                 ),
                 centerTitle: true,
-                actions: [
-                  GestureDetector(
-                    onTap: () {},
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 6),
-                      child: Icon(Icons.ios_share_rounded, size: 20),
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () => setState(() => _isFavorite = !_isFavorite),
-                    child: Padding(
-                      padding: const EdgeInsets.only(right: 16, left: 4),
-                      child: Icon(
-                        _isFavorite
-                            ? Icons.favorite_rounded
-                            : Icons.favorite_border_rounded,
-                        size: 22,
-                        color: _isFavorite
-                            ? Colors.red
-                            : const Color(0xFF64748B),
-                      ),
-                    ),
-                  ),
+                actions: const [
+                  SizedBox(width: 48),
                 ],
               ),
 

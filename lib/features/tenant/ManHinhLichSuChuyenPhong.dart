@@ -189,6 +189,14 @@ class _RoomTransferHistoryScreenState extends State<RoomTransferHistoryScreen> {
                 _fetchTransferRequests(isSilent: true);
               },
             )
+            ..onPostgresChanges(
+              event: PostgresChangeEvent.all,
+              schema: 'public',
+              table: 'phu_luc_hop_dong',
+              callback: (_) {
+                _fetchTransferRequests(isSilent: true);
+              },
+            )
             ..subscribe();
     } catch (_) {}
   }
@@ -273,11 +281,94 @@ class _RoomTransferHistoryScreenState extends State<RoomTransferHistoryScreen> {
       }
 
       final rows = await query.order('ngay_tao', ascending: false);
+      final List<Map<String, dynamic>> combinedList =
+          List<Map<String, dynamic>>.from(rows as List);
+
+      // Nạp thêm các Phụ Lục Chuyển Phòng ĐÃ DUYỆT từ bảng phu_luc_hop_dong
+      try {
+        var plQuery = db.from('phu_luc_hop_dong').select();
+        if (contractCode != null && contractCode.isNotEmpty) {
+          plQuery = plQuery.eq('ma_hop_dong', contractCode);
+        }
+        final plRows = await plQuery;
+        for (final pl in plRows) {
+          final maPhuLuc = pl['ma_phu_luc']?.toString() ?? '';
+          final maPhongMoi = pl['ma_phong_moi']?.toString() ?? '';
+          final noiDung = pl['noi_dung_dieu_chinh']?.toString() ?? '';
+          final trangThai = pl['trang_thai']?.toString() ?? '';
+
+          // Nhận diện phụ lục chuyển phòng
+          final isChuyenPhong = maPhongMoi.isNotEmpty ||
+              maPhuLuc.toUpperCase().startsWith('PLCP') ||
+              noiDung.toLowerCase().contains('chuyển');
+
+          if (!isChuyenPhong) continue;
+
+          // Trích xuất mã yêu cầu chuyển phòng nếu có trong nội dung (VD: YCCP_42501451)
+          String ticketCode = maPhuLuc;
+          final match = RegExp(r'YCCP_\w+').firstMatch(noiDung);
+          if (match != null) {
+            ticketCode = match.group(0)!;
+          }
+
+          // Kiểm tra xem mã này đã có trong danh sách yeu_cau_chuyen_phong chưa
+          final alreadyExists = combinedList.any(
+            (item) =>
+                (item['ma_yeu_cau']?.toString() ?? '').toLowerCase() ==
+                ticketCode.toLowerCase(),
+          );
+
+          if (!alreadyExists) {
+            // Trích xuất phòng cũ từ nội dung nếu có (VD: "từ P203 sang phòng P105")
+            String oldRoom = curRoom;
+            final roomMatch = RegExp(r'từ\s+(P\w+)', caseSensitive: false)
+                .firstMatch(noiDung);
+            if (roomMatch != null) {
+              oldRoom = roomMatch.group(1)!;
+            }
+
+            combinedList.add({
+              'ma_yeu_cau': ticketCode,
+              'ma_hop_dong_ht': pl['ma_hop_dong'] ?? contractCode ?? '',
+              'ma_phong_cu': oldRoom,
+              'ma_phong_moi':
+                  maPhongMoi.isNotEmpty ? maPhongMoi : 'Phòng mới',
+              'tien_coc_bao_luu': pl['chenh_lech_tien_coc'] ?? 0,
+              'thoi_gian_hen': pl['ngay_lap'] ?? '',
+              'nguoi_don_bql': 'BQL Kiều Giang',
+              'tien_phat_sinh': 0,
+              'tien_dien_nuoc_cu': 0,
+              'tien_hu_hai_cu': 0,
+              'trang_thai_tien_do':
+                  trangThai.isNotEmpty ? trangThai : 'Đã duyệt',
+              'ngay_tao': pl['ngay_lap'] != null &&
+                      pl['ngay_lap'].toString().isNotEmpty
+                  ? '${pl['ngay_lap']}T00:00:00Z'
+                  : DateTime.now().toIso8601String(),
+              'ghi_chu_hu_hai': null,
+              'ly_do_chuyen': noiDung.isNotEmpty
+                  ? noiDung
+                  : 'Chuyển sang phòng $maPhongMoi theo phụ lục $maPhuLuc',
+              'ma_phu_luc': maPhuLuc,
+              'is_from_phu_luc': true,
+            });
+          }
+        }
+      } catch (e) {
+        debugPrint('[YCCP_HISTORY] Lỗi nạp phụ lục chuyển phòng: $e');
+      }
+
+      // Sắp xếp đơn mới nhất lên trước
+      combinedList.sort((a, b) {
+        final dateA = a['ngay_tao']?.toString() ?? '';
+        final dateB = b['ngay_tao']?.toString() ?? '';
+        return dateB.compareTo(dateA);
+      });
 
       if (mounted) {
         setState(() {
           _isDaiDien = userIsDaiDien;
-          _danhSachYccp = List<Map<String, dynamic>>.from(rows as List);
+          _danhSachYccp = combinedList;
           _isLoading = false;
         });
       }
@@ -494,7 +585,7 @@ class _RoomTransferHistoryScreenState extends State<RoomTransferHistoryScreen> {
                         physics: const AlwaysScrollableScrollPhysics(
                           parent: BouncingScrollPhysics(),
                         ),
-                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 130),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -507,6 +598,7 @@ class _RoomTransferHistoryScreenState extends State<RoomTransferHistoryScreen> {
                             _buildSummaryBanner(),
                             const SizedBox(height: 16),
                             _buildRequestsList(),
+                            const SizedBox(height: 70),
                           ],
                         ),
                       ),
@@ -515,6 +607,7 @@ class _RoomTransferHistoryScreenState extends State<RoomTransferHistoryScreen> {
           ],
         ),
       ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: _isDaiDien
           ? FloatingActionButton.extended(
               onPressed: () {
@@ -606,19 +699,6 @@ class _RoomTransferHistoryScreenState extends State<RoomTransferHistoryScreen> {
                   ),
                 ),
               ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: const Color(0xFFE6EDF5),
-              shape: BoxShape.circle,
-              border: Border.all(color: const Color(0xFFCBD5E1)),
-            ),
-            child: const Icon(
-              Icons.swap_horiz_rounded,
-              color: _navyDark,
-              size: 20,
             ),
           ),
         ],
@@ -931,33 +1011,19 @@ class _RoomTransferHistoryScreenState extends State<RoomTransferHistoryScreen> {
         status == 'Khách đã xác nhận' || status == 'Chờ chủ duyệt';
 
     Color statusColor;
-    Color statusBg;
-    IconData statusIcon;
 
     if (isApproved) {
       statusColor = const Color(0xFF16A34A);
-      statusBg = const Color(0xFFDCFCE7);
-      statusIcon = Icons.check_circle_rounded;
     } else if (isAwaitingInspection) {
       statusColor = const Color(0xFF0284C7);
-      statusBg = const Color(0xFFE0F2FE);
-      statusIcon = Icons.assignment_turned_in_rounded;
     } else if (isAwaitingLandlord) {
       statusColor = const Color(0xFF9333EA);
-      statusBg = const Color(0xFFF3E8FF);
-      statusIcon = Icons.hourglass_top_rounded;
     } else if (isRejected) {
       statusColor = const Color(0xFFDC2626);
-      statusBg = const Color(0xFFFEE2E2);
-      statusIcon = Icons.cancel_rounded;
     } else if (isCancelled) {
       statusColor = const Color(0xFF64748B);
-      statusBg = const Color(0xFFF1F5F9);
-      statusIcon = Icons.remove_circle_outline_rounded;
     } else {
       statusColor = const Color(0xFFD97706);
-      statusBg = const Color(0xFFFEF3C7);
-      statusIcon = Icons.pending_actions_rounded;
     }
 
     String ngayTaoFormatted = ngayTao;
@@ -1039,22 +1105,30 @@ class _RoomTransferHistoryScreenState extends State<RoomTransferHistoryScreen> {
               ),
               const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: statusBg,
+                  color: const Color(0xFFF8FAFC),
                   borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(statusIcon, size: 12, color: statusColor),
-                    const SizedBox(width: 4),
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: statusColor,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 5),
                     Text(
                       status,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: statusColor,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF334155),
                       ),
                     ),
                   ],
@@ -1292,18 +1366,19 @@ class _RoomTransferHistoryScreenState extends State<RoomTransferHistoryScreen> {
                     icon: const Icon(
                       Icons.close_rounded,
                       size: 14,
-                      color: Color(0xFFEF4444),
+                      color: Color(0xFF64748B),
                     ),
                     label: const Text(
                       'Hủy yêu cầu',
                       style: TextStyle(
                         fontSize: 11.5,
-                        color: Color(0xFFEF4444),
-                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF64748B),
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                     style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Color(0xFFFCA5A5)),
+                      backgroundColor: Colors.white,
+                      side: const BorderSide(color: Color(0xFFE2E8F0)),
                       padding: const EdgeInsets.symmetric(
                         horizontal: 10,
                         vertical: 6,

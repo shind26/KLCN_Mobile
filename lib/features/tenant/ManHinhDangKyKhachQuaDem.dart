@@ -640,9 +640,6 @@ class _ManHinhDangKyKhachQuaDemState extends State<ManHinhDangKyKhachQuaDem>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildBannerLuuY(),
-                    const SizedBox(height: 14),
-
                     // 1. ĐƯA PHẦN TẢI CCCD LÊN ĐẦU ĐỂ QUÉT TỰ ĐỘNG
                     _buildCardHinhAnhCccd(),
                     const SizedBox(height: 14),
@@ -850,108 +847,6 @@ class _ManHinhDangKyKhachQuaDemState extends State<ManHinhDangKyKhachQuaDem>
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildBannerLuuY() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFE0F2FE),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFBAE6FD)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Icon(
-                Icons.info_outline_rounded,
-                color: Color(0xFF0284C7),
-                size: 20,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text.rich(
-                  TextSpan(
-                    text: 'Quy định lưu trú: ',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF0369A1),
-                    ),
-                    children: [
-                      const TextSpan(
-                        text:
-                            'Đăng ký trước 22h00 đêm. Chỉ cần chụp ảnh mặt trước CCCD, hệ thống AI sẽ ',
-                        style: TextStyle(fontWeight: FontWeight.normal),
-                      ),
-                      TextSpan(
-                        text: 'tự động quét và điền Họ tên, CCCD',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blue.shade900,
-                        ),
-                      ),
-                      const TextSpan(
-                        text: ' cho bạn.',
-                        style: TextStyle(fontWeight: FontWeight.normal),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          InkWell(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => ManHinhLichSuLuuTru(
-                    tenPhong: widget.tenPhong,
-                    toaNha: widget.toaNha,
-                    initialTabIndex:
-                        0, // Tab Tất cả (hiển thị cả đã duyệt và chờ duyệt)
-                  ),
-                ),
-              );
-            },
-            borderRadius: BorderRadius.circular(8),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFBAE6FD)),
-              ),
-              child: Row(
-                children: const [
-                  Icon(
-                    Icons.history_edu_rounded,
-                    size: 16,
-                    color: Color(0xFF0284C7),
-                  ),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Xem lịch sử & danh sách khách lưu trú (đã duyệt & chờ duyệt) 👉',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF0284C7),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 

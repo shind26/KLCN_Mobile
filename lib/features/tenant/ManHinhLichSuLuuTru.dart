@@ -404,20 +404,21 @@ class _ManHinhLichSuLuuTruState extends State<ManHinhLichSuLuuTru> {
                       _huyDangKy(item.id);
                     },
                     icon: const Icon(
-                      Icons.delete_outline,
+                      Icons.close_rounded,
                       size: 16,
-                      color: Color(0xFFDC2626),
+                      color: Color(0xFF64748B),
                     ),
                     label: const Text(
                       'Hủy yêu cầu đăng ký',
                       style: TextStyle(
-                        color: Color(0xFFDC2626),
-                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF64748B),
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                     style: OutlinedButton.styleFrom(
+                      backgroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      side: const BorderSide(color: Color(0xFFFCA5A5)),
+                      side: const BorderSide(color: Color(0xFFE2E8F0)),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
@@ -530,13 +531,9 @@ class _ManHinhLichSuLuuTruState extends State<ManHinhLichSuLuuTru> {
               children: [
                 // 1. Ô tìm kiếm
                 _buildSearchBar(),
-                const SizedBox(height: 12),
-
-                // 2. Thẻ thống kê nhanh
-                _buildThongKeGrid(),
                 const SizedBox(height: 14),
 
-                // 3. Tab trạng thái (Tất cả, Chờ duyệt, Đã duyệt, Từ chối)
+                // 2. Tab trạng thái (Tất cả, Chờ duyệt, Đã duyệt, Từ chối)
                 _buildFilterTabs(),
                 const SizedBox(height: 16),
 
@@ -770,109 +767,6 @@ class _ManHinhLichSuLuuTruState extends State<ManHinhLichSuLuuTru> {
     );
   }
 
-  // 2 Thẻ thống kê tóm tắt
-  Widget _buildThongKeGrid() {
-    return Row(
-      children: [
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFFBEB),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFFDE68A)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Chờ duyệt',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFFB45309),
-                      ),
-                    ),
-                    Icon(
-                      Icons.schedule_rounded,
-                      color: Color(0xFFD97706),
-                      size: 16,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  _countChoDuyet.toString().padLeft(2, '0'),
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
-                    color: Color(0xFFB45309),
-                  ),
-                ),
-                const SizedBox(height: 2),
-                const Text(
-                  'Đang đợi BQL xử lý',
-                  style: TextStyle(fontSize: 10.5, color: Color(0xFF92400E)),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF0FDF4),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFBBF7D0)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Đã duyệt',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF15803D),
-                      ),
-                    ),
-                    Icon(
-                      Icons.check_circle_outline_rounded,
-                      color: Color(0xFF16A34A),
-                      size: 16,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  _countDaDuyet.toString().padLeft(2, '0'),
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
-                    color: Color(0xFF15803D),
-                  ),
-                ),
-                const SizedBox(height: 2),
-                const Text(
-                  'Hợp lệ lưu trú',
-                  style: TextStyle(fontSize: 10.5, color: Color(0xFF166534)),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _buildFilterTabs() {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -955,18 +849,9 @@ class _ManHinhLichSuLuuTruState extends State<ManHinhLichSuLuuTru> {
     final bool isChoDuyet = _isChoDuyet(item.trangThai);
     final bool isDaDuyet = _isDaDuyet(item.trangThai);
 
-    final Color badgeBg = isChoDuyet
-        ? const Color(0xFFFFFBEB)
-        : (isDaDuyet ? const Color(0xFFF0FDF4) : const Color(0xFFFEF2F2));
-    final Color badgeBorder = isChoDuyet
-        ? const Color(0xFFFDE68A)
-        : (isDaDuyet ? const Color(0xFFBBF7D0) : const Color(0xFFFECACA));
-    final Color badgeText = isChoDuyet
-        ? const Color(0xFFB45309)
-        : (isDaDuyet ? const Color(0xFF15803D) : const Color(0xFFDC2626));
-    final IconData badgeIcon = isChoDuyet
-        ? Icons.schedule_rounded
-        : (isDaDuyet ? Icons.check_circle_rounded : Icons.cancel_rounded);
+    final Color dotColor = isChoDuyet
+        ? const Color(0xFFD97706)
+        : (isDaDuyet ? const Color(0xFF16A34A) : const Color(0xFFDC2626));
 
     return InkWell(
       onTap: () => _xemChiTiet(item),
@@ -1034,21 +919,28 @@ class _ManHinhLichSuLuuTruState extends State<ManHinhLichSuLuuTru> {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: badgeBg,
+                    color: const Color(0xFFF8FAFC),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: badgeBorder),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(badgeIcon, size: 12, color: badgeText),
-                      const SizedBox(width: 4),
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: dotColor,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 5),
                       Text(
                         item.trangThai,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: badgeText,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF334155),
                         ),
                       ),
                     ],
@@ -1118,21 +1010,21 @@ class _ManHinhLichSuLuuTruState extends State<ManHinhLichSuLuuTru> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFEFF6FF),
+        color: const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFBFDBFE)),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: const Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.shield_outlined, size: 18, color: Color(0xFF2563EB)),
+          Icon(Icons.shield_outlined, size: 18, color: Color(0xFF64748B)),
           SizedBox(width: 10),
           Expanded(
             child: Text(
               'Lưu ý: Tất cả khách lưu trú qua đêm cần được đăng ký trước 22h00 và có xác nhận duyệt từ Ban Quản Lý tòa nhà theo quy định an ninh.',
               style: TextStyle(
                 fontSize: 11.5,
-                color: Color(0xFF1E40AF),
+                color: Color(0xFF64748B),
                 height: 1.4,
               ),
             ),

@@ -4393,7 +4393,7 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                                                   ),
                                                   const SizedBox(width: 4),
                                                   Text(
-                                                    'Ngày lập: ',
+                                                    'Ngày lập: ${pl.ngayLapFormatted}',
                                                     style: const TextStyle(
                                                       fontSize: 11.5,
                                                       color: Color(0xFF64748B),
@@ -4413,7 +4413,7 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                                                     ),
                                                     const SizedBox(width: 4),
                                                     Text(
-                                                      '/tháng',
+                                                      '${FormatUtils.currency(pl.giaTheMoi.toDouble())} đ/tháng',
                                                       style: const TextStyle(
                                                         fontSize: 12,
                                                         fontWeight:
@@ -4617,7 +4617,7 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              'Ngày lập: ',
+                              'Ngày lập: ${pl.ngayLapFormatted}',
                               style: const TextStyle(
                                 fontSize: 11,
                                 color: Color(0xFF94A3B8),
@@ -4636,7 +4636,7 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                               ),
                               const SizedBox(width: 4),
                               Text(
-                                'Giá: /tháng',
+                                'Giá: ${FormatUtils.currency(pl.giaTheMoi.toDouble())} đ/tháng',
                                 style: const TextStyle(
                                   fontSize: 11.5,
                                   fontWeight: FontWeight.bold,
@@ -4786,22 +4786,26 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: const Color(0xFFFFFBEB),
+              color: const Color(0xFFF8FAFC),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFFFDE68A)),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
             ),
             child: const Row(
               children: [
                 Icon(
                   Icons.info_outline_rounded,
-                  size: 14,
-                  color: Color(0xFFD97706),
+                  size: 15,
+                  color: Color(0xFF64748B),
                 ),
                 SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     'Chữ ký được lưu trữ bảo mật trên hệ thống. Hợp đồng có hiệu lực pháp lý khi cả 2 bên hoàn tất ký tên.',
-                    style: TextStyle(fontSize: 10.5, color: Color(0xFF92400E)),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF64748B),
+                      height: 1.35,
+                    ),
                   ),
                 ),
               ],
@@ -5569,12 +5573,13 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
             ),
             style: OutlinedButton.styleFrom(
               backgroundColor: isTerminated
-                  ? const Color(0xFFF0FDF4)
-                  : const Color(0xFFFEF2F2),
+                  ? const Color(0xFFF8FAFC)
+                  : Colors.white,
               side: BorderSide(
                 color: isTerminated
-                    ? const Color(0xFFBBF7D0)
-                    : const Color(0xFFFECACA),
+                    ? const Color(0xFFCBD5E1)
+                    : const Color(0xFFE2E8F0),
+                width: 1.2,
               ),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(14),

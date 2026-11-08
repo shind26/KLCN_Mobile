@@ -352,14 +352,8 @@ class _ManHinhBaoSuCoState extends State<ManHinhBaoSuCo> {
           ),
         ],
       ),
-      actions: [
-        IconButton(
-          icon: const Icon(
-            Icons.help_outline_rounded,
-            color: Color(0xFF0284C7),
-          ),
-          onPressed: () {},
-        ),
+      actions: const [
+        SizedBox(width: 48),
       ],
     );
   }
