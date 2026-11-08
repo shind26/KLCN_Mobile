@@ -22,7 +22,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class ContractDetailScreen extends StatefulWidget {
   final String maHopDong;
 
-  const ContractDetailScreen({super.key, this.maHopDong = 'HD001'});
+  const ContractDetailScreen({super.key, this.maHopDong = ''});
 
   @override
   State<ContractDetailScreen> createState() => _ContractDetailScreenState();
@@ -258,15 +258,74 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
 
     try {
       final db = Supabase.instance.client;
+      final user = AuthService.currentUser;
+      Map<String, dynamic>? contractData;
 
-      // 1. Tải thông tin Hợp đồng
-      final contractQuery = await db
-          .from('hop_dong')
-          .select()
-          .eq('ma_hop_dong', widget.maHopDong)
-          .maybeSingle();
+      // 1. Tải theo widget.maHopDong nếu có và không phải mặc định
+      if (widget.maHopDong.isNotEmpty && widget.maHopDong != 'HD001') {
+        contractData = await db
+            .from('hop_dong')
+            .select()
+            .eq('ma_hop_dong', widget.maHopDong)
+            .maybeSingle();
+      }
 
-      Map<String, dynamic>? contractData = contractQuery;
+      // 2. Nếu chưa có hoặc widget.maHopDong rỗng/HD001, tự động tìm hợp đồng của người dùng đang đăng nhập
+      if (contractData == null && user != null && user.maTaiKhoan.isNotEmpty) {
+        try {
+          final kt = await db
+              .from('khach_thue')
+              .select('ma_khach')
+              .eq('ma_tai_khoan', user.maTaiKhoan)
+              .maybeSingle();
+          if (kt != null) {
+            final maKhach = kt['ma_khach']?.toString() ?? '';
+            final ctList = await db
+                .from('chi_tiet_hop_dong_khach_thue')
+                .select('ma_hop_dong')
+                .eq('ma_khach', maKhach);
+            if (ctList.isNotEmpty) {
+              final maHDs = (ctList as List)
+                  .map((e) => e['ma_hop_dong']?.toString() ?? '')
+                  .where((s) => s.isNotEmpty)
+                  .toList();
+              if (maHDs.isNotEmpty) {
+                final hdList = await db
+                    .from('hop_dong')
+                    .select()
+                    .inFilter('ma_hop_dong', maHDs)
+                    .neq('trang_thai', 'Đã hủy')
+                    .order('ngay_bd', ascending: false);
+                if (hdList.isNotEmpty) {
+                  contractData = hdList.first;
+                }
+              }
+            }
+            if (contractData == null) {
+              final hdDaiDien = await db
+                  .from('hop_dong')
+                  .select()
+                  .eq('ma_khach_dai_dien', maKhach)
+                  .neq('trang_thai', 'Đã hủy')
+                  .order('ngay_bd', ascending: false);
+              if (hdDaiDien.isNotEmpty) {
+                contractData = hdDaiDien.first;
+              }
+            }
+          }
+        } catch (e) {
+          debugPrint('Lỗi tìm hợp đồng theo user: $e');
+        }
+      }
+
+      // 3. Fallback cuối cùng nếu vẫn không tìm thấy
+      if (contractData == null && widget.maHopDong.isNotEmpty) {
+        contractData = await db
+            .from('hop_dong')
+            .select()
+            .eq('ma_hop_dong', widget.maHopDong)
+            .maybeSingle();
+      }
 
       // Fallback nếu không tìm thấy mã truyền vào, tìm mã HD001
       contractData ??= await db

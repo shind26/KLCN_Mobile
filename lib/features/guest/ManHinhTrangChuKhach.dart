@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:nhatro_kieugiang/core/services/DichVuDatCoc.dart';
 import 'package:nhatro_kieugiang/core/services/DichVuLuuDatPhong.dart';
 import 'package:nhatro_kieugiang/core/services/DichVuXacThuc.dart';
+import 'package:nhatro_kieugiang/core/utils/LienHeHelper.dart';
+import 'package:nhatro_kieugiang/core/utils/ThongBaoHelper.dart';
+import 'package:nhatro_kieugiang/core/utils/TienIchDinhDang.dart';
 import 'package:nhatro_kieugiang/core/widgets/LoadingMeoMeo.dart';
 import 'package:nhatro_kieugiang/data/models/MoHinhNguoiDung.dart';
 import 'package:nhatro_kieugiang/data/models/MoHinhPhong.dart';
@@ -9,10 +13,6 @@ import 'package:nhatro_kieugiang/features/guest/ManHinhChiTietPhong.dart';
 import 'package:nhatro_kieugiang/features/guest/ManHinhDatPhong.dart';
 import 'package:nhatro_kieugiang/features/guest/ManHinhLichSuDatPhong.dart';
 import 'package:nhatro_kieugiang/features/tenant/ManHinhTrangChuCuDan.dart';
-import 'package:nhatro_kieugiang/core/services/DichVuDatCoc.dart';
-import 'package:nhatro_kieugiang/core/utils/ThongBaoHelper.dart';
-import 'package:nhatro_kieugiang/core/utils/TienIchDinhDang.dart';
-import 'package:nhatro_kieugiang/core/utils/LienHeHelper.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class GuestHomeScreen extends StatefulWidget {
@@ -28,7 +28,8 @@ class _GuestHomeScreenState extends State<GuestHomeScreen> {
   bool _isLoading = true;
   String _selectedCategory = 'Tất cả';
   bool _sortAscending = true;
-  int _selectedPriceFilter = 0; // 0: Tất cả, 1: < 3tr, 2: 3-3.5tr, 3: 3.5-4tr, 4: > 4tr, 5: Tùy chỉnh
+  int _selectedPriceFilter =
+      0; // 0: Tất cả, 1: < 3tr, 2: 3-3.5tr, 3: 3.5-4tr, 4: > 4tr, 5: Tùy chỉnh
   RangeValues _customPriceRange = const RangeValues(2000000, 5000000);
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
@@ -364,7 +365,7 @@ class _GuestHomeScreenState extends State<GuestHomeScreen> {
         final hdRows = await client
             .from('hop_dong')
             .select('ma_phong')
-            .inFilter('trang_thai', ['Đang thuê', 'Còn hạn', 'HieuLuc']);
+            .inFilter('trang_thai', ['Đang thuê', 'Còn hạn']);
         for (final row in (hdRows as List)) {
           final p = row['ma_phong']?.toString();
           if (p != null && p.isNotEmpty) lockedRoomCodes.add(p);
@@ -461,10 +462,12 @@ class _GuestHomeScreenState extends State<GuestHomeScreen> {
         final descNorm = FormatUtils.removeDiacritics(r.moTaNgan);
         final buildingNorm = FormatUtils.removeDiacritics(r.toaNha);
         final roomCodeNorm = FormatUtils.removeDiacritics(r.maPhong);
-        final amenitiesNorm =
-            r.tienIch.map((t) => FormatUtils.removeDiacritics(t)).toList();
-        final furnituresNorm =
-            r.noiThatSanCo.map((n) => FormatUtils.removeDiacritics(n)).toList();
+        final amenitiesNorm = r.tienIch
+            .map((t) => FormatUtils.removeDiacritics(t))
+            .toList();
+        final furnituresNorm = r.noiThatSanCo
+            .map((n) => FormatUtils.removeDiacritics(n))
+            .toList();
 
         return matchTerms.any((term) {
           if (nameNorm.contains(term) ||
@@ -484,7 +487,9 @@ class _GuestHomeScreenState extends State<GuestHomeScreen> {
       list = list
           .where(
             (r) =>
-                FormatUtils.removeDiacritics(r.tenHienThi).contains('gac lung') ||
+                FormatUtils.removeDiacritics(
+                  r.tenHienThi,
+                ).contains('gac lung') ||
                 FormatUtils.removeDiacritics(r.moTaNgan).contains('gac lung') ||
                 r.maLoaiPhong == 'LP_GAC',
           )
@@ -493,7 +498,9 @@ class _GuestHomeScreenState extends State<GuestHomeScreen> {
       list = list
           .where(
             (r) =>
-                FormatUtils.removeDiacritics(r.tenHienThi).contains('ban cong') ||
+                FormatUtils.removeDiacritics(
+                  r.tenHienThi,
+                ).contains('ban cong') ||
                 FormatUtils.removeDiacritics(r.moTaNgan).contains('ban cong') ||
                 r.maLoaiPhong == 'LP_BC',
           )
@@ -519,17 +526,25 @@ class _GuestHomeScreenState extends State<GuestHomeScreen> {
       list = list.where((r) => r.giaThue < 3000000).toList();
     } else if (_selectedPriceFilter == 2) {
       // 3 - 3.5 triệu
-      list = list.where((r) => r.giaThue >= 3000000 && r.giaThue <= 3500000).toList();
+      list = list
+          .where((r) => r.giaThue >= 3000000 && r.giaThue <= 3500000)
+          .toList();
     } else if (_selectedPriceFilter == 3) {
       // 3.5 - 4 triệu
-      list = list.where((r) => r.giaThue > 3500000 && r.giaThue <= 4000000).toList();
+      list = list
+          .where((r) => r.giaThue > 3500000 && r.giaThue <= 4000000)
+          .toList();
     } else if (_selectedPriceFilter == 4) {
       // Trên 4 triệu
       list = list.where((r) => r.giaThue > 4000000).toList();
     } else if (_selectedPriceFilter == 5) {
       // Tùy chỉnh theo thanh trượt
       list = list
-          .where((r) => r.giaThue >= _customPriceRange.start && r.giaThue <= _customPriceRange.end)
+          .where(
+            (r) =>
+                r.giaThue >= _customPriceRange.start &&
+                r.giaThue <= _customPriceRange.end,
+          )
           .toList();
     }
 
@@ -1801,7 +1816,10 @@ class _GuestHomeScreenState extends State<GuestHomeScreen> {
                           });
                         },
                         icon: const Icon(Icons.restart_alt_rounded, size: 16),
-                        label: const Text('Đặt lại', style: TextStyle(fontSize: 12.5)),
+                        label: const Text(
+                          'Đặt lại',
+                          style: TextStyle(fontSize: 12.5),
+                        ),
                       ),
                     ],
                   ),
@@ -1826,12 +1844,19 @@ class _GuestHomeScreenState extends State<GuestHomeScreen> {
                           },
                           borderRadius: BorderRadius.circular(12),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 10,
+                              horizontal: 8,
+                            ),
                             decoration: BoxDecoration(
-                              color: tempSortAsc ? const Color(0xFFE0F2FE) : const Color(0xFFF8FAFC),
+                              color: tempSortAsc
+                                  ? const Color(0xFFE0F2FE)
+                                  : const Color(0xFFF8FAFC),
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                color: tempSortAsc ? const Color(0xFF09638E) : const Color(0xFFE2E8F0),
+                                color: tempSortAsc
+                                    ? const Color(0xFF09638E)
+                                    : const Color(0xFFE2E8F0),
                                 width: tempSortAsc ? 1.5 : 1,
                               ),
                             ),
@@ -1841,15 +1866,21 @@ class _GuestHomeScreenState extends State<GuestHomeScreen> {
                                 Icon(
                                   Icons.arrow_upward_rounded,
                                   size: 16,
-                                  color: tempSortAsc ? const Color(0xFF09638E) : const Color(0xFF64748B),
+                                  color: tempSortAsc
+                                      ? const Color(0xFF09638E)
+                                      : const Color(0xFF64748B),
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
                                   'Giá Thấp → Cao',
                                   style: TextStyle(
                                     fontSize: 12,
-                                    fontWeight: tempSortAsc ? FontWeight.bold : FontWeight.w500,
-                                    color: tempSortAsc ? const Color(0xFF09638E) : const Color(0xFF334155),
+                                    fontWeight: tempSortAsc
+                                        ? FontWeight.bold
+                                        : FontWeight.w500,
+                                    color: tempSortAsc
+                                        ? const Color(0xFF09638E)
+                                        : const Color(0xFF334155),
                                   ),
                                 ),
                               ],
@@ -1865,12 +1896,19 @@ class _GuestHomeScreenState extends State<GuestHomeScreen> {
                           },
                           borderRadius: BorderRadius.circular(12),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 10,
+                              horizontal: 8,
+                            ),
                             decoration: BoxDecoration(
-                              color: !tempSortAsc ? const Color(0xFFE0F2FE) : const Color(0xFFF8FAFC),
+                              color: !tempSortAsc
+                                  ? const Color(0xFFE0F2FE)
+                                  : const Color(0xFFF8FAFC),
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                color: !tempSortAsc ? const Color(0xFF09638E) : const Color(0xFFE2E8F0),
+                                color: !tempSortAsc
+                                    ? const Color(0xFF09638E)
+                                    : const Color(0xFFE2E8F0),
                                 width: !tempSortAsc ? 1.5 : 1,
                               ),
                             ),
@@ -1880,15 +1918,21 @@ class _GuestHomeScreenState extends State<GuestHomeScreen> {
                                 Icon(
                                   Icons.arrow_downward_rounded,
                                   size: 16,
-                                  color: !tempSortAsc ? const Color(0xFF09638E) : const Color(0xFF64748B),
+                                  color: !tempSortAsc
+                                      ? const Color(0xFF09638E)
+                                      : const Color(0xFF64748B),
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
                                   'Giá Cao → Thấp',
                                   style: TextStyle(
                                     fontSize: 12,
-                                    fontWeight: !tempSortAsc ? FontWeight.bold : FontWeight.w500,
-                                    color: !tempSortAsc ? const Color(0xFF09638E) : const Color(0xFF334155),
+                                    fontWeight: !tempSortAsc
+                                        ? FontWeight.bold
+                                        : FontWeight.w500,
+                                    color: !tempSortAsc
+                                        ? const Color(0xFF09638E)
+                                        : const Color(0xFF334155),
                                   ),
                                 ),
                               ],
@@ -1921,8 +1965,12 @@ class _GuestHomeScreenState extends State<GuestHomeScreen> {
                         label: Text(p['label'] as String),
                         labelStyle: TextStyle(
                           fontSize: 12,
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                          color: isSelected ? Colors.white : const Color(0xFF334155),
+                          fontWeight: isSelected
+                              ? FontWeight.bold
+                              : FontWeight.w500,
+                          color: isSelected
+                              ? Colors.white
+                              : const Color(0xFF334155),
                         ),
                         selected: isSelected,
                         selectedColor: const Color(0xFF09638E),
@@ -1930,7 +1978,9 @@ class _GuestHomeScreenState extends State<GuestHomeScreen> {
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                           side: BorderSide(
-                            color: isSelected ? const Color(0xFF09638E) : const Color(0xFFE2E8F0),
+                            color: isSelected
+                                ? const Color(0xFF09638E)
+                                : const Color(0xFFE2E8F0),
                           ),
                         ),
                         onSelected: (val) {
@@ -1954,7 +2004,10 @@ class _GuestHomeScreenState extends State<GuestHomeScreen> {
 
                   // Thanh trượt tùy chỉnh
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFF0F9FF),
                       borderRadius: BorderRadius.circular(14),
@@ -2103,7 +2156,8 @@ class _GuestHomeScreenState extends State<GuestHomeScreen> {
                           onChanged: (values) {
                             setModalState(() {
                               tempRange = values;
-                              tempFilter = 5; // Tự động chuyển sang tùy chỉnh khi kéo slider
+                              tempFilter =
+                                  5; // Tự động chuyển sang tùy chỉnh khi kéo slider
                             });
                           },
                         ),
@@ -2136,7 +2190,10 @@ class _GuestHomeScreenState extends State<GuestHomeScreen> {
                       ),
                       child: const Text(
                         'Áp dụng bộ lọc',
-                        style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ),
@@ -2211,7 +2268,9 @@ class _GuestHomeScreenState extends State<GuestHomeScreen> {
                 color: isPriceFiltered ? const Color(0xFF09638E) : Colors.white,
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                  color: isPriceFiltered ? const Color(0xFF09638E) : const Color(0xFFCBD5E1),
+                  color: isPriceFiltered
+                      ? const Color(0xFF09638E)
+                      : const Color(0xFFCBD5E1),
                 ),
                 boxShadow: [
                   BoxShadow(
@@ -2227,7 +2286,9 @@ class _GuestHomeScreenState extends State<GuestHomeScreen> {
                   Icon(
                     Icons.tune_rounded,
                     size: 14,
-                    color: isPriceFiltered ? Colors.white : const Color(0xFF09638E),
+                    color: isPriceFiltered
+                        ? Colors.white
+                        : const Color(0xFF09638E),
                   ),
                   const SizedBox(width: 5),
                   Text(
@@ -2235,14 +2296,18 @@ class _GuestHomeScreenState extends State<GuestHomeScreen> {
                     style: TextStyle(
                       fontSize: 11.5,
                       fontWeight: FontWeight.bold,
-                      color: isPriceFiltered ? Colors.white : const Color(0xFF1E293B),
+                      color: isPriceFiltered
+                          ? Colors.white
+                          : const Color(0xFF1E293B),
                     ),
                   ),
                   const SizedBox(width: 2),
                   Icon(
                     Icons.arrow_drop_down_rounded,
                     size: 16,
-                    color: isPriceFiltered ? Colors.white : const Color(0xFF64748B),
+                    color: isPriceFiltered
+                        ? Colors.white
+                        : const Color(0xFF64748B),
                   ),
                 ],
               ),

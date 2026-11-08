@@ -272,7 +272,7 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
               .from('hop_dong')
               .select()
               .eq('ma_phong', widget.currentRoomNumber)
-              .inFilter('trang_thai', ['Còn hạn', 'Còn hiệu lực', 'Đang thuê'])
+              .inFilter('trang_thai', ['Còn hạn', 'Đang thuê'])
               .order('ngay_bd', ascending: false)
               .limit(1);
 

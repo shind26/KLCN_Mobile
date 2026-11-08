@@ -77,7 +77,32 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
   HoaDonModel? _hoaDonMoiNhat; // hóa đơn chưa / đã thanh toán gần nhất
   List<HoaDonModel> _danhSachHoaDon =
       []; // toàn bộ danh sách hóa đơn từ Supabase
+  Map<String, num> _daThuMap = {}; // tổng tiền thực tế đã thu theo mã hóa đơn
   List<KhachThueModel> _thanhVienPhong = [];
+
+  num _getSoTienDaThu(HoaDonModel bill) {
+    final daThu = _daThuMap[bill.maHoaDon] ?? 0;
+    if (daThu > 0) return daThu;
+    if (bill.trangThai == 'Thanh toán một phần') {
+      return bill.tongTien / 2;
+    }
+    if (bill.trangThai == 'Đã thanh toán') {
+      return bill.tongTienGoc > 0 ? bill.tongTienGoc : bill.tongTien;
+    }
+    return 0;
+  }
+
+  num _getSoTienConLai(HoaDonModel bill) {
+    if (bill.trangThai == 'Đã thanh toán') return 0;
+    if (bill.trangThai == 'Thanh toán một phần') {
+      final daThu = _daThuMap[bill.maHoaDon] ?? 0;
+      if (daThu > 0 && bill.tongTien > daThu) {
+        return bill.tongTien - daThu;
+      }
+      return bill.tongTien / 2;
+    }
+    return bill.tongTien;
+  }
   List<Map<String, dynamic>> _chiTietHoaDon = [];
   List<Map<String, dynamic>> _danhSachSuCo =
       []; // danh sách sự cố từ bảng su_co_bao_tri
@@ -1318,6 +1343,29 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
           .map((r) => HoaDonModel.fromJson(Map<String, dynamic>.from(r)))
           .toList();
 
+      // Tải số tiền thực tế đã thu từ bảng phieu_thu theo từng hóa đơn
+      final List<String> maHds =
+          allBills.map((e) => e.maHoaDon).where((s) => s.isNotEmpty).toList();
+      final Map<String, num> daThuMap = {};
+      if (maHds.isNotEmpty) {
+        try {
+          final ptRows = await db
+              .from('phieu_thu')
+              .select('ma_hoa_don, so_tien_thu')
+              .inFilter('ma_hoa_don', maHds);
+          for (final pt in (ptRows as List)) {
+            final ma = pt['ma_hoa_don']?.toString() ?? '';
+            final amt =
+                num.tryParse(pt['so_tien_thu']?.toString() ?? '0') ?? 0;
+            if (ma.isNotEmpty && amt > 0) {
+              daThuMap[ma] = (daThuMap[ma] ?? 0) + amt;
+            }
+          }
+        } catch (ePt) {
+          debugPrint('Lỗi tải phieu_thu trang chu: $ePt');
+        }
+      }
+
       // Ưu tiên hóa đơn BQL đã gửi mà chưa thanh toán
       // 'Chờ gửi' = BQL vừa tạo chưa xác nhận gửi → KHÔNG hiện cho khách
       final unpaidBill = allBills
@@ -1362,33 +1410,35 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
         return KhachThueModel.fromJson(m);
       }).toList();
 
-      // ── 7. Lấy danh sách sự cố bảo trì của phòng từ Supabase ──────────
+      // ── 7. Lấy danh sách sự cố bảo trì của đúng phòng hiện tại từ Supabase ──────────
       List<Map<String, dynamic>> suCoList = [];
       try {
-        final maKhach = khachThueRow?['ma_khach']?.toString() ?? '';
         final curRoom = hd.maPhong;
         final cleanRoom = curRoom.replaceAll(RegExp(r'[^0-9]'), '');
-        final pVariants = {curRoom, 'P$cleanRoom', cleanRoom}
+        final pVariants = {curRoom, 'P$cleanRoom', cleanRoom, 'P.$cleanRoom'}
             .where((s) => s.isNotEmpty)
             .toList();
 
-        List<dynamic> suCoRows = [];
-        if (maKhach.isNotEmpty) {
-          final orFilter =
-              'ma_khach_bao.eq.$maKhach,ma_phong.in.(${pVariants.join(",")})';
-          suCoRows = await db
-              .from('su_co_bao_tri')
-              .select()
-              .or(orFilter)
-              .order('ngay_bao_cao', ascending: false);
-        } else {
-          suCoRows = await db
-              .from('su_co_bao_tri')
-              .select()
-              .inFilter('ma_phong', pVariants)
-              .order('ngay_bao_cao', ascending: false);
-        }
-        suCoList = List<Map<String, dynamic>>.from(suCoRows as List);
+        final suCoRows = await db
+            .from('su_co_bao_tri')
+            .select()
+            .inFilter('ma_phong', pVariants)
+            .order('ngay_bao_cao', ascending: false);
+
+        suCoList = (suCoRows as List)
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .where((sc) {
+              final r = sc['ma_phong']
+                      ?.toString()
+                      .replaceAll('P.', '')
+                      .replaceAll('P', '')
+                      .trim() ??
+                  '';
+              return r.isNotEmpty &&
+                  (r == cleanRoom ||
+                      pVariants.contains(sc['ma_phong']?.toString()));
+            })
+            .toList();
       } catch (err) {
         debugPrint('Lỗi tải su_co_bao_tri: $err');
       }
@@ -1492,6 +1542,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
             : null;
         _hoaDonMoiNhat = selectedBill;
         _danhSachHoaDon = allBills;
+        _daThuMap = daThuMap;
         _chiTietHoaDon = chiTietHD;
         _thanhVienPhong = thanhVien;
         _danhSachSuCo = suCoList;
@@ -1948,7 +1999,11 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
           onXem: () {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const ContractDetailScreen()),
+              MaterialPageRoute(
+                builder: (_) => ContractDetailScreen(
+                  maHopDong: _hopDong?.maHopDong ?? '',
+                ),
+              ),
             );
           },
         );
@@ -1964,7 +2019,11 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
           onConfirm: () {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const ContractDetailScreen()),
+              MaterialPageRoute(
+                builder: (_) => ContractDetailScreen(
+                  maHopDong: _hopDong?.maHopDong ?? '',
+                ),
+              ),
             );
           },
         );
@@ -3516,7 +3575,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
     final remainingDays = hd.soNgayConLai;
     final overdueDays = remainingDays < 0 ? -remainingDays : 0;
     final phiPhatTreHan = 0;
-    num tongTienThucTe = hd.tongTien;
+    num tongTienThucTe = isPartial ? _getSoTienConLai(hd) : hd.tongTien;
 
     return Container(
       width: double.infinity,
@@ -3825,6 +3884,15 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                           ),
                         ],
                       ]),
+                if (isPartial) ...[
+                  const Divider(height: 16, color: Color(0xFFF1F5F9)),
+                  _buildBillItem(
+                    Icons.check_circle_outline_rounded,
+                    'Đã thanh toán (Đợt 1)',
+                    '- ${FormatUtils.currency(_getSoTienDaThu(hd))}',
+                    const Color(0xFF16A34A),
+                  ),
+                ],
                 if (phiPhatTreHan > 0 &&
                     !_chiTietHoaDon.any(
                       (i) => (i['ten_khoan_thu'] ?? '')
@@ -6321,23 +6389,26 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
   Widget _buildBillItemCard(HoaDonModel bill) {
     final isPaid = bill.trangThai == 'Đã thanh toán';
     final isPartial = bill.trangThai == 'Thanh toán một phần';
-    final amountToDisplay = isPaid ? bill.tongTienGoc : bill.tongTien;
-    final dateDisplay = isPaid
-        ? 'Đã thanh toán ngày ${bill.hanDongTienFormatted}'
-        : 'Hạn đóng: ${bill.hanDongTienFormatted}';
+    final amountToDisplay = isPartial
+        ? _getSoTienDaThu(bill)
+        : (isPaid
+            ? (bill.tongTienGoc > 0 ? bill.tongTienGoc : bill.tongTien)
+            : bill.tongTien);
+    final dateDisplay = isPartial
+        ? 'Đã thanh toán đợt 1 • Hạn đợt 2: ${bill.hanDongTienFormatted}'
+        : (isPaid
+            ? 'Đã thanh toán ngày ${bill.hanDongTienFormatted}'
+            : 'Hạn đóng: ${bill.hanDongTienFormatted}');
 
     return GestureDetector(
       onTap: () {
-        if (isPaid) {
+        if (isPaid || isPartial) {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => PaymentCompletedScreen(
-                hoaDon: bill,
-                tenPhong: roomDisplay,
-                bankName: 'MB Bank (Quân Đội)',
-                transactionTime: bill.hanDongTienFormatted,
-                amountPaid: bill.tongTienGoc,
+              builder: (_) => InvoiceHistoryScreen(
+                roomName: roomDisplay,
+                maHopDong: maHopDong,
               ),
             ),
           );
@@ -6471,7 +6542,9 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                 fontWeight: FontWeight.bold,
                 color: isPaid
                     ? const Color(0xFF0F2042)
-                    : const Color(0xFFE11D48),
+                    : (isPartial
+                          ? const Color(0xFFD97706)
+                          : const Color(0xFFE11D48)),
               ),
             ),
           ],

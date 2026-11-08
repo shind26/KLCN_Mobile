@@ -110,7 +110,7 @@ class DepositService {
               .from('hop_dong')
               .select('ma_hop_dong')
               .inFilter('ma_khach_dai_dien', maKhachList)
-              .inFilter('trang_thai', ['Đang thuê', 'Còn hạn', 'HieuLuc'])
+              .inFilter('trang_thai', ['Đang thuê', 'Còn hạn'])
               .limit(1);
           if (activeHds.isNotEmpty) {
             debugPrint(
@@ -158,7 +158,7 @@ class DepositService {
           .from('hop_dong')
           .select('ma_hop_dong')
           .eq('ma_phong', maPhong)
-          .inFilter('trang_thai', ['Đang thuê', 'Còn hạn', 'HieuLuc'])
+          .inFilter('trang_thai', ['Đang thuê', 'Còn hạn'])
           .maybeSingle();
       if (hdRow != null) return true;
 
@@ -312,39 +312,70 @@ class DepositService {
       final nowUtc = DateTime.now().toUtc();
 
       // Chuẩn bị maKhach (maKhach <= 10 ký tự)
-      final phoneSuffix = cleanPhone.length >= 6
-          ? cleanPhone.substring(cleanPhone.length - 6)
-          : cleanPhone.padLeft(6, '0');
-      String maKhach = 'KH$phoneSuffix';
+      String maKhach = '';
       try {
-        final khachRow = await db
+        // 1. Kiểm tra xem đã có khách thuê trùng cả SĐT lẫn Họ tên này chưa
+        final exactKhach = await db
             .from('khach_thue')
-            .select('ma_khach')
+            .select('ma_khach, ho_ten_khach')
             .eq('so_dt', cleanPhone)
+            .ilike('ho_ten_khach', cleanName)
+            .limit(1)
             .maybeSingle();
 
-        if (khachRow != null && khachRow['ma_khach'] != null) {
-          maKhach = khachRow['ma_khach'].toString();
+        if (exactKhach != null && exactKhach['ma_khach'] != null) {
+          maKhach = exactKhach['ma_khach'].toString();
         } else {
-          final checkDup = await db
-              .from('khach_thue')
-              .select('ma_khach')
-              .eq('ma_khach', maKhach)
-              .maybeSingle();
-          if (checkDup != null) {
-            final rand = (cleanPhone.hashCode.abs() % 900000) + 100000;
-            maKhach = 'KH$rand';
+          // Chưa có khách thuê trùng cả SĐT và Họ tên này -> tạo maKhach mới cho khách tên mới
+          final rand =
+              (DateTime.now().millisecondsSinceEpoch % 900000) + 100000;
+          final newMaKhach = 'KH$rand';
+          bool insertSuccess = false;
+
+          try {
+            await db.from('khach_thue').insert({
+              'ma_khach': newMaKhach,
+              'ho_ten_khach': cleanName,
+              'so_dt': cleanPhone,
+              'dia_chi_thuong_tru': 'Khách đặt cọc giữ chỗ online',
+            });
+            maKhach = newMaKhach;
+            insertSuccess = true;
+          } catch (eInsert) {
+            debugPrint('[khach_thue insert new guest]: $eInsert');
           }
 
-          await db.from('khach_thue').insert({
-            'ma_khach': maKhach,
-            'ho_ten_khach': cleanName,
-            'so_dt': cleanPhone,
-            'dia_chi_thuong_tru': 'Khách đặt cọc giữ chỗ online',
-          });
+          // Nếu DB có ràng buộc UNIQUE số điện thoại không cho insert dòng mới:
+          if (!insertSuccess) {
+            final existingRow = await db
+                .from('khach_thue')
+                .select('ma_khach, ma_tai_khoan, ho_ten_khach')
+                .eq('so_dt', cleanPhone)
+                .limit(1)
+                .maybeSingle();
+
+            if (existingRow != null) {
+              maKhach = existingRow['ma_khach'].toString();
+              final mtk = existingRow['ma_tai_khoan']?.toString();
+              // Chỉ cập nhật nếu không phải tài khoản cư dân chính thức có ma_tai_khoan
+              if (mtk == null || mtk.isEmpty || mtk == 'null') {
+                await db
+                    .from('khach_thue')
+                    .update({'ho_ten_khach': cleanName})
+                    .eq('ma_khach', maKhach);
+              }
+            }
+          }
         }
       } catch (eKhach) {
         debugPrint('[khach_thue upsert notice]: $eKhach');
+      }
+
+      if (maKhach.isEmpty) {
+        final phoneSuffix = cleanPhone.length >= 6
+            ? cleanPhone.substring(cleanPhone.length - 6)
+            : cleanPhone.padLeft(6, '0');
+        maKhach = 'KH$phoneSuffix';
       }
 
       // 2. Xử lý trực tiếp nguyên tử trên Supabase Client
@@ -353,7 +384,7 @@ class DepositService {
           .from('hop_dong')
           .select('ma_hop_dong, trang_thai')
           .eq('ma_phong', room.maPhong)
-          .inFilter('trang_thai', ['Đang thuê', 'Còn hạn', 'HieuLuc'])
+          .inFilter('trang_thai', ['Đang thuê', 'Còn hạn'])
           .maybeSingle();
 
       if (hdRow != null) {
@@ -401,9 +432,12 @@ class DepositService {
             );
             final formattedDate =
                 '${ngayDuKienO.year}-${ngayDuKienO.month.toString().padLeft(2, '0')}-${ngayDuKienO.day.toString().padLeft(2, '0')}';
-            final updateNote = ghiChu?.trim().isEmpty == true
+            final rawNote = ghiChu?.trim().isEmpty == true
                 ? 'Đặt cọc giữ chỗ phòng ${room.maPhong}'
                 : ghiChu?.trim();
+            final updateNote = (rawNote != null && rawNote.startsWith('[Khách:'))
+                ? rawNote
+                : '[Khách: $cleanName - $cleanPhone] ${rawNote ?? ""}';
 
             await db
                 .from('giu_cho')
@@ -495,9 +529,13 @@ class DepositService {
         expiresAt: expiresAt,
         soNguoiO: soNguoiO,
         ngayDuKienO: ngayDuKienO,
-        ghiChu: ghiChu?.trim().isEmpty == true
-            ? 'Đặt cọc giữ chỗ phòng ${room.maPhong}'
-            : ghiChu?.trim(),
+        ghiChu: (() {
+          final raw = ghiChu?.trim().isEmpty == true
+              ? 'Đặt cọc giữ chỗ phòng ${room.maPhong}'
+              : ghiChu?.trim();
+          if (raw != null && raw.startsWith('[Khách:')) return raw;
+          return '[Khách: $cleanName - $cleanPhone] ${raw ?? ""}';
+        })(),
       );
 
       await db.from('giu_cho').insert(giuCho.toJson());
@@ -535,6 +573,29 @@ class DepositService {
         .from('phong')
         .update({'trang_thai': 'Đã cọc'})
         .eq('ma_phong', maPhong);
+
+    // 3. Đảm bảo ghi_chu của phiếu giữ chỗ lưu đúng tên khách hàng
+    if (customerName != null && customerName.trim().isNotEmpty) {
+      try {
+        final gcRow = await db
+            .from('giu_cho')
+            .select('ghi_chu')
+            .eq('ma_giu_cho', maGiuCho)
+            .maybeSingle();
+        if (gcRow != null) {
+          final curNote = gcRow['ghi_chu']?.toString() ?? '';
+          if (!curNote.startsWith('[Khách:')) {
+            final newNote =
+                '[Khách: ${customerName.trim()}${phone != null && phone.trim().isNotEmpty ? " - ${phone.trim()}" : ""}] $curNote'
+                    .trim();
+            await db
+                .from('giu_cho')
+                .update({'ghi_chu': newNote})
+                .eq('ma_giu_cho', maGiuCho);
+          }
+        }
+      } catch (_) {}
+    }
   }
 
   /// Xử lý hết hạn 15 phút không thanh toán:

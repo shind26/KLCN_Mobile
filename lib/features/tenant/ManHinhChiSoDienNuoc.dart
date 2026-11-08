@@ -267,13 +267,37 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
 
       // 2. Tải chỉ số từ bảng chi_so_dien_nuoc thực tế trên Supabase!
       try {
-        final chiSoList = await db
-            .from('chi_so_dien_nuoc')
-            .select()
-            .eq('ma_hop_dong', cleanHd)
-            .order('ngay_ghi_nhan', ascending: false);
+        List<Map<String, dynamic>> list = [];
+        try {
+          final chiSoList = await db
+              .from('chi_so_dien_nuoc')
+              .select()
+              .or('ma_hop_dong.eq.$cleanHd,ma_ky.ilike.%$cleanHd%,ma_ky.ilike.%$hdPart%');
+          list = List<Map<String, dynamic>>.from(chiSoList as List);
+        } catch (_) {}
 
-        final list = (chiSoList as List);
+        // Fallback: Tải toàn bộ danh sách chi_so_dien_nuoc nếu chưa có kết quả
+        if (list.isEmpty) {
+          try {
+            final allRows = await db.from('chi_so_dien_nuoc').select();
+            list = List<Map<String, dynamic>>.from(allRows as List);
+          } catch (_) {}
+        }
+
+        // Sắp xếp các kỳ theo thứ tự tháng/năm mới nhất lên đầu
+        int parseThangNam(String? tn) {
+          if (tn == null || !tn.contains('/')) return 0;
+          final parts = tn.split('/');
+          final m = int.tryParse(parts[0].trim()) ?? 0;
+          final y = int.tryParse(parts[1].trim()) ?? 0;
+          return y * 100 + m;
+        }
+
+        list.sort((a, b) {
+          final tA = parseThangNam(a['thang_nam']?.toString());
+          final tB = parseThangNam(b['thang_nam']?.toString());
+          return tB.compareTo(tA);
+        });
 
         // Kiểm tra xem kỳ tháng này đã gửi đơn chưa (chỉ cho gửi 1 đơn/tháng)
         Map<String, dynamic>? recordKyNay;
@@ -287,8 +311,6 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
           }
 
           // Nếu phòng này là phòng mới chuyển đến:
-          // Bản ghi cũ của phòng trước (không chứa mã phòng mới trong ma_ky hoặc ghi trước ngày chuyển)
-          // KHÔNG ĐƯỢC tính là đơn đã nộp của phòng mới!
           if (ngayChuyenPhong != null) {
             final bool isFromThisRoom =
                 maKyItem == maKyPhong || maKyItem.contains(pPart);
@@ -342,36 +364,76 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
           _urlAnhDienDaGui = recordKyNay['anh_dien']?.toString();
           _urlAnhNuocDaGui = recordKyNay['anh_nuoc']?.toString();
         } else {
-          // Chưa nộp đơn kỳ này: ƯU TIÊN LẤY CHỈ SỐ TỪ BẢNG PHÒNG XUỐNG LÀM MỐC ĐẦU KỲ
+          // Chưa nộp đơn kỳ này: Lấy số mới của kỳ liền trước làm số cũ cho kỳ này!
           _daGuiDonKyNay = null;
-          if (phongChiSoDien != null || phongChiSoNuoc != null) {
-            _chiSoDienTruoc = phongChiSoDien ?? 0.0;
-            _chiSoNuocTruoc = phongChiSoNuoc ?? 0.0;
-          } else if (list.isNotEmpty) {
-            final latest = list.first;
-            final dienMoiCu = double.tryParse(
-              latest['chi_so_dien_moi']?.toString() ?? '',
-            );
-            final nuocMoiCu = double.tryParse(
-              latest['chi_so_nuoc_moi']?.toString() ?? '',
-            );
-            _chiSoDienTruoc =
-                dienMoiCu ??
-                double.tryParse(latest['chi_so_dien_cu']?.toString() ?? '0') ??
+
+          // Tìm bản ghi của kỳ tháng trước gần nhất
+          Map<String, dynamic>? prevKy;
+          for (final item in list) {
+            final tn = item['thang_nam']?.toString() ?? '';
+            if (tn != thangNam) {
+              prevKy = item;
+              break;
+            }
+          }
+          prevKy ??= list.isNotEmpty ? list.first : null;
+
+          double prevDien = 0.0;
+          double prevNuoc = 0.0;
+          if (prevKy != null) {
+            prevDien = double.tryParse(
+                  prevKy['chi_so_dien_moi']?.toString() ?? '',
+                ) ??
+                double.tryParse(
+                  prevKy['chi_so_dien_cu']?.toString() ?? '0',
+                ) ??
                 0.0;
-            _chiSoNuocTruoc =
-                nuocMoiCu ??
-                double.tryParse(latest['chi_so_nuoc_cu']?.toString() ?? '0') ??
+
+            prevNuoc = double.tryParse(
+                  prevKy['chi_so_nuoc_moi']?.toString() ?? '',
+                ) ??
+                double.tryParse(
+                  prevKy['chi_so_nuoc_cu']?.toString() ?? '0',
+                ) ??
                 0.0;
+          }
+
+          // Ưu tiên số mới của kỳ liền trước từ bảng chi_so_dien_nuoc
+          if (prevDien > 0) {
+            _chiSoDienTruoc = prevDien;
           } else {
-            _chiSoDienTruoc = 0.0;
-            _chiSoNuocTruoc = 0.0;
+            _chiSoDienTruoc = (phongChiSoDien != null && phongChiSoDien > 0)
+                ? phongChiSoDien
+                : 0.0;
+          }
+
+          if (prevNuoc > 0) {
+            _chiSoNuocTruoc = prevNuoc;
+          } else {
+            _chiSoNuocTruoc = (phongChiSoNuoc != null && phongChiSoNuoc > 0)
+                ? phongChiSoNuoc
+                : 0.0;
+          }
+
+          // Đồng bộ lại chỉ số hợp lệ này vào bảng phong trên Supabase
+          if (_chiSoDienTruoc > 0 || _chiSoNuocTruoc > 0) {
+            final cleanMaPhong = widget.maPhong.trim();
+            final pNum = cleanMaPhong.replaceAll(RegExp(r'[^0-9]'), '');
+            try {
+              await db.from('phong').update({
+                if (_chiSoDienTruoc > 0) 'chi_so_dien': _chiSoDienTruoc,
+                if (_chiSoNuocTruoc > 0) 'chi_so_nuoc': _chiSoNuocTruoc,
+                'ngay_cap_nhat_chi_so': DateTime.now().toIso8601String(),
+              }).or('ma_phong.eq.$cleanMaPhong,ma_phong.eq.P$pNum,ma_phong.eq.$pNum');
+            } catch (_) {}
           }
         }
       } catch (e) {
         debugPrint('Lỗi tải bảng chi_so_dien_nuoc: $e');
-        _chiSoDienTruoc = phongChiSoDien ?? 0.0;
-        _chiSoNuocTruoc = phongChiSoNuoc ?? 0.0;
+        _chiSoDienTruoc =
+            (phongChiSoDien != null && phongChiSoDien > 0) ? phongChiSoDien : 0.0;
+        _chiSoNuocTruoc =
+            (phongChiSoNuoc != null && phongChiSoNuoc > 0) ? phongChiSoNuoc : 0.0;
       }
 
       _maCongTo = '#CTO-${widget.maPhong}';

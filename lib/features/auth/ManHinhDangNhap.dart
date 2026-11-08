@@ -537,10 +537,11 @@ class _LoginScreenState extends State<LoginScreen>
         } catch (_) {}
       }
 
-      if (ktRes != null) {
-        final maKhach = ktRes['ma_khach']?.toString() ?? '';
+      final currentKt = ktRes;
+      if (currentKt != null) {
+        final maKhach = currentKt['ma_khach']?.toString() ?? '';
 
-        // 2. Tìm hợp đồng của khách thuê (ưu tiên hợp đồng chưa xác nhận bàn giao)
+        // 2. Tìm hợp đồng của khách thuê (kể cả đã bàn giao hay chưa)
         Map<String, dynamic>? hdRow;
         String? vaiTroFromCthd;
 
@@ -564,12 +565,16 @@ class _LoginScreenState extends State<LoginScreen>
                   .inFilter('ma_hop_dong', maHdList)
                   .order('ngay_bd', ascending: false);
 
-              for (final row in rows) {
-                if (row['da_xac_nhan_ban_giao'] != true) {
-                  hdRow = row;
-                  break;
+              if (rows.isNotEmpty) {
+                // Luôn gán hợp đồng hiệu lực/mới nhất (kể cả đã xác nhận bàn giao)
+                hdRow = rows.first;
+                // Nếu có hợp đồng chưa xác nhận bàn giao thì ưu tiên
+                for (final row in rows) {
+                  if (row['da_xac_nhan_ban_giao'] != true) {
+                    hdRow = row;
+                    break;
+                  }
                 }
-                hdRow ??= row;
               }
 
               if (hdRow != null) {
@@ -587,7 +592,7 @@ class _LoginScreenState extends State<LoginScreen>
           debugPrint('Lỗi truy vấn chi_tiet_hop_dong_khach_thue: $eCthd');
         }
 
-        // Fallback: tìm qua ma_khach_dai_dien trong hop_dong
+        // Fallback 1: tìm qua ma_khach_dai_dien trong hop_dong
         if (hdRow == null) {
           try {
             final hdList = await db
@@ -596,88 +601,117 @@ class _LoginScreenState extends State<LoginScreen>
                 .eq('ma_khach_dai_dien', maKhach)
                 .order('ngay_bd', ascending: false)
                 .limit(5);
-            for (final row in (hdList as List)) {
-              if (row['da_xac_nhan_ban_giao'] != true) {
-                hdRow = Map<String, dynamic>.from(row as Map);
-                break;
+            if (hdList.isNotEmpty) {
+              hdRow = Map<String, dynamic>.from(hdList.first as Map);
+              for (final row in (hdList as List)) {
+                if (row['da_xac_nhan_ban_giao'] != true) {
+                  hdRow = Map<String, dynamic>.from(row as Map);
+                  break;
+                }
               }
-              hdRow ??= Map<String, dynamic>.from(row as Map);
             }
           } catch (eHd) {
             debugPrint('Lỗi truy vấn hop_dong theo ma_khach_dai_dien: $eHd');
           }
         }
 
-        if (hdRow != null) {
-          final daBanGiao = hdRow['da_xac_nhan_ban_giao'] == true;
-          final cccd = ktRes['cccd']?.toString();
-          final thieuCccd =
-              (cccd == null || cccd.trim().isEmpty || cccd.trim().length != 12);
-          final thieuThongTin =
-              (ktRes['ngay_sinh'] == null ||
-              ktRes['dia_chi_thuong_tru'] == null ||
-              ktRes['dia_chi_thuong_tru'].toString().trim().isEmpty ||
-              ktRes['noi_cap_cccd'] == null ||
-              ktRes['noi_cap_cccd'].toString().trim().isEmpty ||
-              ktRes['nguoi_lien_he_khan_cap'] == null ||
-              ktRes['nguoi_lien_he_khan_cap'].toString().trim().isEmpty);
+        // Fallback 2: tìm hợp đồng qua ma_phong của khách thuê (cho thành viên ở cùng)
+        if (hdRow == null) {
+          final maPhongKt = currentKt['ma_phong']?.toString();
+          if (maPhongKt != null && maPhongKt.isNotEmpty) {
+            try {
+              final hdPhongList = await db
+                  .from('hop_dong')
+                  .select()
+                  .eq('ma_phong', maPhongKt)
+                  .neq('trang_thai', 'Đã hủy')
+                  .order('ngay_bd', ascending: false)
+                  .limit(1);
+              if (hdPhongList.isNotEmpty) {
+                hdRow = Map<String, dynamic>.from(hdPhongList.first as Map);
+              }
+            } catch (ePhong) {
+              debugPrint('Lỗi truy vấn hop_dong theo ma_phong: $ePhong');
+            }
+          }
+        }
 
-          // Xác định vai trò: Người đại diện hợp đồng vs Khách ở cùng
-          bool isDaiDien = false;
-          final maDaiDien = hdRow['ma_khach_dai_dien']?.toString();
-          if (maDaiDien != null &&
-              maDaiDien.isNotEmpty &&
-              maDaiDien == maKhach) {
+        // 3. Kiểm tra thông tin CCCD và hồ sơ cá nhân
+        final cccd = currentKt['cccd']?.toString();
+        final thieuCccd =
+            (cccd == null || cccd.trim().isEmpty || cccd.trim().length != 12);
+        final thieuThongTin =
+            (currentKt['ngay_sinh'] == null ||
+            currentKt['dia_chi_thuong_tru'] == null ||
+            currentKt['dia_chi_thuong_tru'].toString().trim().isEmpty ||
+            currentKt['noi_cap_cccd'] == null ||
+            currentKt['noi_cap_cccd'].toString().trim().isEmpty ||
+            currentKt['nguoi_lien_he_khan_cap'] == null ||
+            currentKt['nguoi_lien_he_khan_cap'].toString().trim().isEmpty);
+
+        // Xác định vai trò: Người đại diện hợp đồng vs Khách ở cùng
+        bool isDaiDien = false;
+        final maDaiDien = hdRow?['ma_khach_dai_dien']?.toString();
+        if (maDaiDien != null &&
+            maDaiDien.isNotEmpty &&
+            maDaiDien == maKhach) {
+          isDaiDien = true;
+        }
+
+        if (!isDaiDien && vaiTroFromCthd != null) {
+          final vt = vaiTroFromCthd.toLowerCase();
+          if (vt.contains('đại diện') ||
+              vt.contains('daidien') ||
+              vt.contains('trưởng phòng') ||
+              vt.contains('truongphong')) {
+            isDaiDien = true;
+          } else if (vt.contains('ở cùng') ||
+              vt.contains('ocung') ||
+              vt.contains('thành viên')) {
+            isDaiDien = false;
+          }
+        }
+
+        if (!isDaiDien) {
+          final uRole = user.vaiTro.toLowerCase();
+          if (uRole.contains('truongphong') ||
+              uRole.contains('daidien') ||
+              uRole.contains('đại diện')) {
             isDaiDien = true;
           }
+        }
 
-          if (!isDaiDien && vaiTroFromCthd != null) {
-            final vt = vaiTroFromCthd.toLowerCase();
-            if (vt.contains('đại diện') ||
-                vt.contains('daidien') ||
-                vt.contains('trưởng phòng') ||
-                vt.contains('truongphong')) {
-              isDaiDien = true;
-            }
-          }
+        final daBanGiao = hdRow?['da_xac_nhan_ban_giao'] == true;
 
-          if (!isDaiDien) {
-            final uRole = user.vaiTro.toLowerCase();
-            if (uRole.contains('truongphong') ||
-                uRole.contains('daidien') ||
-                uRole.contains('đại diện')) {
-              isDaiDien = true;
-            }
-          }
+        debugPrint(
+          '[_kiemTraVaDieuHuong] maKhach: $maKhach, isDaiDien: $isDaiDien, maHd: ${hdRow?['ma_hop_dong']}, daBanGiao: $daBanGiao, thieuCccd: $thieuCccd, thieuThongTin: $thieuThongTin',
+        );
 
-          debugPrint(
-            '[_kiemTraVaDieuHuong] maKhach: $maKhach, isDaiDien: $isDaiDien, maHd: ${hdRow['ma_hop_dong']}, daBanGiao: $daBanGiao, thieuCccd: $thieuCccd, thieuThongTin: $thieuThongTin',
-          );
+        // RÀNG BUỘC THEO VAI TRÒ:
+        // - Người đại diện hợp đồng: Bắt buộc hoàn tất hồ sơ cá nhân VÀ ký nhận bàn giao tài sản (!daBanGiao)
+        // - Khách ở cùng: Bắt buộc hoàn tất hồ sơ cá nhân (thieuCccd || thieuThongTin).
+        //   Dù Trưởng phòng đã ký bàn giao (daBanGiao == true), thành viên ở cùng VẪN PHẢI cập nhật CCCD trước khi vào Trang chủ!
+        final canCapNhatHoSo = isDaiDien
+            ? (!daBanGiao || thieuCccd || thieuThongTin)
+            : (thieuCccd || thieuThongTin);
 
-          // RÀNG BUỘC THEO VAI TRÒ:
-          // - Người đại diện hợp đồng: Bắt buộc hoàn tất hồ sơ cá nhân VÀ ký nhận bàn giao tài sản (!daBanGiao)
-          // - Khách ở cùng: CHỈ CẦN điền thông tin cá nhân (thieuCccd || thieuThongTin). Biên bản bàn giao tài sản chỉ có người đại diện hợp đồng xác nhận!
-          final canCapNhatHoSo = isDaiDien
-              ? (!daBanGiao || thieuCccd || thieuThongTin)
-              : (thieuCccd || thieuThongTin);
-
-          if (canCapNhatHoSo) {
-            if (!mounted) return;
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (_) => ManHinhBanGiaoVaCapNhatHoSo(
-                  user: user,
-                  maKhach: maKhach,
-                  maHopDong: hdRow!['ma_hop_dong']?.toString() ?? '',
-                  maPhong: hdRow['ma_phong']?.toString() ?? '',
-                  khachThueData: ktRes!,
-                  isNguoiDaiDien: isDaiDien,
-                ),
+        if (canCapNhatHoSo) {
+          if (!mounted) return;
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ManHinhBanGiaoVaCapNhatHoSo(
+                user: user,
+                maKhach: maKhach,
+                maHopDong: hdRow?['ma_hop_dong']?.toString() ?? '',
+                maPhong: hdRow?['ma_phong']?.toString() ??
+                    (currentKt['ma_phong']?.toString() ?? ''),
+                khachThueData: currentKt,
+                isNguoiDaiDien: isDaiDien,
               ),
-            );
-            return;
-          }
+            ),
+          );
+          return;
         }
       }
     } catch (e) {

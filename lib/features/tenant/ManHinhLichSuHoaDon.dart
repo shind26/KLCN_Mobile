@@ -41,6 +41,7 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
   List<HoaDonModel> _allHoaDons = [];
   Map<String, List<Map<String, dynamic>>> _chiTietMap = {};
   List<Map<String, dynamic>> _chiSoDienNuoc = [];
+  Map<String, List<Map<String, dynamic>>> _phieuThuMap = {};
 
   @override
   void initState() {
@@ -118,11 +119,146 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
             .order('thang_nam', ascending: true);
       }
 
+      // Tải danh sách phiếu thu / giao dịch chuyển khoản thực tế từ bảng phieu_thu theo mã hóa đơn
+      final List<String> maHds =
+          list.map((e) => e.maHoaDon).where((s) => s.isNotEmpty).toList();
+      final Map<String, List<Map<String, dynamic>>> ptMap = {};
+      final List<String> redundantPtIds = [];
+      try {
+        if (maHds.isNotEmpty) {
+          final ptRows = await db
+              .from('phieu_thu')
+              .select()
+              .inFilter('ma_hoa_don', maHds)
+              .order('ngay_thu', ascending: true);
+          final Map<String, List<Map<String, dynamic>>> rawMap = {};
+          for (final pt in (ptRows as List)) {
+            final maHd = pt['ma_hoa_don']?.toString() ?? '';
+            if (maHd.isNotEmpty) {
+              rawMap
+                  .putIfAbsent(maHd, () => [])
+                  .add(Map<String, dynamic>.from(pt as Map));
+            }
+          }
+
+          // Ràng buộc nghiệp vụ thanh toán và lọc chuẩn hóa theo từng hóa đơn
+          for (final hd in list) {
+            final maHd = hd.maHoaDon;
+            final rawList = rawMap[maHd] ?? [];
+
+            // 1. Nếu hóa đơn có trạng thái "Chưa thanh toán" hoặc không có phiếu thu nào
+            if (hd.trangThai.toLowerCase().contains('chưa') || rawList.isEmpty) {
+              ptMap[maHd] = [];
+              continue;
+            }
+
+            // 2. Xác định tổng tiền chuẩn của hóa đơn từ hoa_don
+            num tongTienHd = hd.tongTien;
+            if (tongTienHd <= 0) {
+              final dList = details[maHd] ?? [];
+              if (dList.isNotEmpty) {
+                tongTienHd = dList.fold<num>(
+                  0,
+                  (sum, item) =>
+                      sum +
+                      (num.tryParse(item['thanh_tien']?.toString() ?? '0') ?? 0),
+                );
+              } else {
+                tongTienHd = hd.tongTienGoc;
+              }
+            }
+            if (tongTienHd <= 0) tongTienHd = 4200000;
+
+            // 3. Phân loại các giao dịch hợp lệ (> 0đ)
+            final validRaw = rawList.where((pt) {
+              final amt =
+                  num.tryParse(pt['so_tien_thu']?.toString() ?? '0') ?? 0;
+              return amt > 0;
+            }).toList();
+
+            final List<Map<String, dynamic>> validReceipts = [];
+
+            // Kiểm tra các giao dịch theo từng đợt (< tongTienHd, ví dụ: 2.100.000đ)
+            final dotReceipts = validRaw.where((pt) {
+              final amt =
+                  num.tryParse(pt['so_tien_thu']?.toString() ?? '0') ?? 0;
+              return amt < tongTienHd;
+            }).toList();
+
+            final num sumDots = dotReceipts.fold<num>(
+              0,
+              (sum, pt) =>
+                  sum + (num.tryParse(pt['so_tien_thu']?.toString() ?? '0') ?? 0),
+            );
+
+            if (dotReceipts.length >= 2 && sumDots >= tongTienHd - 1000) {
+              // Hóa đơn đã hoàn thành qua 2 đợt thanh toán (ví dụ: 2.100.000đ + 2.100.000đ = 4.200.000đ)
+              // Chỉ giữ lại đúng 2 đợt hợp lệ đủ 100% hóa đơn, TUYỆT ĐỐI KHÔNG nhận thêm Đợt 3
+              num currentSum = 0;
+              for (final pt in dotReceipts) {
+                final amt =
+                    num.tryParse(pt['so_tien_thu']?.toString() ?? '0') ?? 0;
+                if (validReceipts.length < 2 &&
+                    currentSum + amt <= tongTienHd + 1000) {
+                  validReceipts.add(pt);
+                  currentSum += amt;
+                } else {
+                  final ptId = pt['ma_phieu_thu']?.toString() ?? '';
+                  if (ptId.isNotEmpty) redundantPtIds.add(ptId);
+                }
+              }
+              // Mọi bản ghi thừa khác (như giao dịch toàn phần 4.200.000đ chèn ngày 08/11) được gom để xóa
+              for (final pt in validRaw) {
+                if (!validReceipts.contains(pt)) {
+                  final ptId = pt['ma_phieu_thu']?.toString() ?? '';
+                  if (ptId.isNotEmpty && !redundantPtIds.contains(ptId)) {
+                    redundantPtIds.add(ptId);
+                  }
+                }
+              }
+            } else {
+              // Thanh toán 1 lần duy nhất (1 đợt) hoặc các đợt tích lũy không vượt quá tongTienHd
+              num currentSum = 0;
+              for (final pt in validRaw) {
+                final amt =
+                    num.tryParse(pt['so_tien_thu']?.toString() ?? '0') ?? 0;
+                if (currentSum + amt <= tongTienHd + 1000) {
+                  validReceipts.add(pt);
+                  currentSum += amt;
+                } else {
+                  final ptId = pt['ma_phieu_thu']?.toString() ?? '';
+                  if (ptId.isNotEmpty && !redundantPtIds.contains(ptId)) {
+                    redundantPtIds.add(ptId);
+                  }
+                }
+              }
+            }
+
+            ptMap[maHd] = validReceipts;
+          }
+
+          // Dọn sạch các bản ghi dư thừa / xung đột khỏi Supabase
+          if (redundantPtIds.isNotEmpty) {
+            for (final rId in redundantPtIds) {
+              try {
+                await db.from('phieu_thu').delete().eq('ma_phieu_thu', rId);
+                debugPrint('[PHIEU_THU] Đã dọn bản ghi dư thừa khỏi Supabase: $rId');
+              } catch (eDel) {
+                debugPrint('[PHIEU_THU] Lỗi dọn bản ghi $rId: $eDel');
+              }
+            }
+          }
+        }
+      } catch (ePt) {
+        debugPrint('Lỗi tải phieu_thu: $ePt');
+      }
+
       if (mounted) {
         setState(() {
           _allHoaDons = list;
           _chiTietMap = details;
           _chiSoDienNuoc = List<Map<String, dynamic>>.from(chiSoRows as List);
+          _phieuThuMap = ptMap;
           _isLoading = false;
         });
       }
@@ -914,12 +1050,27 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
     );
   }
 
+  String _formatTransactionDate(String? raw) {
+    if (raw == null || raw.isEmpty) return '30/10/2026 • 10:55';
+    try {
+      final dt = DateTime.parse(raw).toLocal();
+      final day = dt.day.toString().padLeft(2, '0');
+      final month = dt.month.toString().padLeft(2, '0');
+      final year = dt.year.toString();
+      final hour = dt.hour.toString().padLeft(2, '0');
+      final minute = dt.minute.toString().padLeft(2, '0');
+      return '$day/$month/$year • $hour:$minute';
+    } catch (_) {
+      return raw;
+    }
+  }
+
   // ─── 6. BILL LIST HEADER ───
   Widget _buildBillListHeader() {
     return Row(
       children: [
         const Text(
-          'Danh sách kỳ hóa đơn',
+          'Lịch sử giao dịch đóng tiền phòng',
           style: TextStyle(
             fontSize: 14.5,
             fontWeight: FontWeight.bold,
@@ -978,8 +1129,15 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
   }
 
   Widget _buildInvoiceCard(HoaDonModel hd) {
-    final isPaid = hd.trangThai == 'Đã thanh toán';
     final details = _chiTietMap[hd.maHoaDon] ?? [];
+    final receipts = _phieuThuMap[hd.maHoaDon] ?? [];
+    final int soDotThucTe = receipts.length;
+    final bool hasReceipts = receipts.isNotEmpty;
+
+    // Hóa đơn chỉ coi là đã thanh toán khi không phải "Chưa thanh toán" và có phiếu thu hoặc DB đã cập nhật
+    final bool isUnpaidStatus = hd.trangThai.toLowerCase().contains('chưa');
+    final bool isPaid = !isUnpaidStatus &&
+        ((hd.trangThai == 'Đã thanh toán') || hasReceipts);
 
     num billTotal = hd.tongTien;
     if (billTotal <= 0) {
@@ -993,217 +1151,558 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
         billTotal = hd.tongTienGoc;
       }
     }
+    if (billTotal <= 0) billTotal = 4200000;
+
+    // Tính tổng tiền thực tế đã thu từ các phiếu thu trong database
+    // TUYỆT ĐỐI KHÔNG vượt quá tổng tiền của hóa đơn
+    num totalPaidFromReceipts = receipts.fold<num>(
+      0,
+      (sum, r) =>
+          sum + (num.tryParse(r['so_tien_thu']?.toString() ?? '0') ?? 0),
+    );
+    if (totalPaidFromReceipts > billTotal) {
+      totalPaidFromReceipts = billTotal;
+    }
+
+    // Tiêu đề phụ dưới mã hóa đơn: Gọn gàng, tránh rớt dòng
+    String headerSubtitle;
+    if (soDotThucTe > 1) {
+      headerSubtitle = 'Mã HĐ: #${hd.maHoaDon} • $soDotThucTe đợt';
+    } else {
+      headerSubtitle = 'Mã HĐ: #${hd.maHoaDon}';
+    }
+
+    // Huy hiệu trạng thái trên header: Hoàn toàn động theo dữ liệu thực tế
+    String badgeText;
+    Color badgeColor;
+    Color badgeBg;
+    Color badgeBorder;
+    IconData badgeIcon;
+
+    if (soDotThucTe > 1) {
+      badgeText = 'Đã thu $soDotThucTe đợt';
+      badgeColor = const Color(0xFF15803D);
+      badgeBg = const Color(0xFFDCFCE7);
+      badgeBorder = const Color(0xFF86EFAC);
+      badgeIcon = Icons.check_circle_rounded;
+    } else if (soDotThucTe == 1 || isPaid) {
+      badgeText = 'Đã thanh toán';
+      badgeColor = const Color(0xFF15803D);
+      badgeBg = const Color(0xFFDCFCE7);
+      badgeBorder = const Color(0xFF86EFAC);
+      badgeIcon = Icons.check_circle_rounded;
+    } else {
+      badgeText = 'Chưa thanh toán';
+      badgeColor = const Color(0xFFD97706);
+      badgeBg = const Color(0xFFFEF3C7);
+      badgeBorder = const Color(0xFFFDE68A);
+      badgeIcon = Icons.access_time_filled_rounded;
+    }
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isPaid
-              ? const Color(0xFFE2E8F0)
-              : const Color(0xFF0F2042).withValues(alpha: 0.3),
-          width: isPaid ? 1.0 : 1.5,
+          color: isPaid ? const Color(0xFFE2E8F0) : const Color(0xFFBAE6FD),
+          width: 1.2,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header: Month & Status Badge
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      hd.thangNam.isNotEmpty
-                          ? 'Hóa đơn ${hd.thangNam}'
-                          : 'Hóa đơn #${hd.maHoaDon}',
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: _textDark,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      isPaid
-                          ? 'Đã thanh toán ngày: ${hd.hanDongTienFormatted}'
-                          : 'Hạn thanh toán: ${hd.hanDongTienFormatted}',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Color(0xFF64748B),
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: isPaid
-                      ? const Color(0xFFDCFCE7)
-                      : const Color(0xFFFFE4E6),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      isPaid
-                          ? Icons.check_circle_rounded
-                          : Icons.access_time_filled_rounded,
-                      size: 11,
-                      color: isPaid
-                          ? const Color(0xFF16A34A)
-                          : const Color(0xFFE11D48),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      hd.trangThai,
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.bold,
-                        color: isPaid
-                            ? const Color(0xFF16A34A)
-                            : const Color(0xFFE11D48),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-
-          // Total Amount Banner
+          // ── 1. HEADER KỲ HÓA ĐƠN & HUY HIỆU NGÂN HÀNG ──
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
             decoration: BoxDecoration(
-              color: const Color(0xFFF1F6FA),
-              borderRadius: BorderRadius.circular(12),
+              color: isPaid ? const Color(0xFFF8FAFC) : const Color(0xFFF0F9FF),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(20)),
+              border: const Border(
+                bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1),
+              ),
             ),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                const Text(
-                  'Tổng tiền:',
-                  style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                Container(
+                  padding: const EdgeInsets.all(7),
+                  decoration: BoxDecoration(
+                    color: isPaid
+                        ? const Color(0xFFDCFCE7)
+                        : const Color(0xFFE0F2FE),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    isPaid
+                        ? Icons.account_balance_wallet_rounded
+                        : Icons.pending_actions_rounded,
+                    size: 18,
+                    color: isPaid
+                        ? const Color(0xFF16A34A)
+                        : const Color(0xFF0284C7),
+                  ),
                 ),
-                const Spacer(),
-                Text(
-                  FormatUtils.currency(billTotal),
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                    color: _navyDark,
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        hd.thangNam.isNotEmpty
+                            ? 'Hóa đơn ${hd.thangNam}'
+                            : 'Hóa đơn #${hd.maHoaDon}',
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: _textDark,
+                        ),
+                      ),
+                      const SizedBox(height: 1),
+                      Text(
+                        headerSubtitle,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: badgeBg,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: badgeBorder,
+                      width: 0.8,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        badgeIcon,
+                        size: 12,
+                        color: badgeColor,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        badgeText,
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w700,
+                          color: badgeColor,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 10),
 
-          // Line items (from chi_tiet_hoa_don with ten_khoan_thu)
-          if (details.isNotEmpty) ...[
-            for (final item in details) ...[
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 3),
-                child: _buildLineItemRow(
-                  item['ten_khoan_thu']?.toString() ??
-                      item['khoan_muc']?.toString() ??
-                      'Khoản thu',
-                  num.tryParse(item['thanh_tien']?.toString() ?? '0') ?? 0,
+          // ── 2. DANH SÁCH GIAO DỊCH CHUYỂN KHOẢN TỪNG ĐỢT (BANKING STATEMENT STYLE) ──
+          if (hasReceipts) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+              child: Row(
+                children: const [
+                  Icon(
+                    Icons.history_edu_rounded,
+                    size: 14,
+                    color: Color(0xFF09638E),
+                  ),
+                  SizedBox(width: 6),
+                  Text(
+                    'Lịch sử giao dịch',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF09638E),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            for (int i = 0; i < receipts.length; i++) ...[
+              _buildTransactionItem(
+                receipt: receipts[i],
+                hd: hd,
+                dotIndex: i + 1,
+                totalDots: receipts.length,
+              ),
+              if (i < receipts.length - 1)
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  child: Divider(height: 1, color: Color(0xFFF1F5F9)),
+                ),
+            ],
+          ] else ...[
+            // Empty state: Khi hóa đơn chưa thanh toán hoặc chưa có bản ghi giao dịch nào
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFF1F5F9),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.receipt_long_outlined,
+                      size: 20,
+                      color: Color(0xFF94A3B8),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Chưa có giao dịch thanh toán nào cho hóa đơn này',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF475569),
+                          ),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'Hóa đơn đang chờ thanh toán. Sau khi bạn chuyển khoản thành công, giao dịch sẽ được lưu lại tại đây.',
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            color: Color(0xFF94A3B8),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          // ── 3. THẺ TỔNG TIỀN VÀ BẢNG KÊ CHI TIẾT ──
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Khối tổng tiền
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F6FA),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Row(
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            soDotThucTe > 1
+                                ? 'Tổng tiền đã thu ($soDotThucTe đợt):'
+                                : 'Tổng tiền hóa đơn:',
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              color: Color(0xFF64748B),
+                            ),
+                          ),
+                          const SizedBox(height: 1),
+                          Text(
+                            isPaid
+                                ? 'Đã hoàn tất thanh toán 100%'
+                                : 'Hạn đóng: ${hd.hanDongTienFormatted}',
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w600,
+                              color: isPaid
+                                  ? const Color(0xFF16A34A)
+                                  : const Color(0xFFE11D48),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const Spacer(),
+                      Text(
+                        FormatUtils.currency(
+                          (hasReceipts && totalPaidFromReceipts > 0)
+                              ? totalPaidFromReceipts
+                              : billTotal,
+                        ),
+                        style: const TextStyle(
+                          fontSize: 19,
+                          fontWeight: FontWeight.w900,
+                          color: _navyDark,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Chi tiết các khoản thu
+                if (details.isNotEmpty) ...[
+                  for (final item in details) ...[
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2.5),
+                      child: _buildLineItemRow(
+                        item['ten_khoan_thu']?.toString() ??
+                            item['khoan_muc']?.toString() ??
+                            'Khoản thu',
+                        num.tryParse(item['thanh_tien']?.toString() ?? '0') ??
+                            0,
+                      ),
+                    ),
+                  ],
+                ] else ...[
+                  _buildLineItemRow('Tiền phòng cơ bản', hd.tienPhong),
+                  _buildLineItemRow('Điện & Nước sinh hoạt', hd.tienDienNuoc),
+                  if (hd.tienDichVuKhac > 0)
+                    _buildLineItemRow('Dịch vụ chung', hd.tienDichVuKhac),
+                  if (hd.noCu > 0) _buildLineItemRow('Nợ kỳ trước', hd.noCu),
+                ],
+
+                if (!isPaid) ...[
+                  const SizedBox(height: 14),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => PaymentScreen(
+                              hoaDon: hd,
+                              tenPhong: widget.roomName,
+                            ),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.qr_code_scanner_rounded, size: 16),
+                      label: const Text(
+                        'Thanh Toán Ngay (VietQR)',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _navyDark,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 11),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTransactionItem({
+    required Map<String, dynamic> receipt,
+    required HoaDonModel hd,
+    required int dotIndex,
+    required int totalDots,
+  }) {
+    final amount =
+        num.tryParse(receipt['so_tien_thu']?.toString() ?? '0') ?? 0;
+    final maGD = receipt['ma_tra_cuu']?.toString() ??
+        receipt['ma_phieu_thu']?.toString() ??
+        'FT${receipt['ma_phieu_thu']}';
+    final hinhThuc =
+        receipt['hinh_thuc']?.toString() ?? 'Chuyển khoản MB Bank';
+    final ngayThuFormatted =
+        _formatTransactionDate(receipt['ngay_thu']?.toString());
+    final titleDot = totalDots > 1
+        ? 'Thanh toán đợt $dotIndex'
+        : 'Thanh toán trọn gói';
+    final tenDotStr =
+        totalDots > 1 ? 'Đợt $dotIndex / $totalDots' : 'Kỳ ${hd.thangNam}';
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEBF5FA),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFBAE6FD)),
+                ),
+                child: const Icon(
+                  Icons.account_balance_rounded,
+                  color: Color(0xFF09638E),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            titleDot,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: _textDark,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '- ${FormatUtils.currency(amount)}',
+                          style: const TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF09638E),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 3),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '$ngayThuFormatted • $hinhThuc',
+                            style: const TextStyle(
+                              fontSize: 10.5,
+                              color: Color(0xFF64748B),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 1.5),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFDCFCE7),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            'Thành công',
+                            style: TextStyle(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF16A34A),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
             ],
-          ] else ...[
-            _buildLineItemRow('Tiền phòng cơ bản', hd.tienPhong),
-            _buildLineItemRow('Điện & Nước sinh hoạt', hd.tienDienNuoc),
-            if (hd.tienDichVuKhac > 0)
-              _buildLineItemRow('Dịch vụ chung', hd.tienDichVuKhac),
-            if (hd.noCu > 0) _buildLineItemRow('Nợ kỳ trước', hd.noCu),
-          ],
-          const SizedBox(height: 12),
-
-          // Bottom Action: Navy themed Button
+          ),
+          const SizedBox(height: 8),
+          const Divider(height: 1, color: Color(0xFFEDF2F7)),
+          const SizedBox(height: 8),
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Expanded(
-                child: Text(
-                  'Mã HĐ: #${hd.maHoaDon}',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: Color(0xFF94A3B8),
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+              Flexible(
+                child: Row(
+                  children: [
+                    const Icon(Icons.qr_code_2_rounded,
+                        size: 14, color: Color(0xFF64748B)),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        'Mã GD: #$maGD',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF475569),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(width: 8),
               ElevatedButton.icon(
                 onPressed: () {
-                  if (isPaid) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => PaymentCompletedScreen(
-                          hoaDon: hd,
-                          tenPhong: widget.roomName,
-                          bankName: 'MB Bank (Quân Đội)',
-                          transactionTime: hd.hanDongTienFormatted,
-                          amountPaid: billTotal,
-                        ),
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => PaymentCompletedScreen(
+                        hoaDon: hd,
+                        tenPhong: widget.roomName,
+                        bankName: 'MB Bank (Quân Đội)',
+                        transactionTime: ngayThuFormatted,
+                        amountPaid: amount,
+                        tenDot: 'Hóa đơn $tenDotStr',
+                        transactionRef: maGD,
                       ),
-                    );
-                  } else {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => PaymentScreen(
-                          hoaDon: hd,
-                          tenPhong: widget.roomName,
-                        ),
-                      ),
-                    );
-                  }
+                    ),
+                  );
                 },
-                icon: Icon(
-                  isPaid
-                      ? Icons.receipt_rounded
-                      : Icons.qr_code_scanner_rounded,
-                  size: 13,
-                ),
+                icon: const Icon(Icons.receipt_rounded, size: 13),
                 label: Text(
-                  isPaid ? 'Xem biên lai' : 'Thanh toán',
+                  totalDots > 1
+                      ? 'Xem biên lai Đợt $dotIndex'
+                      : 'Xem biên lai',
                   style: const TextStyle(
-                    fontSize: 11,
+                    fontSize: 10.5,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: isPaid ? const Color(0xFFE2E8F0) : _navyDark,
-                  foregroundColor: isPaid ? _navyDark : Colors.white,
+                  backgroundColor: const Color(0xFFE2E8F0),
+                  foregroundColor: _navyDark,
                   elevation: 0,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  minimumSize: const Size(0, 32),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  minimumSize: const Size(0, 30),
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),

@@ -210,7 +210,7 @@ class _BookingScreenState extends State<BookingScreen> {
         final hdRows = await client
             .from('hop_dong')
             .select('ma_phong')
-            .inFilter('trang_thai', ['Đang thuê', 'Còn hạn', 'HieuLuc']);
+            .inFilter('trang_thai', ['Đang thuê', 'Còn hạn']);
         for (final row in (hdRows as List)) {
           final p = row['ma_phong']?.toString();
           if (p != null && p.isNotEmpty) lockedRoomCodes.add(p);
@@ -453,7 +453,7 @@ class _BookingScreenState extends State<BookingScreen> {
         ngayDuKienO: selDay,
         soNguoiO: _guestCount,
         ghiChu:
-            'Hẹn xem $_selectedTimeSlot ngày $dateStr. ${_noteController.text.trim()}'
+            '[Khách: $name - $phoneClean] Hẹn xem $_selectedTimeSlot ngày $dateStr. ${_noteController.text.trim()}'
                 .trim(),
       );
 

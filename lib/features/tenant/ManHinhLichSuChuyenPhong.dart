@@ -1341,10 +1341,18 @@ class _RoomTransferHistoryScreenState extends State<RoomTransferHistoryScreen> {
                 const Spacer(),
                 ElevatedButton.icon(
                   onPressed: () {
+                    final targetContract =
+                        (r['ma_hop_dong_ht']?.toString() ?? '').isNotEmpty
+                            ? r['ma_hop_dong_ht'].toString()
+                            : (widget.maHopDong ??
+                                widget.hopDong?.maHopDong ??
+                                '');
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => const ContractDetailScreen(),
+                        builder: (_) => ContractDetailScreen(
+                          maHopDong: targetContract,
+                        ),
                       ),
                     );
                   },

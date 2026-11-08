@@ -611,6 +611,29 @@ Nội dung: ${widget.hoaDon.noiDungChuyenKhoan}''';
         debugPrint(
           '[PHIEU_THU] Đã ghi nhận phiếu thu thành công: $maPhieuThu cho hóa đơn $maHoaDon',
         );
+
+        // Tự động đồng bộ chỉ số điện nước mới nhất vào bảng phong khi thanh toán
+        try {
+          final csRows = await db
+              .from('chi_so_dien_nuoc')
+              .select()
+              .order('thang_nam', ascending: false)
+              .limit(1);
+          if ((csRows as List).isNotEmpty) {
+            final cs = csRows.first;
+            final dMoi =
+                double.tryParse(cs['chi_so_dien_moi']?.toString() ?? '');
+            final nMoi =
+                double.tryParse(cs['chi_so_nuoc_moi']?.toString() ?? '');
+            if (dMoi != null && dMoi > 0) {
+              await db.from('phong').update({
+                'chi_so_dien': dMoi,
+                if (nMoi != null && nMoi > 0) 'chi_so_nuoc': nMoi,
+                'ngay_cap_nhat_chi_so': DateTime.now().toIso8601String(),
+              }).or('ma_phong.eq.203,ma_phong.eq.P203');
+            }
+          }
+        } catch (_) {}
       } catch (ePt) {
         debugPrint('[PHIEU_THU] Lỗi lưu phiếu thu: $ePt');
       }

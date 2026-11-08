@@ -151,14 +151,14 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
             .from('giu_cho')
             .select()
             .or(
-              'ma_giu_cho.ilike.%$cleanQuery%,ma_khach.in.(${maKhachList.join(",")})',
+              'ma_giu_cho.ilike.%$cleanQuery%,ghi_chu.ilike.%$cleanQuery%,ma_khach.in.(${maKhachList.join(",")})',
             )
             .order('thoi_gian_giu_cho', ascending: false);
       } else {
         response = await client
             .from('giu_cho')
             .select()
-            .or('ma_giu_cho.ilike.%$cleanQuery%,ma_phong.ilike.%$cleanQuery%')
+            .or('ma_giu_cho.ilike.%$cleanQuery%,ghi_chu.ilike.%$cleanQuery%,ma_phong.ilike.%$cleanQuery%')
             .order('thoi_gian_giu_cho', ascending: false);
       }
 
@@ -192,17 +192,51 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
         if (rawSt == 'DaHuy') displaySt = 'Đã hủy';
         if (rawSt == 'HetHan') displaySt = 'Hết hạn';
 
+        // Trích xuất tên khách: Ưu tiên tên khách lưu trực tiếp trong booking (ghi_chu [Khách: ...])
+        String tenKhach = kh?['ho_ten_khach'] ?? 'Khách thuê';
+        String soDtKhach = kh?['so_dt'] ?? '';
+        final ghiChuRaw = gc['ghi_chu']?.toString() ?? '';
+
+        final matchTen = RegExp(
+          r'\[Khách:\s*([^\]\-]+?)(?:\s*-\s*([^\]]+))?\]',
+        ).firstMatch(ghiChuRaw);
+        if (matchTen != null) {
+          final tenParsed = matchTen.group(1)?.trim() ?? '';
+          final sdtParsed = matchTen.group(2)?.trim() ?? '';
+          if (tenParsed.isNotEmpty) tenKhach = tenParsed;
+          if (sdtParsed.isNotEmpty &&
+              (soDtKhach.isEmpty || soDtKhach.toLowerCase() == 'null')) {
+            soDtKhach = sdtParsed;
+          }
+        }
+
+        // Tách ghi chú sạch (loại bỏ tag [Khách: ...])
+        String cleanGhiChu = ghiChuRaw
+            .replaceAll(RegExp(r'\[Khách:[^\]]+\]\s*'), '')
+            .trim();
+
+        // Tách khung giờ từ cleanGhiChu
+        String khungGio = 'Khung giờ thỏa thuận';
+        if (cleanGhiChu.contains('Hẹn xem ')) {
+          final matchKg = RegExp(r'Hẹn xem ([^\.]+)\.').firstMatch(cleanGhiChu);
+          if (matchKg != null && matchKg.group(1) != null) {
+            khungGio = matchKg.group(1)!.trim();
+          }
+        } else if (cleanGhiChu.isNotEmpty) {
+          khungGio = cleanGhiChu;
+        }
+
         list.add({
           'ma_lich_hen': gc['ma_giu_cho'],
           'ma_phong': gc['ma_phong'],
-          'ten_khach_hang': kh?['ho_ten_khach'] ?? 'Khách thuê',
-          'so_dien_thoai': kh?['so_dt'] ?? '',
+          'ten_khach_hang': tenKhach,
+          'so_dien_thoai': soDtKhach,
           'ngay_hen':
               gc['ngay_du_kien_o'] ??
               (gc['thoi_gian_giu_cho']?.toString().substring(0, 10) ?? ''),
-          'khung_gio': gc['ghi_chu'] ?? 'Khung giờ thỏa thuận',
+          'khung_gio': khungGio,
           'so_nguoi': gc['so_nguoi_o'] ?? 1,
-          'ghi_chu': gc['ghi_chu'] ?? '',
+          'ghi_chu': cleanGhiChu,
           'trang_thai': displaySt,
           'da_coc_the_chan': rawSt == 'Đã thanh toán',
           'so_tien_the_chan': gc['so_tien_the_chan'],
@@ -317,6 +351,7 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
     switch (status) {
       case 'Đã duyệt':
       case 'Đã xác nhận':
+      case 'Đã thanh toán':
       case 'Đã thanh toán thế chân':
       case 'Đã cọc':
         return const Color(0xFF16A34A);
@@ -327,6 +362,7 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
         return const Color(0xFFDC2626);
       case 'Chờ duyệt':
         return const Color(0xFFD97706);
+      case 'Chờ thanh toán':
       case 'Chờ xác nhận':
       case 'Chờ thanh toán thế chân':
       default:
@@ -338,6 +374,7 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
     switch (status) {
       case 'Đã duyệt':
       case 'Đã xác nhận':
+      case 'Đã thanh toán':
       case 'Đã thanh toán thế chân':
       case 'Đã cọc':
         return const Color(0xFFDCFCE7);
@@ -348,6 +385,7 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
         return const Color(0xFFFEE2E2);
       case 'Chờ duyệt':
         return const Color(0xFFFEF3C7);
+      case 'Chờ thanh toán':
       case 'Chờ xác nhận':
       case 'Chờ thanh toán thế chân':
       default:
@@ -557,6 +595,65 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
     final statusColor = _getStatusColor(trangThai);
     final statusBgColor = _getStatusBgColor(trangThai);
 
+    // Xác định trạng thái đã đặt cọc / thanh toán
+    final isDaCocTheChan = booking['da_coc_the_chan'] == true ||
+        trangThai == 'Đã thanh toán' ||
+        trangThai == 'Đã cọc' ||
+        trangThai == 'Đã thanh toán thế chân';
+
+    // Gom thành 1 nhãn trạng thái duy nhất, đồng bộ và thẩm mỹ cao
+    String singleBadgeText;
+    IconData singleBadgeIcon;
+    Color singleBadgeColor;
+    Color singleBadgeBg;
+    Color singleBadgeBorder;
+
+    if (isDaCocTheChan) {
+      singleBadgeText = 'Đã cọc giữ chỗ';
+      singleBadgeIcon = Icons.verified_rounded;
+      singleBadgeColor = const Color(0xFF15803D);
+      singleBadgeBg = const Color(0xFFDCFCE7);
+      singleBadgeBorder = const Color(0xFF86EFAC);
+    } else if (trangThai == 'Chờ thanh toán' ||
+        trangThai == 'ChoThanhToan' ||
+        trangThai == 'Chờ thanh toán thế chân') {
+      singleBadgeText = 'Chờ thanh toán';
+      singleBadgeIcon = Icons.access_time_filled_rounded;
+      singleBadgeColor = const Color(0xFFD97706);
+      singleBadgeBg = const Color(0xFFFEF3C7);
+      singleBadgeBorder = const Color(0xFFFDE68A);
+    } else if (trangThai == 'Đã duyệt' || trangThai == 'Đã xác nhận') {
+      singleBadgeText = trangThai;
+      singleBadgeIcon = Icons.check_circle_rounded;
+      singleBadgeColor = const Color(0xFF16A34A);
+      singleBadgeBg = const Color(0xFFDCFCE7);
+      singleBadgeBorder = const Color(0xFF86EFAC);
+    } else if (trangThai == 'Đã xem' || trangThai == 'Đã xem phòng') {
+      singleBadgeText = 'Đã xem phòng';
+      singleBadgeIcon = Icons.visibility_rounded;
+      singleBadgeColor = const Color(0xFF2563EB);
+      singleBadgeBg = const Color(0xFFDBEAFE);
+      singleBadgeBorder = const Color(0xFF93C5FD);
+    } else if (trangThai == 'Đã hủy' || trangThai == 'DaHuy') {
+      singleBadgeText = 'Đã hủy';
+      singleBadgeIcon = Icons.cancel_rounded;
+      singleBadgeColor = const Color(0xFFDC2626);
+      singleBadgeBg = const Color(0xFFFEE2E2);
+      singleBadgeBorder = const Color(0xFFFCA5A5);
+    } else if (trangThai == 'Hết hạn' || trangThai == 'HetHan') {
+      singleBadgeText = 'Hết hạn';
+      singleBadgeIcon = Icons.timer_off_rounded;
+      singleBadgeColor = const Color(0xFF64748B);
+      singleBadgeBg = const Color(0xFFF1F5F9);
+      singleBadgeBorder = const Color(0xFFCBD5E1);
+    } else {
+      singleBadgeText = trangThai;
+      singleBadgeIcon = Icons.info_rounded;
+      singleBadgeColor = statusColor;
+      singleBadgeBg = statusBgColor;
+      singleBadgeBorder = statusColor.withValues(alpha: 0.35);
+    }
+
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
@@ -574,102 +671,88 @@ class _BookingHistoryScreenState extends State<BookingHistoryScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header Card: Mã phiếu & Trạng thái
+          // Header Card: Mã phiếu & Trạng thái duy nhất, đồng bộ
           Padding(
-            padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
             child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Expanded(
+                // Tag mã giao dịch / mã giữ chỗ
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF0F9FF),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: const Color(0xFFBAE6FD),
+                      width: 0.8,
+                    ),
+                  ),
                   child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       const Icon(
                         Icons.confirmation_number_outlined,
-                        size: 15,
-                        color: Color(0xFF09638E),
+                        size: 14,
+                        color: Color(0xFF0284C7),
                       ),
                       const SizedBox(width: 5),
-                      Flexible(
-                        child: Text(
-                          '#$maLichHen',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF09638E),
-                          ),
+                      Text(
+                        '#$maLichHen',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF0369A1),
+                          letterSpacing: 0.3,
                         ),
                       ),
                     ],
                   ),
                 ),
+
                 const SizedBox(width: 8),
+
+                // Huy hiệu trạng thái duy nhất, thẩm mỹ cao
                 Flexible(
-                  child: Wrap(
-                    spacing: 6,
-                    runSpacing: 4,
-                    alignment: WrapAlignment.end,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      if (booking['da_coc_the_chan'] == true) ...[
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 7,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFDCFCE7),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: const Color(
-                                0xFF16A34A,
-                              ).withValues(alpha: 0.3),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4.5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: singleBadgeBg,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: singleBadgeBorder,
+                        width: 0.8,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          singleBadgeIcon,
+                          size: 13,
+                          color: singleBadgeColor,
+                        ),
+                        const SizedBox(width: 4.5),
+                        Flexible(
+                          child: Text(
+                            singleBadgeText,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w700,
+                              color: singleBadgeColor,
+                              letterSpacing: 0.1,
                             ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: const [
-                              Icon(
-                                Icons.shield_rounded,
-                                size: 11,
-                                color: Color(0xFF16A34A),
-                              ),
-                              SizedBox(width: 3),
-                              Text(
-                                'Đã cọc thế chân',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF16A34A),
-                                ),
-                              ),
-                            ],
                           ),
                         ),
                       ],
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 9,
-                          vertical: 3.5,
-                        ),
-                        decoration: BoxDecoration(
-                          color: statusBgColor,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: statusColor.withValues(alpha: 0.3),
-                          ),
-                        ),
-                        child: Text(
-                          trangThai,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: statusColor,
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ],
