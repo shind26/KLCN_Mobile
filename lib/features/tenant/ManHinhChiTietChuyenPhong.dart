@@ -1617,19 +1617,11 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
               }
             : _submitTransferRequest,
         style: ElevatedButton.styleFrom(
-          backgroundColor: hasUnpaid
-              ? const Color(0xFFDC2626)
-              : (hasPending
-                  ? const Color(0xFFD97706)
-                  : (hasTargetPending
-                      ? const Color(0xFF64748B)
-                      : _primaryDark)),
+          backgroundColor: (hasPending || hasTargetPending)
+              ? const Color(0xFF475569)
+              : (hasUnpaid ? const Color(0xFF64748B) : _primaryDark),
           foregroundColor: Colors.white,
-          disabledBackgroundColor: hasUnpaid
-              ? const Color(0xFFDC2626).withValues(alpha: 0.7)
-              : (hasTargetPending
-                  ? const Color(0xFF64748B).withValues(alpha: 0.7)
-                  : _primaryDark.withValues(alpha: 0.6)),
+          disabledBackgroundColor: const Color(0xFF94A3B8),
           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
@@ -1650,9 +1642,9 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
                 children: [
                   Icon(
                     hasUnpaid
-                        ? Icons.warning_rounded
+                        ? Icons.receipt_long_outlined
                         : (hasPending || hasTargetPending
-                            ? Icons.lock_clock_rounded
+                            ? Icons.lock_outline_rounded
                             : Icons.send_rounded),
                     size: 16,
                   ),
@@ -1660,7 +1652,7 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
                   Flexible(
                     child: Text(
                       hasUnpaid
-                          ? 'Vui lòng thanh toán hết hóa đơn phòng cũ'
+                          ? 'Vui lòng hoàn tất hóa đơn phòng hiện tại'
                           : (hasPending
                               ? 'Đang có đơn chờ duyệt (#${_pendingRequest!["ma_yeu_cau"]})'
                               : (hasTargetPending
@@ -1670,7 +1662,8 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontSize: 13.5,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.2,
                       ),
                     ),
                   ),
