@@ -260,6 +260,18 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
           _chiSoDienNuoc = List<Map<String, dynamic>>.from(chiSoRows as List);
           _phieuThuMap = ptMap;
           _isLoading = false;
+
+          // Nếu năm hiện tại chưa có dữ liệu mà có hóa đơn năm khác thì ưu tiên năm có hóa đơn
+          if (list.isNotEmpty) {
+            final targetY = _currentSelectedYearInt;
+            final hasCurrent = list.any((h) => _getYearOfHoaDon(h) == targetY);
+            if (!hasCurrent) {
+              final firstY = _getYearOfHoaDon(list.first);
+              if (firstY != null) {
+                _selectedYear = 'Năm $firstY';
+              }
+            }
+          }
         });
       }
     } catch (e) {
@@ -268,16 +280,111 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
     }
   }
 
-  int get _paidCount =>
-      _allHoaDons.where((h) => h.trangThai == 'Đã thanh toán').length;
-  // Chỉ đếm hóa đơn BQL đã gửi nhưng chưa thanh toán (loại trừ 'Chờ gửi')
-  int get _unpaidCount => _allHoaDons
+  // ─── HÀM BỔ TRỢ XÁC ĐỊNH NĂM THỰC TẾ ───
+  int? _getYearOfHoaDon(HoaDonModel hd) {
+    final tn = hd.thangNam;
+    if (tn.contains('/')) {
+      final y = int.tryParse(tn.split('/').last.trim());
+      if (y != null) return y;
+    }
+    if (hd.ngayLap.isNotEmpty) {
+      try {
+        return DateTime.parse(hd.ngayLap).year;
+      } catch (_) {
+        final parts = hd.ngayLap.split('/');
+        if (parts.length == 3) {
+          final y = int.tryParse(parts[2].trim());
+          if (y != null) return y;
+        }
+      }
+    }
+    if (hd.hanDongTien.isNotEmpty) {
+      try {
+        return DateTime.parse(hd.hanDongTien).year;
+      } catch (_) {
+        final parts = hd.hanDongTien.split('/');
+        if (parts.length == 3) {
+          final y = int.tryParse(parts[2].trim());
+          if (y != null) return y;
+        }
+      }
+    }
+    final match = RegExp(r'202[0-9]').firstMatch('${hd.thangNam} ${hd.maHoaDon} ${hd.ngayLap}');
+    if (match != null) {
+      return int.tryParse(match.group(0)!);
+    }
+    return null;
+  }
+
+  int? _getYearOfChiSo(Map<String, dynamic> item) {
+    final tn = item['thang_nam']?.toString() ?? '';
+    if (tn.contains('/')) {
+      final parts = tn.split('/');
+      final y = int.tryParse(parts.last.trim());
+      if (y != null) return y;
+    }
+    final ngayGhi = item['ngay_ghi']?.toString() ?? '';
+    if (ngayGhi.isNotEmpty) {
+      try {
+        return DateTime.parse(ngayGhi).year;
+      } catch (_) {}
+    }
+    final match = RegExp(r'202[0-9]').firstMatch(tn);
+    if (match != null) {
+      return int.tryParse(match.group(0)!);
+    }
+    return null;
+  }
+
+  int get _currentSelectedYearInt {
+    final match = RegExp(r'\d{4}').firstMatch(_selectedYear);
+    return match != null ? int.parse(match.group(0)!) : 2026;
+  }
+
+  List<String> get _availableYears {
+    final Set<int> years = {2024, 2025, 2026};
+    for (final hd in _allHoaDons) {
+      final y = _getYearOfHoaDon(hd);
+      if (y != null) years.add(y);
+    }
+    for (final cs in _chiSoDienNuoc) {
+      final y = _getYearOfChiSo(cs);
+      if (y != null) years.add(y);
+    }
+    final sorted = years.toList()..sort((a, b) => b.compareTo(a));
+    return sorted.map((y) => 'Năm $y').toList();
+  }
+
+  // Danh sách hóa đơn thuộc đúng năm đang chọn
+  List<HoaDonModel> get _hoaDonsInSelectedYear {
+    final targetYear = _currentSelectedYearInt;
+    return _allHoaDons.where((h) {
+      final y = _getYearOfHoaDon(h);
+      return y == targetYear;
+    }).toList();
+  }
+
+  int get _paidCount => _hoaDonsInSelectedYear
+      .where((h) => h.trangThai == 'Đã thanh toán')
+      .length;
+
+  int get _unpaidCount => _hoaDonsInSelectedYear
       .where((h) => h.trangThai != 'Đã thanh toán' && h.trangThai != 'Chờ gửi')
       .length;
 
+  // Danh sách chỉ số điện nước thuộc đúng năm đang chọn
+  List<Map<String, dynamic>> get _chiSoDienNuocInSelectedYear {
+    final targetYear = _currentSelectedYearInt;
+    return _chiSoDienNuoc.where((cs) {
+      final y = _getYearOfChiSo(cs);
+      return y == targetYear;
+    }).toList();
+  }
+
   double get _avgElectricity {
-    if (_chiSoDienNuoc.isEmpty) return 60.0;
-    final total = _chiSoDienNuoc.fold<double>(0.0, (sum, item) {
+    final list = _chiSoDienNuocInSelectedYear;
+    if (list.isEmpty) return 0.0;
+    final total = list.fold<double>(0.0, (sum, item) {
       final cu =
           num.tryParse(item['chi_so_dien_cu']?.toString() ?? '0')?.toDouble() ??
           0.0;
@@ -288,12 +395,13 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
           0.0;
       return sum + (moi - cu).clamp(0.0, double.infinity);
     });
-    return total / _chiSoDienNuoc.length;
+    return total / list.length;
   }
 
   double get _avgWater {
-    if (_chiSoDienNuoc.isEmpty) return 6.0;
-    final total = _chiSoDienNuoc.fold<double>(0.0, (sum, item) {
+    final list = _chiSoDienNuocInSelectedYear;
+    if (list.isEmpty) return 0.0;
+    final total = list.fold<double>(0.0, (sum, item) {
       final cu =
           num.tryParse(item['chi_so_nuoc_cu']?.toString() ?? '0')?.toDouble() ??
           0.0;
@@ -304,25 +412,26 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
           0.0;
       return sum + (moi - cu).clamp(0.0, double.infinity);
     });
-    return total / _chiSoDienNuoc.length;
+    return total / list.length;
   }
 
   List<HoaDonModel> get _filteredList {
+    final inYear = _hoaDonsInSelectedYear;
     if (_selectedFilterIndex == 1) {
       // Tab 'Chưa thanh toán': chỉ hiện hóa đơn đã được gửi (không tính 'Chờ gửi')
-      return _allHoaDons
+      return inYear
           .where(
             (h) => h.trangThai != 'Đã thanh toán' && h.trangThai != 'Chờ gửi',
           )
           .toList();
     }
     if (_selectedFilterIndex == 2) {
-      return _allHoaDons.where((h) => h.trangThai == 'Đã thanh toán').toList();
+      return inYear.where((h) => h.trangThai == 'Đã thanh toán').toList();
     }
-    return _allHoaDons;
+    return inYear;
   }
 
-  num get _totalSpending => _allHoaDons.fold<num>(0, (sum, item) {
+  num get _totalSpending => _hoaDonsInSelectedYear.fold<num>(0, (sum, item) {
     if (item.tongTien > 0) return sum + item.tongTien;
     final details = _chiTietMap[item.maHoaDon] ?? [];
     if (details.isNotEmpty) {
@@ -550,7 +659,9 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
               const SizedBox(width: 4),
               DropdownButtonHideUnderline(
                 child: DropdownButton<String>(
-                  value: _selectedYear,
+                  value: _availableYears.contains(_selectedYear)
+                      ? _selectedYear
+                      : _availableYears.first,
                   isDense: true,
                   icon: const Icon(
                     Icons.keyboard_arrow_down_rounded,
@@ -562,7 +673,7 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                     fontWeight: FontWeight.bold,
                     color: _navyDark,
                   ),
-                  items: ['Năm 2024', 'Năm 2025', 'Năm 2026'].map((y) {
+                  items: _availableYears.map((y) {
                     return DropdownMenuItem<String>(value: y, child: Text(y));
                   }).toList(),
                   onChanged: (val) {
@@ -580,7 +691,7 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
   // ─── 3. FILTER TABS (NAVY STYLE) ───
   Widget _buildFilterTabs() {
     final filters = [
-      'Tất cả (${_allHoaDons.length})',
+      'Tất cả (${_hoaDonsInSelectedYear.length})',
       'Chưa thanh toán ($_unpaidCount)',
       'Đã thanh toán ($_paidCount)',
     ];
@@ -690,34 +801,44 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: _unpaidCount == 0
-                      ? const Color(0xFFDCFCE7)
-                      : const Color(0xFFFFE4E6),
+                  color: _hoaDonsInSelectedYear.isEmpty
+                      ? const Color(0xFFF1F5F9)
+                      : (_unpaidCount == 0
+                          ? const Color(0xFFDCFCE7)
+                          : const Color(0xFFFFE4E6)),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      _unpaidCount == 0
-                          ? Icons.check_circle_rounded
-                          : Icons.access_time_filled_rounded,
-                      color: _unpaidCount == 0
-                          ? const Color(0xFF16A34A)
-                          : const Color(0xFFE11D48),
+                      _hoaDonsInSelectedYear.isEmpty
+                          ? Icons.info_outline_rounded
+                          : (_unpaidCount == 0
+                              ? Icons.check_circle_rounded
+                              : Icons.access_time_filled_rounded),
+                      color: _hoaDonsInSelectedYear.isEmpty
+                          ? const Color(0xFF64748B)
+                          : (_unpaidCount == 0
+                              ? const Color(0xFF16A34A)
+                              : const Color(0xFFE11D48)),
                       size: 12,
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      _unpaidCount == 0
-                          ? 'Đã quyết toán hết'
-                          : 'Còn $_unpaidCount kỳ nợ',
+                      _hoaDonsInSelectedYear.isEmpty
+                          ? 'Chưa có hóa đơn'
+                          : (_unpaidCount == 0
+                              ? 'Đã quyết toán hết'
+                              : 'Còn $_unpaidCount kỳ nợ'),
                       style: TextStyle(
                         fontSize: 10.5,
                         fontWeight: FontWeight.bold,
-                        color: _unpaidCount == 0
-                            ? const Color(0xFF16A34A)
-                            : const Color(0xFFE11D48),
+                        color: _hoaDonsInSelectedYear.isEmpty
+                            ? const Color(0xFF64748B)
+                            : (_unpaidCount == 0
+                                ? const Color(0xFF16A34A)
+                                : const Color(0xFFE11D48)),
                       ),
                     ),
                   ],
@@ -765,7 +886,7 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
               const SizedBox(width: 8),
               Flexible(
                 child: Text(
-                  'Đã đóng: $_paidCount/${_allHoaDons.length} kỳ',
+                  'Đã đóng: $_paidCount/${_hoaDonsInSelectedYear.length} kỳ',
                   style: const TextStyle(
                     fontSize: 11.5,
                     fontWeight: FontWeight.w600,
@@ -890,11 +1011,13 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
   // ─── 5. ELECTRICITY TREND CARD ───
   Widget _buildElectricityTrendCard() {
     List<Widget> barWidgets = [];
-    if (_chiSoDienNuoc.isNotEmpty) {
+    final list = _chiSoDienNuocInSelectedYear;
+
+    if (list.isNotEmpty) {
       // Chỉ lấy tối đa 5 tháng gần nhất để tránh tràn màn hình
-      final displayData = _chiSoDienNuoc.length > 5
-          ? _chiSoDienNuoc.sublist(_chiSoDienNuoc.length - 5)
-          : _chiSoDienNuoc;
+      final displayData = list.length > 5
+          ? list.sublist(list.length - 5)
+          : list;
 
       double maxKwh = 1.0;
       for (final item in displayData) {
@@ -929,14 +1052,9 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
         final isHighest = diff.toDouble() == maxKwh;
         barWidgets.add(_buildBar('T$thang', diff, isHighest, maxKwh));
       }
-    } else {
-      barWidgets = [
-        _buildBar('T6', 55, false, 72),
-        _buildBar('T7', 72, true, 72),
-        _buildBar('T8', 65, false, 72),
-        _buildBar('T9', 60, false, 72),
-      ];
     }
+
+    final bool hasData = barWidgets.isNotEmpty;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -955,14 +1073,14 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.query_stats_rounded, color: _navyDark, size: 18),
-              SizedBox(width: 6),
+              const Icon(Icons.query_stats_rounded, color: _navyDark, size: 18),
+              const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  'Biểu đồ chỉ số điện gần đây',
-                  style: TextStyle(
+                  'Biểu đồ chỉ số điện $_selectedYear',
+                  style: const TextStyle(
                     fontSize: 13.5,
                     fontWeight: FontWeight.bold,
                     color: _textDark,
@@ -971,38 +1089,53 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              SizedBox(width: 8),
-              Text(
+              const SizedBox(width: 8),
+              const Text(
                 'Đơn vị: kWh',
                 style: TextStyle(fontSize: 10.5, color: Color(0xFF94A3B8)),
               ),
             ],
           ),
           const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: barWidgets,
-          ),
-          const SizedBox(height: 10),
-          const Divider(height: 1, color: Color(0xFFE2E8F0)),
-          const SizedBox(height: 8),
-          const Row(
-            children: [
-              Icon(
-                Icons.tips_and_updates_outlined,
-                color: Color(0xFFD97706),
-                size: 14,
-              ),
-              SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  'Tiêu thụ điện kỳ này ở mức ổn định và tiết kiệm.',
-                  style: TextStyle(fontSize: 10.5, color: Color(0xFF64748B)),
+          if (hasData) ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: barWidgets,
+            ),
+            const SizedBox(height: 10),
+            const Divider(height: 1, color: Color(0xFFE2E8F0)),
+            const SizedBox(height: 8),
+            const Row(
+              children: [
+                Icon(
+                  Icons.tips_and_updates_outlined,
+                  color: Color(0xFFD97706),
+                  size: 14,
+                ),
+                SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Tiêu thụ điện kỳ này ở mức ổn định và tiết kiệm.',
+                    style: TextStyle(fontSize: 10.5, color: Color(0xFF64748B)),
+                  ),
+                ),
+              ],
+            ),
+          ] else ...[
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 18),
+              alignment: Alignment.center,
+              child: Text(
+                'Chưa có dữ liệu chỉ số điện trong $_selectedYear',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFF94A3B8),
+                  fontStyle: FontStyle.italic,
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ],
       ),
     );
@@ -1098,25 +1231,25 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
           border: Border.all(color: const Color(0xFFE2E8F0)),
         ),
         child: Column(
-          children: const [
-            Icon(
+          children: [
+            const Icon(
               Icons.receipt_long_outlined,
               size: 40,
               color: Color(0xFF94A3B8),
             ),
-            SizedBox(height: 10),
+            const SizedBox(height: 10),
             Text(
-              'Không tìm thấy hóa đơn nào',
-              style: TextStyle(
+              'Không tìm thấy hóa đơn nào trong $_selectedYear',
+              style: const TextStyle(
                 fontSize: 14.5,
                 fontWeight: FontWeight.bold,
                 color: Color(0xFF475569),
               ),
             ),
-            SizedBox(height: 4),
+            const SizedBox(height: 4),
             Text(
-              'Các hóa đơn mới sẽ tự động hiển thị tại đây.',
-              style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+              'Các hóa đơn phát sinh trong $_selectedYear sẽ tự động hiển thị tại đây.',
+              style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
             ),
           ],
         ),

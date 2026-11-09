@@ -158,12 +158,16 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
     if (_phong != null) {
       return '${_phong!.tenHienThi} • ${_phong!.toaNha} (Tầng ${_phong!.tang})';
     }
-    return widget.roomNumber != null
-        ? 'Phòng ${widget.roomNumber}'
-        : 'Đang tải...';
+    final activeMaPhong = _hopDong?.maPhong ?? widget.roomNumber;
+    if (activeMaPhong != null && activeMaPhong.isNotEmpty) {
+      final cleanNum = activeMaPhong.replaceAll(RegExp(r'[^0-9]'), '');
+      final tangNum = cleanNum.isNotEmpty ? cleanNum[0] : '1';
+      return 'Phòng ${cleanNum.isNotEmpty ? cleanNum : activeMaPhong} • Tòa A (Tầng $tangNum)';
+    }
+    return 'Đang tải...';
   }
 
-  String get maPhong => _hopDong?.maPhong ?? widget.roomNumber ?? 'P203';
+  String get maPhong => _hopDong?.maPhong ?? widget.roomNumber ?? 'P105';
   String get maHopDong => _hopDong?.maHopDong ?? '';
 
   /// Kiểm tra xem tài khoản đang đăng nhập có phải là Người đại diện (Trưởng phòng) hay không
@@ -1312,7 +1316,147 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
         return;
       }
 
-      final hd = HopDongModel.fromJson(Map<String, dynamic>.from(hopDongRow!));
+      final validHdMap = Map<String, dynamic>.from(hopDongRow!);
+
+      // ── AUTO-SYNC: TỰ ĐỘNG ĐỒNG BỘ NẾU CÓ PHỤ LỤC / YÊU CẦU CHUYỂN PHÒNG ĐÃ DUYỆT ──
+      try {
+        final currentContractCode = validHdMap['ma_hop_dong']?.toString() ?? '';
+        if (currentContractCode.isNotEmpty) {
+          String? newRoomCode;
+          num? newRentPrice;
+
+          // 1. Quét phụ lục hợp đồng đã duyệt cho hợp đồng này
+          try {
+            final plRows = await db
+                .from('phu_luc_hop_dong')
+                .select()
+                .eq('ma_hop_dong', currentContractCode);
+
+            for (final pl in (plRows as List)) {
+              final plMap = Map<String, dynamic>.from(pl as Map);
+              final tt = (plMap['trang_thai']?.toString() ?? '').toLowerCase().trim();
+              final isApproved = !tt.contains('chờ') &&
+                  !tt.contains('cho') &&
+                  (tt.contains('đã duyệt') ||
+                      tt.contains('da duyet') ||
+                      tt.contains('hoàn tất') ||
+                      tt.contains('hoan tat') ||
+                      tt == 'approved');
+              final maPl = plMap['ma_phu_luc']?.toString().toUpperCase() ?? '';
+              final noiDung = plMap['noi_dung_dieu_chinh']?.toString() ?? '';
+              final isPlChuyenPhong = maPl.startsWith('PLCP') ||
+                  noiDung.toLowerCase().contains('chuyển') ||
+                  (plMap['ma_phong_moi']?.toString() ?? '').isNotEmpty;
+
+              if (isApproved && isPlChuyenPhong) {
+                String? rCode = plMap['ma_phong_moi']?.toString().trim();
+                if (rCode == null || rCode.isEmpty) {
+                  final m = RegExp(r'sang\s+(?:phòng\s+)?(P?\d+)', caseSensitive: false)
+                      .firstMatch(noiDung);
+                  if (m != null) {
+                    rCode = m.group(1)?.trim();
+                  }
+                }
+                if (rCode != null && rCode.isNotEmpty) {
+                  newRoomCode = rCode;
+                  final g = plMap['gia_thue_moi'];
+                  if (g != null) {
+                    newRentPrice = num.tryParse(g.toString());
+                  }
+                  break;
+                }
+              }
+            }
+          } catch (ePl) {
+            debugPrint('[AUTO_SYNC] Lỗi quét phu_luc_hop_dong: $ePl');
+          }
+
+          // 2. Fallback: Quét yeu_cau_chuyen_phong
+          if (newRoomCode == null || newRoomCode.isEmpty) {
+            try {
+              final yccpRows = await db
+                  .from('yeu_cau_chuyen_phong')
+                  .select()
+                  .eq('ma_hop_dong_ht', currentContractCode);
+
+              for (final yc in (yccpRows as List)) {
+                final ycMap = Map<String, dynamic>.from(yc as Map);
+                final tt = (ycMap['trang_thai_tien_do']?.toString() ?? '')
+                    .toLowerCase()
+                    .trim();
+                final isApproved = !tt.contains('chờ') &&
+                    !tt.contains('cho') &&
+                    (tt.contains('đã duyệt') ||
+                        tt.contains('da duyet') ||
+                        tt.contains('hoàn tất') ||
+                        tt.contains('hoan tat') ||
+                        tt == 'approved');
+                final rCode = ycMap['ma_phong_moi']?.toString().trim();
+                if (isApproved && rCode != null && rCode.isNotEmpty) {
+                  newRoomCode = rCode;
+                  break;
+                }
+              }
+            } catch (eYc) {
+              debugPrint('[AUTO_SYNC] Lỗi quét yeu_cau_chuyen_phong: $eYc');
+            }
+          }
+
+          if (newRoomCode != null && newRoomCode.isNotEmpty) {
+            final oldRoomCode = validHdMap['ma_phong']?.toString() ?? '';
+            if (newRoomCode != oldRoomCode) {
+              debugPrint(
+                '[AUTO_SYNC_CHUYEN_PHONG] Phát hiện phụ lục chuyển phòng đã duyệt sang $newRoomCode (phòng cũ $oldRoomCode). Cập nhật hợp đồng $currentContractCode.',
+              );
+              validHdMap['ma_phong'] = newRoomCode;
+              final updateHd = <String, dynamic>{'ma_phong': newRoomCode};
+              if (newRentPrice != null && newRentPrice > 0) {
+                validHdMap['gia_thue_thoa_thuan'] = newRentPrice;
+                updateHd['gia_thue_thoa_thuan'] = newRentPrice;
+              }
+
+              // Đồng bộ cập nhật thẳng vào Supabase
+              try {
+                await db
+                    .from('hop_dong')
+                    .update(updateHd)
+                    .eq('ma_hop_dong', currentContractCode);
+
+                final cleanOld = oldRoomCode.replaceAll(RegExp(r'[^0-9]'), '');
+                final cleanNew = newRoomCode.replaceAll(RegExp(r'[^0-9]'), '');
+
+                if (oldRoomCode.isNotEmpty) {
+                  try {
+                    await db
+                        .from('phong')
+                        .update({'trang_thai': 'Trống'})
+                        .or('ma_phong.eq.$oldRoomCode,ma_phong.eq.P$cleanOld,ma_phong.eq.$cleanOld');
+                  } catch (_) {}
+                }
+                try {
+                  await db
+                      .from('phong')
+                      .update({'trang_thai': 'Đang thuê'})
+                      .or('ma_phong.eq.$newRoomCode,ma_phong.eq.P$cleanNew,ma_phong.eq.$cleanNew');
+                } catch (_) {}
+
+                if (khachThueRow != null && khachThueRow['ma_khach'] != null) {
+                  await db
+                      .from('khach_thue')
+                      .update({'ma_phong': newRoomCode})
+                      .eq('ma_khach', khachThueRow['ma_khach']);
+                }
+              } catch (eSync) {
+                debugPrint('[AUTO_SYNC_CHUYEN_PHONG] Lỗi sync DB: $eSync');
+              }
+            }
+          }
+        }
+      } catch (ePlCheck) {
+        debugPrint('[AUTO_SYNC_CHUYEN_PHONG] Lỗi kiểm tra phụ lục: $ePlCheck');
+      }
+
+      final hd = HopDongModel.fromJson(validHdMap);
 
       // Fallback: nếu khachThueRow null theo ma_tai_khoan, tìm theo ma_khach_dai_dien của hợp đồng
       if (khachThueRow == null && hd.maKhachDaiDien.isNotEmpty) {
@@ -1326,11 +1470,42 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
       }
 
       // ── 3. Tải thông tin phòng ───────────────────────────────
-      final phongRow = await db
+      var phongRow = await db
           .from('phong')
           .select()
           .eq('ma_phong', hd.maPhong)
           .maybeSingle();
+
+      if (phongRow == null && hd.maPhong.isNotEmpty) {
+        final pNum = hd.maPhong.replaceAll(RegExp(r'[^0-9]'), '');
+        if (pNum.isNotEmpty) {
+          try {
+            final listAlt = await db
+                .from('phong')
+                .select()
+                .or('ma_phong.eq.P$pNum,ma_phong.eq.$pNum');
+            if ((listAlt as List).isNotEmpty) {
+              phongRow = listAlt.first;
+            }
+          } catch (_) {}
+        }
+      }
+
+      RoomModel? activeRoom;
+      if (phongRow != null) {
+        activeRoom = RoomModel.fromJson(Map<String, dynamic>.from(phongRow));
+      } else if (hd.maPhong.isNotEmpty) {
+        final cleanP = hd.maPhong.replaceAll(RegExp(r'[^0-9]'), '');
+        final tangNum = cleanP.isNotEmpty ? cleanP[0] : '1';
+        activeRoom = RoomModel.fromJson({
+          'ma_phong': hd.maPhong.startsWith('P') ? hd.maPhong : 'P${hd.maPhong}',
+          'ten_hien_thi': 'Phòng ${cleanP.isNotEmpty ? cleanP : hd.maPhong}',
+          'gia_thue': hd.giaThueThaoThuan,
+          'tang': int.tryParse(tangNum) ?? 1,
+          'trang_thai': 'Đang thuê',
+          'toa_nha': 'Tòa A',
+        });
+      }
 
       // ── 4. Tải danh sách hóa đơn từ Supabase ─────────────────
       final hoaDonRows = await db
@@ -1537,9 +1712,10 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
       if (!mounted) return;
       setState(() {
         _hopDong = hd;
-        _phong = phongRow != null
-            ? RoomModel.fromJson(Map<String, dynamic>.from(phongRow))
-            : null;
+        _phong = activeRoom ??
+            (phongRow != null
+                ? RoomModel.fromJson(Map<String, dynamic>.from(phongRow))
+                : null);
         _hoaDonMoiNhat = selectedBill;
         _danhSachHoaDon = allBills;
         _daThuMap = daThuMap;
@@ -12482,7 +12658,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
           maHopDong: maHopDong.isNotEmpty ? maHopDong : 'HD001',
         ),
       ),
-    );
+    ).then((_) => _fetchTenantData());
   }
 
   Future<void> _showDownloadBillToast() async {

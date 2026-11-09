@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:nhatro_kieugiang/core/services/DichVuXacThuc.dart';
 import 'package:nhatro_kieugiang/core/utils/ThongBaoHelper.dart';
 import 'package:nhatro_kieugiang/core/utils/TienIchDinhDang.dart';
+import 'package:nhatro_kieugiang/core/widgets/LoadingMeoMeo.dart';
 import 'package:nhatro_kieugiang/data/models/MoHinhHopDong.dart';
 import 'package:nhatro_kieugiang/features/tenant/ManHinhChiTietHopDong.dart';
 import 'package:nhatro_kieugiang/features/tenant/ManHinhChuyenPhongThanhCong.dart';
 import 'package:nhatro_kieugiang/features/tenant/ManHinhTimKiemChuyenPhong.dart';
-import 'package:nhatro_kieugiang/core/widgets/LoadingMeoMeo.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Màn hình: Lịch Sử Chuyển Phòng (Room Transfer History)
 /// Theo dõi toàn bộ danh sách đơn yêu cầu chuyển phòng, tiến độ phê duyệt,
@@ -43,6 +43,7 @@ class _RoomTransferHistoryScreenState extends State<RoomTransferHistoryScreen> {
   bool _isDaiDien = true;
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
+  String? _activeRoomNumber;
 
   List<Map<String, dynamic>> _danhSachYccp = [];
   RealtimeChannel? _rtChannel;
@@ -189,14 +190,6 @@ class _RoomTransferHistoryScreenState extends State<RoomTransferHistoryScreen> {
                 _fetchTransferRequests(isSilent: true);
               },
             )
-            ..onPostgresChanges(
-              event: PostgresChangeEvent.all,
-              schema: 'public',
-              table: 'phu_luc_hop_dong',
-              callback: (_) {
-                _fetchTransferRequests(isSilent: true);
-              },
-            )
             ..subscribe();
     } catch (_) {}
   }
@@ -298,7 +291,8 @@ class _RoomTransferHistoryScreenState extends State<RoomTransferHistoryScreen> {
           final trangThai = pl['trang_thai']?.toString() ?? '';
 
           // Nhận diện phụ lục chuyển phòng
-          final isChuyenPhong = maPhongMoi.isNotEmpty ||
+          final isChuyenPhong =
+              maPhongMoi.isNotEmpty ||
               maPhuLuc.toUpperCase().startsWith('PLCP') ||
               noiDung.toLowerCase().contains('chuyển');
 
@@ -321,8 +315,10 @@ class _RoomTransferHistoryScreenState extends State<RoomTransferHistoryScreen> {
           if (!alreadyExists) {
             // Trích xuất phòng cũ từ nội dung nếu có (VD: "từ P203 sang phòng P105")
             String oldRoom = curRoom;
-            final roomMatch = RegExp(r'từ\s+(P\w+)', caseSensitive: false)
-                .firstMatch(noiDung);
+            final roomMatch = RegExp(
+              r'từ\s+(P\w+)',
+              caseSensitive: false,
+            ).firstMatch(noiDung);
             if (roomMatch != null) {
               oldRoom = roomMatch.group(1)!;
             }
@@ -331,18 +327,18 @@ class _RoomTransferHistoryScreenState extends State<RoomTransferHistoryScreen> {
               'ma_yeu_cau': ticketCode,
               'ma_hop_dong_ht': pl['ma_hop_dong'] ?? contractCode ?? '',
               'ma_phong_cu': oldRoom,
-              'ma_phong_moi':
-                  maPhongMoi.isNotEmpty ? maPhongMoi : 'Phòng mới',
+              'ma_phong_moi': maPhongMoi.isNotEmpty ? maPhongMoi : 'Phòng mới',
               'tien_coc_bao_luu': pl['chenh_lech_tien_coc'] ?? 0,
               'thoi_gian_hen': pl['ngay_lap'] ?? '',
               'nguoi_don_bql': 'BQL Kiều Giang',
               'tien_phat_sinh': 0,
               'tien_dien_nuoc_cu': 0,
               'tien_hu_hai_cu': 0,
-              'trang_thai_tien_do':
-                  trangThai.isNotEmpty ? trangThai : 'Đã duyệt',
-              'ngay_tao': pl['ngay_lap'] != null &&
-                      pl['ngay_lap'].toString().isNotEmpty
+              'trang_thai_tien_do': trangThai.isNotEmpty
+                  ? trangThai
+                  : 'Đã duyệt',
+              'ngay_tao':
+                  pl['ngay_lap'] != null && pl['ngay_lap'].toString().isNotEmpty
                   ? '${pl['ngay_lap']}T00:00:00Z'
                   : DateTime.now().toIso8601String(),
               'ghi_chu_hu_hai': null,
@@ -365,8 +361,64 @@ class _RoomTransferHistoryScreenState extends State<RoomTransferHistoryScreen> {
         return dateB.compareTo(dateA);
       });
 
+      // TỰ ĐỘNG ĐỒNG BỘ PHÒNG HIỆN TẠI NẾU CÓ PHỤ LỤC / ĐƠN CHUYỂN PHÒNG ĐÃ DUYỆT
+      String? latestApprovedNewRoom;
+      for (final item in combinedList) {
+        final st = item['trang_thai_tien_do']?.toString() ?? '';
+        final stLower = st.toLowerCase().trim();
+        final newR = item['ma_phong_moi']?.toString() ?? '';
+        final isApproved = !stLower.contains('chờ') &&
+            !stLower.contains('cho') &&
+            (stLower.contains('đã duyệt') ||
+                stLower.contains('da duyet') ||
+                stLower.contains('hoàn tất') ||
+                stLower.contains('hoan tat') ||
+                stLower == 'approved');
+        if (isApproved &&
+            newR.isNotEmpty &&
+            newR != 'Phòng mới') {
+          latestApprovedNewRoom = newR;
+          break;
+        }
+      }
+
+      // Nếu đã có phòng mới được duyệt (VD: P105), cập nhật phòng đang ở cho các đơn đang chờ duyệt
+      if (latestApprovedNewRoom != null && latestApprovedNewRoom.isNotEmpty) {
+        for (final item in combinedList) {
+          final st = (item['trang_thai_tien_do']?.toString() ?? '')
+              .toLowerCase()
+              .trim();
+          final isPending =
+              st.contains('chờ') || st.contains('đang') || st.contains('xử lý');
+          if (isPending) {
+            final oldR = item['ma_phong_cu']?.toString() ?? '';
+            if (oldR != latestApprovedNewRoom) {
+              item['ma_phong_cu'] = latestApprovedNewRoom;
+              final ycCode = item['ma_yeu_cau']?.toString() ?? '';
+              if (ycCode.isNotEmpty && !ycCode.startsWith('PLCP')) {
+                try {
+                  db
+                      .from('yeu_cau_chuyen_phong')
+                      .update({'ma_phong_cu': latestApprovedNewRoom})
+                      .eq('ma_yeu_cau', ycCode)
+                      .then(
+                        (_) => debugPrint(
+                          '[YCCP] Đã sync ma_phong_cu của $ycCode sang $latestApprovedNewRoom',
+                        ),
+                      );
+                } catch (_) {}
+              }
+            }
+          }
+        }
+      }
+
       if (mounted) {
         setState(() {
+          if (latestApprovedNewRoom != null &&
+              latestApprovedNewRoom.isNotEmpty) {
+            _activeRoomNumber = latestApprovedNewRoom;
+          }
           _isDaiDien = userIsDaiDien;
           _danhSachYccp = combinedList;
           _isLoading = false;
@@ -498,19 +550,55 @@ class _RoomTransferHistoryScreenState extends State<RoomTransferHistoryScreen> {
   // ── Xử lý Hủy đơn chuyển phòng ──
   Future<void> _xacNhanHuyDon(Map<String, dynamic> r) async {
     final maYC = r['ma_yeu_cau']?.toString() ?? '';
+    final currentActive =
+        _activeRoomNumber ??
+        widget.currentRoomNumber ??
+        widget.hopDong?.maPhong ??
+        'P105';
+    final rawPhongCu = r['ma_phong_cu']?.toString() ?? '';
+    final maPhongCu = rawPhongCu.isNotEmpty && rawPhongCu != 'P203'
+        ? rawPhongCu
+        : currentActive;
+    final maPhongMoi = r['ma_phong_moi']?.toString() ?? 'phòng mới';
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+        contentPadding: const EdgeInsets.fromLTRB(20, 14, 20, 10),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         title: Row(
-          children: const [
-            Icon(Icons.warning_amber_rounded, color: Color(0xFFEF4444)),
-            SizedBox(width: 8),
-            Text('Hủy yêu cầu chuyển phòng?'),
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(7),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEE2E2),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.warning_amber_rounded,
+                color: Color(0xFFEF4444),
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: const Text(
+                'Hủy yêu cầu\nchuyển phòng?',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  height: 1.25,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+            ),
           ],
         ),
         content: Text(
-          'Bạn có chắc chắn muốn hủy đơn yêu cầu chuyển sang phòng ${r['ma_phong_moi']} (#$maYC) không?\n\nSau khi hủy, bạn có thể tạo lại yêu cầu mới bất kỳ lúc nào.',
+          'Bạn có chắc chắn muốn hủy đơn yêu cầu chuyển từ phòng $maPhongCu sang phòng $maPhongMoi (#$maYC) không?\n\nSau khi hủy, bạn có thể tạo lại yêu cầu mới bất kỳ lúc nào.',
           style: const TextStyle(fontSize: 13.5, height: 1.4),
         ),
         actions: [
@@ -518,7 +606,10 @@ class _RoomTransferHistoryScreenState extends State<RoomTransferHistoryScreen> {
             onPressed: () => Navigator.pop(ctx, false),
             child: const Text(
               'Giữ lại đơn',
-              style: TextStyle(color: Color(0xFF64748B)),
+              style: TextStyle(
+                color: Color(0xFF64748B),
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
           ElevatedButton(
@@ -526,11 +617,15 @@ class _RoomTransferHistoryScreenState extends State<RoomTransferHistoryScreen> {
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFEF4444),
               foregroundColor: Colors.white,
+              elevation: 0,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
               ),
             ),
-            child: const Text('Xác nhận hủy'),
+            child: const Text(
+              'Xác nhận hủy',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),
@@ -585,7 +680,7 @@ class _RoomTransferHistoryScreenState extends State<RoomTransferHistoryScreen> {
                         physics: const AlwaysScrollableScrollPhysics(
                           parent: BouncingScrollPhysics(),
                         ),
-                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 130),
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -598,7 +693,6 @@ class _RoomTransferHistoryScreenState extends State<RoomTransferHistoryScreen> {
                             _buildSummaryBanner(),
                             const SizedBox(height: 16),
                             _buildRequestsList(),
-                            const SizedBox(height: 70),
                           ],
                         ),
                       ),
@@ -607,44 +701,30 @@ class _RoomTransferHistoryScreenState extends State<RoomTransferHistoryScreen> {
           ],
         ),
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      floatingActionButton: _isDaiDien
-          ? FloatingActionButton.extended(
-              onPressed: () {
-                if (!_isDaiDien) {
-                  _thongBaoKhongCoQuyen(hanhDong: 'Chuyển phòng');
-                  return;
-                }
-                final curRoom =
-                    widget.currentRoomNumber ??
-                    widget.hopDong?.maPhong ??
-                    'P203';
-                final curPrice = widget.hopDong?.giaThueThaoThuan ?? 2800000;
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => RoomTransferSearchScreen(
-                      currentRoomNumber: curRoom,
-                      currentPrice: curPrice,
-                      maHopDong: widget.maHopDong ?? widget.hopDong?.maHopDong,
-                      hopDong: widget.hopDong,
-                    ),
-                  ),
-                ).then((_) => _fetchTransferRequests(isSilent: true));
-              },
-              backgroundColor: _navyDark,
-              elevation: 4,
-              label: const Text(
-                'Đổi phòng mới',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13.5,
-                ),
-              ),
-            )
-          : null,
+      floatingActionButton: null,
     );
+  }
+
+  /// Mở màn hình tìm kiếm & tạo yêu cầu đổi phòng mới
+  void _moManHinhDoiPhong() {
+    if (!_isDaiDien) {
+      _thongBaoKhongCoQuyen(hanhDong: 'Chuyển phòng');
+      return;
+    }
+    final curRoom =
+        _activeRoomNumber ?? widget.currentRoomNumber ?? widget.hopDong?.maPhong ?? 'P105';
+    final curPrice = widget.hopDong?.giaThueThaoThuan ?? 3400000;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => RoomTransferSearchScreen(
+          currentRoomNumber: curRoom,
+          currentPrice: curPrice,
+          maHopDong: widget.maHopDong ?? widget.hopDong?.maHopDong,
+          hopDong: widget.hopDong,
+        ),
+      ),
+    ).then((_) => _fetchTransferRequests(isSilent: true));
   }
 
   // ─── 1. TOP APP BAR ───
@@ -689,8 +769,9 @@ class _RoomTransferHistoryScreenState extends State<RoomTransferHistoryScreen> {
                   ),
                 ),
                 Text(
-                  widget.currentRoomNumber != null
-                      ? 'Cư dân phòng ${widget.currentRoomNumber} • Kiêu Giang House'
+                  (_activeRoomNumber != null ||
+                          widget.currentRoomNumber != null)
+                      ? 'Cư dân phòng ${_activeRoomNumber ?? widget.currentRoomNumber} • Kiêu Giang House'
                       : 'Theo dõi tiến trình & biên bản nghiệm thu',
                   style: const TextStyle(
                     fontSize: 11.5,
@@ -701,6 +782,53 @@ class _RoomTransferHistoryScreenState extends State<RoomTransferHistoryScreen> {
               ],
             ),
           ),
+          if (_isDaiDien) ...[
+            const SizedBox(width: 8),
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: _moManHinhDoiPhong,
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [_navyDark, _navyAccent],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: _navyDark.withValues(alpha: 0.25),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.add_rounded,
+                        color: Colors.white,
+                        size: 16,
+                      ),
+                      SizedBox(width: 3),
+                      Text(
+                        'Đổi phòng',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -941,29 +1069,7 @@ class _RoomTransferHistoryScreenState extends State<RoomTransferHistoryScreen> {
             if (_isDaiDien) ...[
               const SizedBox(height: 16),
               ElevatedButton.icon(
-                onPressed: () {
-                  if (!_isDaiDien) {
-                    _thongBaoKhongCoQuyen(hanhDong: 'Chuyển phòng');
-                    return;
-                  }
-                  final curRoom =
-                      widget.currentRoomNumber ??
-                      widget.hopDong?.maPhong ??
-                      'P203';
-                  final curPrice = widget.hopDong?.giaThueThaoThuan ?? 2800000;
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => RoomTransferSearchScreen(
-                        currentRoomNumber: curRoom,
-                        currentPrice: curPrice,
-                        maHopDong:
-                            widget.maHopDong ?? widget.hopDong?.maHopDong,
-                        hopDong: widget.hopDong,
-                      ),
-                    ),
-                  ).then((_) => _fetchTransferRequests(isSilent: true));
-                },
+                onPressed: _moManHinhDoiPhong,
                 icon: const Icon(Icons.add_home_rounded, size: 16),
                 label: const Text('Tìm phòng mới để chuyển'),
                 style: ElevatedButton.styleFrom(
@@ -986,9 +1092,21 @@ class _RoomTransferHistoryScreenState extends State<RoomTransferHistoryScreen> {
   // ─── 7. CARD TỪNG ĐƠN CHUYỂN PHÒNG ───
   Widget _buildTransferCard(Map<String, dynamic> r) {
     final maYC = r['ma_yeu_cau']?.toString() ?? 'YCCP';
-    final maPhongCu = r['ma_phong_cu']?.toString() ?? 'P.203';
-    final maPhongMoi = r['ma_phong_moi']?.toString() ?? 'P.302';
     final status = r['trang_thai_tien_do']?.toString() ?? 'Chờ duyệt';
+    final isProcessing = status == 'Chờ duyệt' || status == 'Đang xử lý';
+
+    final activeR =
+        _activeRoomNumber ??
+        widget.currentRoomNumber ??
+        widget.hopDong?.maPhong ??
+        '';
+    final rawPhongCu = r['ma_phong_cu']?.toString() ?? '';
+    final maPhongCu = (isProcessing && activeR.isNotEmpty)
+        ? activeR
+        : (rawPhongCu.isNotEmpty
+              ? rawPhongCu
+              : (activeR.isNotEmpty ? activeR : 'P203'));
+    final maPhongMoi = r['ma_phong_moi']?.toString() ?? 'P.302';
     final ngayTao = r['ngay_tao']?.toString() ?? '';
     final thoiGianHen = r['thoi_gian_hen']?.toString() ?? '';
     final lyDo = r['ly_do_chuyen']?.toString() ?? 'Chuyển phòng theo nhu cầu';
@@ -1006,24 +1124,37 @@ class _RoomTransferHistoryScreenState extends State<RoomTransferHistoryScreen> {
     final isApproved = status == 'Đã duyệt' || status == 'Hoàn tất';
     final isRejected = status == 'Từ chối';
     final isCancelled = status == 'Đã hủy';
-    final isProcessing = status == 'Chờ duyệt' || status == 'Đang xử lý';
     final isAwaitingLandlord =
         status == 'Khách đã xác nhận' || status == 'Chờ chủ duyệt';
 
     Color statusColor;
+    Color statusBg;
+    IconData statusIcon;
 
     if (isApproved) {
       statusColor = const Color(0xFF16A34A);
+      statusBg = const Color(0xFFDCFCE7);
+      statusIcon = Icons.check_circle_rounded;
     } else if (isAwaitingInspection) {
       statusColor = const Color(0xFF0284C7);
+      statusBg = const Color(0xFFE0F2FE);
+      statusIcon = Icons.assignment_turned_in_rounded;
     } else if (isAwaitingLandlord) {
       statusColor = const Color(0xFF9333EA);
+      statusBg = const Color(0xFFF3E8FF);
+      statusIcon = Icons.hourglass_top_rounded;
     } else if (isRejected) {
       statusColor = const Color(0xFFDC2626);
+      statusBg = const Color(0xFFFEE2E2);
+      statusIcon = Icons.cancel_rounded;
     } else if (isCancelled) {
       statusColor = const Color(0xFF64748B);
+      statusBg = const Color(0xFFF1F5F9);
+      statusIcon = Icons.remove_circle_outline_rounded;
     } else {
       statusColor = const Color(0xFFD97706);
+      statusBg = const Color(0xFFFEF3C7);
+      statusIcon = Icons.pending_actions_rounded;
     }
 
     String ngayTaoFormatted = ngayTao;
@@ -1105,30 +1236,22 @@ class _RoomTransferHistoryScreenState extends State<RoomTransferHistoryScreen> {
               ),
               const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
+                  color: statusBg,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Container(
-                      width: 6,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        color: statusColor,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 5),
+                    Icon(statusIcon, size: 12, color: statusColor),
+                    const SizedBox(width: 4),
                     Text(
                       status,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF334155),
+                        fontWeight: FontWeight.bold,
+                        color: statusColor,
                       ),
                     ),
                   ],
@@ -1366,19 +1489,18 @@ class _RoomTransferHistoryScreenState extends State<RoomTransferHistoryScreen> {
                     icon: const Icon(
                       Icons.close_rounded,
                       size: 14,
-                      color: Color(0xFF64748B),
+                      color: Color(0xFFEF4444),
                     ),
                     label: const Text(
                       'Hủy yêu cầu',
                       style: TextStyle(
                         fontSize: 11.5,
-                        color: Color(0xFF64748B),
-                        fontWeight: FontWeight.w600,
+                        color: Color(0xFFEF4444),
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                     style: OutlinedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      side: const BorderSide(color: Color(0xFFE2E8F0)),
+                      side: const BorderSide(color: Color(0xFFFCA5A5)),
                       padding: const EdgeInsets.symmetric(
                         horizontal: 10,
                         vertical: 6,
@@ -1418,16 +1540,13 @@ class _RoomTransferHistoryScreenState extends State<RoomTransferHistoryScreen> {
                   onPressed: () {
                     final targetContract =
                         (r['ma_hop_dong_ht']?.toString() ?? '').isNotEmpty
-                            ? r['ma_hop_dong_ht'].toString()
-                            : (widget.maHopDong ??
-                                widget.hopDong?.maHopDong ??
-                                '');
+                        ? r['ma_hop_dong_ht'].toString()
+                        : (widget.maHopDong ?? widget.hopDong?.maHopDong ?? '');
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => ContractDetailScreen(
-                          maHopDong: targetContract,
-                        ),
+                        builder: (_) =>
+                            ContractDetailScreen(maHopDong: targetContract),
                       ),
                     );
                   },

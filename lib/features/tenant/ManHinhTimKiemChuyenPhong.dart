@@ -582,15 +582,6 @@ class _RoomTransferSearchScreenState extends State<RoomTransferSearchScreen> {
               ],
             ),
           ),
-          Container(
-            width: 36,
-            height: 36,
-            decoration: const BoxDecoration(
-              color: Color(0xFFE0F2FE),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.tune_rounded, color: _primary, size: 18),
-          ),
         ],
       ),
     );
