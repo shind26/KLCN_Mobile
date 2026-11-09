@@ -367,16 +367,29 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
           // Chưa nộp đơn kỳ này: Lấy số mới của kỳ liền trước làm số cũ cho kỳ này!
           _daGuiDonKyNay = null;
 
-          // Tìm bản ghi của kỳ tháng trước gần nhất
+          // Tìm bản ghi của kỳ tháng trước gần nhất của CHÍNH PHÒNG HIỆN TẠI
           Map<String, dynamic>? prevKy;
           for (final item in list) {
             final tn = item['thang_nam']?.toString() ?? '';
+            final maKyItem = item['ma_ky']?.toString() ?? '';
+
+            // Nếu phòng này là phòng mới sau khi chuyển phòng, tuyệt đối không lấy bản ghi của phòng cũ!
+            if (ngayChuyenPhong != null) {
+              final bool isFromThisRoom =
+                  maKyItem == maKyPhong || maKyItem.contains(pPart);
+              if (!isFromThisRoom) {
+                continue; // Bỏ qua bản ghi của phòng cũ
+              }
+            }
+
             if (tn != thangNam) {
               prevKy = item;
               break;
             }
           }
-          prevKy ??= list.isNotEmpty ? list.first : null;
+          if (ngayChuyenPhong == null) {
+            prevKy ??= list.isNotEmpty ? list.first : null;
+          }
 
           double prevDien = 0.0;
           double prevNuoc = 0.0;
@@ -398,7 +411,7 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                 0.0;
           }
 
-          // Ưu tiên số mới của kỳ liền trước từ bảng chi_so_dien_nuoc
+          // Ưu tiên số mới của kỳ liền trước từ bảng chi_so_dien_nuoc (thuộc phòng này)
           if (prevDien > 0) {
             _chiSoDienTruoc = prevDien;
           } else {
@@ -415,8 +428,8 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                 : 0.0;
           }
 
-          // Đồng bộ lại chỉ số hợp lệ này vào bảng phong trên Supabase
-          if (_chiSoDienTruoc > 0 || _chiSoNuocTruoc > 0) {
+          // Chỉ đồng bộ lại vào bảng phong nếu có dữ liệu từ prevKy hợp lệ của phòng này
+          if (prevKy != null && (_chiSoDienTruoc > 0 || _chiSoNuocTruoc > 0)) {
             final cleanMaPhong = widget.maPhong.trim();
             final pNum = cleanMaPhong.replaceAll(RegExp(r'[^0-9]'), '');
             try {
