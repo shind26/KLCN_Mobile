@@ -929,8 +929,8 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
               ),
               const SizedBox(height: 6),
               const Text(
-                'AI sẽ tự động nhận diện và trích xuất chỉ số mới',
-                style: TextStyle(fontSize: 12.5, color: Color(0xFF0284C7)),
+                'Hệ thống tự động nhận diện và trích xuất chỉ số từ ảnh',
+                style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
               ),
               const SizedBox(height: 14),
               ListTile(
@@ -1016,10 +1016,10 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
               : soQuet.toStringAsFixed(1));
           if (isDien) {
             _dienController.text = hienThiStr;
-            _thongBaoQuetDien = 'AI quét: $hienThiStr kWh (chạm để chỉnh)';
+            _thongBaoQuetDien = 'Đã nhận diện: $hienThiStr kWh (chạm để chỉnh)';
           } else {
             _nuocController.text = hienThiStr;
-            _thongBaoQuetNuoc = 'AI quét: $hienThiStr m³ (chạm để chỉnh)';
+            _thongBaoQuetNuoc = 'Đã nhận diện: $hienThiStr m³ (chạm để chỉnh)';
           }
         });
 
@@ -1107,7 +1107,7 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'Quét Chỉ Số ${isDien ? 'Điện' : 'Nước'} Thành Công!',
+                  'Nhận diện chỉ số ${isDien ? 'Điện' : 'Nước'} thành công!',
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontSize: 16,
@@ -1117,7 +1117,7 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                 ),
                 const SizedBox(height: 4),
                 const Text(
-                  'AI đã tự động nhận diện chỉ số mới và tính lượng tiêu thụ:',
+                  'Hệ thống đã nhận diện chỉ số mới và tính lượng tiêu thụ:',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 12,
@@ -1142,7 +1142,7 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                       _modalRow('Chỉ số cũ:', '$chiSoCuStr $donVi'),
                       const SizedBox(height: 6),
                       _modalRow(
-                        'Chỉ số mới (AI quét):',
+                        'Chỉ số mới:',
                         '$soQuetStr $donVi',
                         isBold: true,
                         color: isDien
@@ -1374,7 +1374,7 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                       gradientColors: isSent
                           ? const [Color(0xFF64748B), Color(0xFF475569)]
                           : (!isAfter28
-                                ? const [Color(0xFFD97706), Color(0xFFB45309)]
+                                ? const [Color(0xFF64748B), Color(0xFF475569)]
                                 : null),
                       onTap: _goToConfirm,
                     );
@@ -1398,19 +1398,19 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
     final int nextThang = thang == 12 ? 1 : thang + 1;
     final daysLeft = 28 - now.day;
 
-    // Màu theo trạng thái
+    // Màu theo trạng thái (chuyển sang tone Slate nhã nhặn, bỏ màu vàng chói)
     final Color accentColor = isSent
         ? const Color(0xFF09638E)
-        : (isOpen ? const Color(0xFF16A34A) : const Color(0xFFD97706));
+        : (isOpen ? const Color(0xFF16A34A) : const Color(0xFF475569));
     final Color bgColor = isSent
         ? const Color(0xFFF0F9FF)
-        : (isOpen ? const Color(0xFFF0FDF4) : const Color(0xFFFFFBEB));
+        : (isOpen ? const Color(0xFFF0FDF4) : const Color(0xFFF8FAFC));
     final Color borderColor = isSent
         ? const Color(0xFFBAE6FD)
-        : (isOpen ? const Color(0xFFBBF7D0) : const Color(0xFFFDE68A));
+        : (isOpen ? const Color(0xFFBBF7D0) : const Color(0xFFE2E8F0));
     final IconData statusIcon = isSent
         ? Icons.task_alt_rounded
-        : (isOpen ? Icons.bolt_rounded : Icons.schedule_rounded);
+        : (isOpen ? Icons.bolt_rounded : Icons.calendar_today_rounded);
 
     final String kyLabel = 'Tháng $thang/$nam';
     final String subLabel = isSent
@@ -1430,7 +1430,9 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
           Container(
             padding: const EdgeInsets.all(9),
             decoration: BoxDecoration(
-              color: accentColor.withValues(alpha: 0.12),
+              color: isSent
+                  ? const Color(0xFFE0F2FE)
+                  : (isOpen ? const Color(0xFFDCFCE7) : const Color(0xFFF1F5F9)),
               shape: BoxShape.circle,
             ),
             child: Icon(statusIcon, size: 18, color: accentColor),
@@ -1448,10 +1450,10 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                   children: [
                     Text(
                       isSent ? 'Đã chốt chỉ số' : 'Chốt chỉ số',
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 13.5,
                         fontWeight: FontWeight.w700,
-                        color: accentColor,
+                        color: Color(0xFF0F172A),
                       ),
                     ),
                     Container(
@@ -1460,15 +1462,15 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                         vertical: 1.5,
                       ),
                       decoration: BoxDecoration(
-                        color: accentColor.withValues(alpha: 0.1),
+                        color: const Color(0xFFF1F5F9),
                         borderRadius: BorderRadius.circular(5),
                       ),
                       child: Text(
                         kyLabel,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 10.5,
-                          fontWeight: FontWeight.bold,
-                          color: accentColor,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF475569),
                         ),
                       ),
                     ),
@@ -1496,9 +1498,9 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                 const SizedBox(height: 3),
                 Text(
                   subLabel,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 11.5,
-                    color: accentColor.withValues(alpha: 0.75),
+                    color: Color(0xFF64748B),
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -1512,16 +1514,16 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: const Color(0xFFF8FAFC),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: borderColor),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
               ),
               child: Text(
                 widget.tenPhong,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  color: accentColor,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF475569),
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -2014,25 +2016,25 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFDCFCE7),
+                    color: const Color(0xFFF1F5F9),
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: const Color(0xFF86EFAC)),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: const [
                       Icon(
-                        Icons.auto_awesome,
-                        color: Color(0xFF16A34A),
+                        Icons.check_circle_outline_rounded,
+                        color: Color(0xFF15803D),
                         size: 13,
                       ),
                       SizedBox(width: 4),
                       Text(
-                        'AI đã quét',
+                        'Đã quét số',
                         style: TextStyle(
                           color: Color(0xFF15803D),
                           fontSize: 11,
-                          fontWeight: FontWeight.bold,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ],
@@ -2078,15 +2080,15 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                 decoration: BoxDecoration(
                   color: hasImage
                       ? Colors.black
-                      : bgColor.withValues(alpha: 0.35),
+                      : const Color(0xFFF8FAFC),
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
                     color: isScanning
-                        ? color
+                        ? const Color(0xFF09638E)
                         : (hasImage
-                              ? color.withValues(alpha: 0.6)
-                              : const Color(0xFFCBD5E1)),
-                    width: isScanning ? 2 : 1.5,
+                              ? const Color(0xFF09638E).withValues(alpha: 0.6)
+                              : const Color(0xFFE2E8F0)),
+                    width: isScanning ? 2 : 1.2,
                   ),
                 ),
                 clipBehavior: Clip.antiAlias,
@@ -2107,40 +2109,35 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                             decoration: BoxDecoration(
                               color: Colors.white,
                               shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: color.withValues(alpha: 0.15),
-                                  blurRadius: 8,
-                                ),
-                              ],
+                              border: Border.all(color: const Color(0xFFE2E8F0)),
                             ),
-                            child: Icon(
-                              Icons.camera_alt_rounded,
-                              color: color,
-                              size: 26,
+                            child: const Icon(
+                              Icons.camera_alt_outlined,
+                              color: Color(0xFF09638E),
+                              size: 24,
                             ),
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Chụp trực tiếp để AI tự quét số',
-                            style: TextStyle(
-                              color: color,
+                            isDien ? 'Chụp ảnh công tơ điện' : 'Chụp ảnh đồng hồ nước',
+                            style: const TextStyle(
+                              color: Color(0xFF0F172A),
                               fontWeight: FontWeight.bold,
-                              fontSize: 13,
+                              fontSize: 13.5,
                             ),
                           ),
                           const SizedBox(height: 3),
                           const Text(
-                            'Tự động nhận diện chỉ số mới & tính tiền',
+                            'Tự động nhận diện chỉ số từ ảnh chụp',
                             style: TextStyle(
                               color: Color(0xFF64748B),
-                              fontSize: 11,
+                              fontSize: 11.5,
                             ),
                           ),
                         ],
                       ),
 
-                    // Overlay khi đang quét AI
+                    // Overlay khi đang quét nhận diện
                     if (isScanning)
                       Container(
                         color: Colors.black.withValues(alpha: 0.65),
@@ -2157,7 +2154,7 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                             ),
                             const SizedBox(height: 10),
                             const Text(
-                              'AI đang quét số công tơ...',
+                              'Đang nhận diện chỉ số...',
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 13,
@@ -2166,7 +2163,7 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              'Đang trích xuất chỉ số $donVi',
+                              'Trích xuất dữ liệu $donVi',
                               style: const TextStyle(
                                 color: Colors.white70,
                                 fontSize: 11,
@@ -2277,13 +2274,13 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.refresh_rounded, size: 14, color: color),
+                          const Icon(Icons.refresh_rounded, size: 14, color: Color(0xFF64748B)),
                           const SizedBox(width: 4),
-                          Text(
+                          const Text(
                             'Chụp lại ảnh khác',
                             style: TextStyle(
                               fontSize: 12,
-                              color: color,
+                              color: Color(0xFF64748B),
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -2315,7 +2312,7 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                           'Số cũ tháng trước',
                           style: TextStyle(
                             fontSize: 11,
-                            color: Color(0xFF94A3B8),
+                            color: Color(0xFF64748B),
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -2323,10 +2320,10 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                           chiSoTruoc.toStringAsFixed(
                             chiSoTruoc % 1 == 0 ? 0 : 1,
                           ),
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
-                            color: color,
+                            color: Color(0xFF1E293B),
                           ),
                         ),
                         Text(
@@ -2340,15 +2337,15 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                     ),
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8),
                   child: Icon(
                     Icons.arrow_forward_rounded,
-                    color: color.withValues(alpha: 0.6),
-                    size: 20,
+                    color: Color(0xFF94A3B8),
+                    size: 18,
                   ),
                 ),
-                // Chỉ số mới (AI tự điền hoặc chỉnh tay)
+                // Chỉ số mới (nhận diện hoặc chỉnh tay)
                 Expanded(
                   child: Container(
                     padding: const EdgeInsets.symmetric(
@@ -2358,15 +2355,15 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                     decoration: BoxDecoration(
                       color: isNegative
                           ? const Color(0xFFFEF2F2)
-                          : bgColor.withValues(alpha: 0.35),
+                          : const Color(0xFFF8FAFC),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: isNegative
                             ? const Color(0xFFEF4444)
                             : (controller.text.isNotEmpty
-                                  ? color.withValues(alpha: 0.7)
+                                  ? const Color(0xFF09638E)
                                   : const Color(0xFFE2E8F0)),
-                        width: 1.5,
+                        width: 1.2,
                       ),
                     ),
                     child: Column(
@@ -2380,7 +2377,7 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                                 fontSize: 11,
                                 color: isNegative
                                     ? const Color(0xFFDC2626)
-                                    : color.withValues(alpha: 0.8),
+                                    : const Color(0xFF64748B),
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -2402,9 +2399,9 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                             isDense: true,
                             border: InputBorder.none,
                             hintText: '0',
-                            hintStyle: TextStyle(
+                            hintStyle: const TextStyle(
                               fontSize: 20,
-                              color: color.withValues(alpha: 0.3),
+                              color: Color(0xFF94A3B8),
                               fontWeight: FontWeight.bold,
                             ),
                             suffixIcon: isDaGui
@@ -2422,15 +2419,17 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                               minHeight: 20,
                             ),
                             suffixText: donVi,
-                            suffixStyle: TextStyle(
+                            suffixStyle: const TextStyle(
                               fontSize: 11,
-                              color: color.withValues(alpha: 0.7),
+                              color: Color(0xFF64748B),
                             ),
                           ),
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
-                            color: isNegative ? const Color(0xFFDC2626) : color,
+                            color: isNegative
+                                ? const Color(0xFFDC2626)
+                                : const Color(0xFF0F172A),
                           ),
                           onChanged: (_) => setState(() {}),
                         ),
@@ -2527,20 +2526,19 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
               Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: Row(
-                  children: [
+                  children: const [
                     Icon(
-                      Icons.info_outline,
+                      Icons.info_outline_rounded,
                       size: 13,
-                      color: color.withValues(alpha: 0.8),
+                      color: Color(0xFF64748B),
                     ),
-                    const SizedBox(width: 5),
+                    SizedBox(width: 5),
                     Expanded(
                       child: Text(
-                        'Cần chụp ảnh công tơ làm minh chứng đối soát hợp lệ.',
+                        'Chụp ảnh công tơ làm minh chứng đối soát hợp lệ.',
                         style: TextStyle(
-                          fontSize: 11,
-                          color: color.withValues(alpha: 0.9),
-                          fontStyle: FontStyle.italic,
+                          fontSize: 11.5,
+                          color: Color(0xFF64748B),
                         ),
                       ),
                     ),
@@ -2564,29 +2562,30 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: bgColor.withValues(alpha: 0.5),
+        color: const Color(0xFFF1F5F9),
         borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: Row(
         children: [
-          Icon(Icons.check_circle_rounded, color: color, size: 14),
+          const Icon(Icons.check_circle_rounded, color: Color(0xFF09638E), size: 14),
           const SizedBox(width: 6),
           Expanded(
             child: Text(
               'Tiêu thụ: ${tieu_thu.toStringAsFixed(tieu_thu % 1 == 0 ? 0 : 1)} $donVi',
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 12,
-                fontWeight: FontWeight.bold,
-                color: color,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF1E293B),
               ),
             ),
           ),
           Text(
             '→ ${_formatCurrency(thanh_tien)}',
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.bold,
-              color: color,
+              color: Color(0xFF09638E),
             ),
           ),
         ],
@@ -2726,24 +2725,24 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF7ED),
+        color: const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: const Color(0xFFFED7AA).withValues(alpha: 0.7),
+          color: const Color(0xFFE2E8F0),
         ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: const [
-          Icon(Icons.info_outline_rounded, color: Color(0xFFD97706), size: 16),
+          Icon(Icons.shield_outlined, color: Color(0xFF64748B), size: 16),
           SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Chỉ số bạn gửi sẽ được Ban Quản lý Kiêu Giang soát xét, đối chiếu và chốt hóa đơn chính thức. '
-              'Dữ liệu lưu kèm ảnh chụp và thời gian gửi để minh bạch.',
+              'Chỉ số bạn gửi sẽ được Ban Quản lý Kiêu Giang đối soát và chốt hóa đơn. '
+              'Dữ liệu được lưu kèm ảnh chụp và thời gian gửi để đảm bảo minh bạch.',
               style: TextStyle(
                 fontSize: 11.5,
-                color: Color(0xFF92400E),
+                color: Color(0xFF475569),
                 height: 1.45,
               ),
             ),
