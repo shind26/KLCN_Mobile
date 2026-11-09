@@ -57,7 +57,7 @@ class _RoomTransferSearchScreenState extends State<RoomTransferSearchScreen> {
       'dienTich': 22,
       'giaThue': 3200000,
       'dacDiem': '22m² • Hướng Đông mát',
-      'highlight': 'Đồng giá phòng cũ • Không bù tiền phòng',
+      'highlight': 'Đồng giá với phòng hiện tại',
       'tagTang': 'Tầng 2 - Tiện đi lại',
       'hinhAnh':
           'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=600',
@@ -99,7 +99,7 @@ class _RoomTransferSearchScreenState extends State<RoomTransferSearchScreen> {
       'dienTich': 20,
       'giaThue': 3100000,
       'dacDiem': '20m² • Cửa rộng thoáng',
-      'highlight': 'Tiết kiệm: 100.000đ/tháng',
+      'highlight': 'Thấp hơn: -100.000đ/tháng',
       'tagTang': 'Tầng 1 • Đi lại thuận tiện • Hợp xe to',
       'hinhAnh':
           'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=600',
@@ -246,10 +246,10 @@ class _RoomTransferSearchScreenState extends State<RoomTransferSearchScreen> {
               ? '+${FormatUtils.currency(absDiff)}/tháng'
               : 'Rẻ hơn ${FormatUtils.currency(absDiff)}/tháng');
     final String highlight = diff == 0
-        ? 'Đồng giá phòng cũ • Không bù tiền phòng'
+        ? 'Đồng giá với phòng ${widget.currentRoomNumber}'
         : (diff > 0
-              ? 'Chênh lệch: +${FormatUtils.currency(absDiff)}/tháng so với ${widget.currentRoomNumber}'
-              : 'Tiết kiệm: ${FormatUtils.currency(absDiff)}/tháng so với ${widget.currentRoomNumber}');
+              ? 'Chênh lệch: +${FormatUtils.currency(absDiff)}/tháng so với phòng ${widget.currentRoomNumber}'
+              : 'Thấp hơn: -${FormatUtils.currency(absDiff)}/tháng so với phòng ${widget.currentRoomNumber}');
     final isSame =
         room.toaNha.toLowerCase().contains('2') ||
         room.toaNha.toLowerCase().contains('kiêu giang 2');
@@ -744,12 +744,12 @@ class _RoomTransferSearchScreenState extends State<RoomTransferSearchScreen> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFFBEB),
+        color: const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFFDE68A)),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFD97706).withValues(alpha: 0.08),
+            color: Colors.black.withValues(alpha: 0.02),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -763,12 +763,12 @@ class _RoomTransferSearchScreenState extends State<RoomTransferSearchScreen> {
               Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFEF3C7),
+                  color: const Color(0xFFEBF5FA),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Icon(
                   Icons.lock_clock_rounded,
-                  color: Color(0xFFD97706),
+                  color: Color(0xFF09638E),
                   size: 18,
                 ),
               ),
@@ -779,7 +779,7 @@ class _RoomTransferSearchScreenState extends State<RoomTransferSearchScreen> {
                   style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF92400E),
+                    color: Color(0xFF0F172A),
                     letterSpacing: 0.3,
                   ),
                 ),
@@ -791,7 +791,7 @@ class _RoomTransferSearchScreenState extends State<RoomTransferSearchScreen> {
             'Bạn đang xin chuyển sang phòng $targetRoom. Hệ thống khóa quyền tạo đơn thứ 2 để BQL thẩm định.',
             style: const TextStyle(
               fontSize: 11.5,
-              color: Color(0xFF78350F),
+              color: Color(0xFF475569),
               height: 1.35,
             ),
           ),
@@ -998,7 +998,6 @@ class _RoomTransferSearchScreenState extends State<RoomTransferSearchScreen> {
   // ─── 6. ROOM CARD (ĐÃ FIX LỖI NGOẶC VÀ CHỐNG TRÀN) ───
   Widget _buildRoomCard(Map<String, dynamic> r) {
     final isSame = r['isSameBuilding'] == true;
-    final diffAmount = r['diffAmount'] as num;
 
     return Container(
       decoration: BoxDecoration(
@@ -1173,35 +1172,24 @@ class _RoomTransferSearchScreenState extends State<RoomTransferSearchScreen> {
                 ),
                 const SizedBox(height: 8),
 
-                // Highlight chip (Đồng giá / Tiết kiệm / Chênh lệch)
+                // Chip so sánh chênh lệch giá với phòng hiện tại
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 10,
-                    vertical: 5,
+                    vertical: 4.5,
                   ),
                   decoration: BoxDecoration(
-                    color: diffAmount == 0
-                        ? const Color(0xFFDCFCE7)
-                        : (diffAmount < 0
-                              ? const Color(0xFFE0F2FE)
-                              : const Color(0xFFFEF3C7)),
+                    color: const Color(0xFFF1F5F9),
                     borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
-                        diffAmount == 0
-                            ? Icons.check_circle_rounded
-                            : (diffAmount < 0
-                                  ? Icons.savings_rounded
-                                  : Icons.trending_up_rounded),
-                        color: diffAmount == 0
-                            ? const Color(0xFF16A34A)
-                            : (diffAmount < 0
-                                  ? const Color(0xFF0284C7)
-                                  : const Color(0xFFD97706)),
-                        size: 13,
+                      const Icon(
+                        Icons.swap_vert_rounded,
+                        color: Color(0xFF64748B),
+                        size: 13.5,
                       ),
                       const SizedBox(width: 5),
                       Flexible(
@@ -1209,14 +1197,10 @@ class _RoomTransferSearchScreenState extends State<RoomTransferSearchScreen> {
                           r['highlight'],
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: diffAmount == 0
-                                ? const Color(0xFF16A34A)
-                                : (diffAmount < 0
-                                      ? const Color(0xFF0284C7)
-                                      : const Color(0xFFB45309)),
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF475569),
                           ),
                         ),
                       ),
