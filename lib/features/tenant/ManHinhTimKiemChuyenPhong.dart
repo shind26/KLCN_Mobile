@@ -43,6 +43,7 @@ class _RoomTransferSearchScreenState extends State<RoomTransferSearchScreen> {
       0; // 0: Tất cả, 1: Dưới 3.5tr, 2: 3.5tr - 4.5tr, 3: Có gác
   bool _isLoading = true;
   Map<String, dynamic>? _pendingTransfer;
+  RealtimeChannel? _rtChannel;
 
   // Danh sách phòng thực tế tải từ Supabase
   List<Map<String, dynamic>> _rooms = [];
@@ -137,6 +138,28 @@ class _RoomTransferSearchScreenState extends State<RoomTransferSearchScreen> {
   void initState() {
     super.initState();
     _fetchEmptyRoomsFromSupabase();
+    _initRealtime();
+  }
+
+  void _initRealtime() {
+    try {
+      final db = Supabase.instance.client;
+      _rtChannel = db.channel(
+        'public:yccp_available_rooms_${DateTime.now().millisecondsSinceEpoch}',
+      )..onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'yeu_cau_chuyen_phong',
+          callback: (_) {
+            if (mounted) {
+              debugPrint('[REALTIME] Thay đổi đơn chuyển phòng -> Tải lại danh sách phòng');
+              _fetchEmptyRoomsFromSupabase();
+            }
+          },
+        )..subscribe();
+    } catch (e) {
+      debugPrint('Lỗi khởi tạo Realtime phòng trống: $e');
+    }
   }
 
   /// Tải danh sách phòng trống thực tế trực tiếp từ Supabase giống khách vãng lai
@@ -171,6 +194,7 @@ class _RoomTransferSearchScreenState extends State<RoomTransferSearchScreen> {
           .toList();
 
       // RÀNG BUỘC PHƯƠNG ÁN 1: Quét danh sách các phòng trống đang có đơn chờ duyệt từ người khác
+      final Set<String> pendingRoomCodes = {};
       try {
         final pendingOthers = await Supabase.instance.client
             .from('yeu_cau_chuyen_phong')
@@ -184,7 +208,6 @@ class _RoomTransferSearchScreenState extends State<RoomTransferSearchScreen> {
               'Khách đã xác nhận',
               'Chờ chủ duyệt',
             ]);
-        final Set<String> pendingRoomCodes = {};
         for (final row in (pendingOthers as List)) {
           final p = row['ma_phong_moi']?.toString().trim().toUpperCase();
           if (p != null && p.isNotEmpty) {
@@ -234,19 +257,30 @@ class _RoomTransferSearchScreenState extends State<RoomTransferSearchScreen> {
         debugPrint('Lỗi kiểm tra đơn chờ duyệt: $errCheck');
       }
 
+      // RÀNG BUỘC PHƯƠNG ÁN 1:
+      // LỌC BỎ HOÀN TOÀN các phòng đã có người nộp đơn chờ duyệt (isPendingHold == true).
+      // Khi một tài khoản đã gửi đơn vào phòng đó, phòng đó lập tức biến mất khỏi danh sách,
+      // tất cả các tài khoản khác khi vào tìm phòng sẽ HOÀN TOÀN KHÔNG THẤY phòng đó nữa!
+      final availableMapped = mapped.where((r) => r['isPendingHold'] != true).toList();
+
       if (mounted) {
         setState(() {
-          if (mapped.isNotEmpty) {
-            _rooms = mapped;
-          } else {
-            // Nếu database chưa có phòng trống nào, dùng tập dữ liệu mẫu loại trừ phòng hiện tại
+          if (availableMapped.isNotEmpty) {
+            _rooms = availableMapped;
+          } else if (mapped.isEmpty) {
+            // Nếu database chưa có phòng trống nào, dùng tập dữ liệu mẫu loại trừ phòng hiện tại & phòng bị giữ
             _rooms = _defaultRooms.where((r) {
               final rClean = r['maPhong']
                   .toString()
                   .replaceAll(RegExp(r'[^0-9a-zA-Z]'), '')
-                  .toLowerCase();
-              return rClean != curClean;
+                  .toUpperCase();
+              final isHeld = pendingRoomCodes.contains(rClean) ||
+                  (rClean.isNotEmpty &&
+                      pendingRoomCodes.contains(rClean.replaceAll('P', '')));
+              return rClean != curClean.toUpperCase() && !isHeld;
             }).toList();
+          } else {
+            _rooms = [];
           }
           _isLoading = false;
         });
@@ -321,6 +355,11 @@ class _RoomTransferSearchScreenState extends State<RoomTransferSearchScreen> {
 
   List<Map<String, dynamic>> get _filteredRooms {
     return _rooms.where((room) {
+      // Ràng buộc an toàn: Tuyệt đối không hiển thị phòng đang được giữ chỗ
+      if (room['isPendingHold'] == true) {
+        return false;
+      }
+
       // Filter tab: Cùng tòa
       if (_selectedTab == 1 && room['isSameBuilding'] != true) {
         return false;
@@ -365,6 +404,7 @@ class _RoomTransferSearchScreenState extends State<RoomTransferSearchScreen> {
 
   @override
   void dispose() {
+    _rtChannel?.unsubscribe();
     _searchController.dispose();
     super.dispose();
   }
