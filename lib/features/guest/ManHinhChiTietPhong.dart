@@ -228,16 +228,30 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
           .eq('ma_phong', widget.room.maPhong)
           .order('ma_thong_so');
 
-      if (resp is List) {
+      if (resp is List && resp.isNotEmpty) {
+        final seen = <String>{};
         final list = resp
             .map((e) => ThongSoPhongModel.fromJson(e as Map<String, dynamic>))
+            .where((ts) {
+              final lower = ts.tenThongSo.toLowerCase();
+              if (lower.contains('dien_') ||
+                  lower.contains('nuoc_') ||
+                  lower.contains('chốt')) {
+                return false;
+              }
+              if (seen.contains(ts.tenThongSo)) return false;
+              seen.add(ts.tenThongSo);
+              return true;
+            })
             .toList();
-        if (mounted)
+
+        if (mounted && list.isNotEmpty) {
           setState(() {
             _thongSo = list;
             _loadingSpec = false;
           });
-        return;
+          return;
+        }
       }
     } catch (_) {}
     // Fallback: build from room model
@@ -1256,15 +1270,9 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: isSame
-            ? const Color(0xFFDCFCE7)
-            : (isCheaper ? const Color(0xFFE0F2FE) : const Color(0xFFFEF3C7)),
+        color: const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: isSame
-              ? const Color(0xFF86EFAC)
-              : (isCheaper ? const Color(0xFF7DD3FC) : const Color(0xFFFDE68A)),
-        ),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1281,21 +1289,17 @@ class _RoomDetailScreenState extends State<RoomDetailScreen> {
                     ? const Color(0xFF16A34A)
                     : (isCheaper
                           ? const Color(0xFF0284C7)
-                          : const Color(0xFFD97706)),
+                          : const Color(0xFF09638E)),
                 size: 18,
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   'Đối chiếu chuyển từ ${widget.currentRoomNumber ?? "Phòng hiện tại"}',
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.bold,
-                    color: isSame
-                        ? const Color(0xFF166534)
-                        : (isCheaper
-                              ? const Color(0xFF075985)
-                              : const Color(0xFF92400E)),
+                    color: Color(0xFF0F172A),
                   ),
                 ),
               ),
