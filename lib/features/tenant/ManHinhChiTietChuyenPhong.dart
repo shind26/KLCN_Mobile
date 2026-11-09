@@ -63,6 +63,9 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
   List<Map<String, dynamic>> _danhSachDichVu = [];
   bool _isLoadingDichVu = true;
 
+  // Kiểm tra xem phòng đích đã có cư dân khác giữ chỗ chờ duyệt chưa (Phương án 1)
+  bool _targetRoomHasPending = false;
+
   /// Tính ngày đầu tháng tiếp theo (ngày 01)
   static DateTime _tinhNgayDauThangToi() {
     final now = DateTime.now();
@@ -159,6 +162,34 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
 
       if (res.isNotEmpty && mounted) {
         setState(() => _pendingRequest = Map<String, dynamic>.from(res.first));
+      }
+
+      // RÀNG BUỘC PHƯƠNG ÁN 1: Kiểm tra xem phòng đích đã có cư dân khác giữ chỗ chờ duyệt chưa
+      final targetCode = (widget.targetRoom['maPhong'] ??
+              widget.targetRoom['roomNumber'] ??
+              'P301')
+          .toString()
+          .trim();
+      final pNum = targetCode.replaceAll(RegExp(r'[^0-9]'), '');
+
+      final targetRes = await Supabase.instance.client
+          .from('yeu_cau_chuyen_phong')
+          .select('ma_yeu_cau, ma_phong_cu, ma_hop_dong_ht')
+          .or('ma_phong_moi.eq.$targetCode,ma_phong_moi.eq.P$pNum,ma_phong_moi.eq.$pNum')
+          .neq('ma_hop_dong_ht', activeHD)
+          .inFilter('trang_thai_tien_do', [
+            'Chờ duyệt',
+            'CHO_DUYET',
+            'Đang xử lý',
+            'Chờ khách xác nhận',
+            'Đã kiểm tra',
+            'Khách đã xác nhận',
+            'Chờ chủ duyệt',
+          ])
+          .limit(1);
+
+      if (targetRes.isNotEmpty && mounted) {
+        setState(() => _targetRoomHasPending = true);
       }
     } catch (e) {
       debugPrint('Lỗi kiểm tra pending request: $e');
@@ -342,6 +373,44 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
         return;
       }
 
+      // RÀNG BUỘC PHƯƠNG ÁN 1: Chống gửi trùng nếu phòng đích đã có đơn chờ duyệt từ người khác
+      try {
+        final pNum = targetCode.replaceAll(RegExp(r'[^0-9]'), '');
+        final existingPendingForRoom = await Supabase.instance.client
+            .from('yeu_cau_chuyen_phong')
+            .select('ma_yeu_cau, ma_phong_cu, ma_hop_dong_ht')
+            .or('ma_phong_moi.eq.$targetCode,ma_phong_moi.eq.P$pNum,ma_phong_moi.eq.$pNum')
+            .neq('ma_hop_dong_ht', activeHopDong)
+            .inFilter('trang_thai_tien_do', [
+              'Chờ duyệt',
+              'CHO_DUYET',
+              'Đang xử lý',
+              'Chờ khách xác nhận',
+              'Đã kiểm tra',
+              'Khách đã xác nhận',
+              'Chờ chủ duyệt',
+            ])
+            .limit(1);
+
+        if (existingPendingForRoom.isNotEmpty) {
+          if (!mounted) return;
+          setState(() {
+            _isSubmitting = false;
+            _targetRoomHasPending = true;
+          });
+          ThongBaoHelper.hienThongBao(
+            context,
+            tieuDe: 'Phòng Đã Có Người Giữ Chỗ',
+            noiDung:
+                'Phòng $targetCode hiện đang có cư dân khác gửi yêu cầu chuyển phòng chờ Ban Quản Lý xét duyệt. Bạn vui lòng chọn phòng trống khác nhé!',
+            type: ThongBaoType.canhBao,
+          );
+          return;
+        }
+      } catch (errCheckTarget) {
+        debugPrint('[CHUYEN_PHONG] Lỗi kiểm tra trùng phòng đích: $errCheckTarget');
+      }
+
       final String reason = _reasons[_selectedReasonIndex];
       final String note = _noteController.text.trim();
       final String fullReason = note.isNotEmpty ? '$reason - $note' : reason;
@@ -428,6 +497,12 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
                           // Cảnh báo nếu còn hóa đơn chưa thanh toán
                           if (_hasUnpaidInvoices) ...[
                             _buildUnpaidInvoiceBanner(),
+                            const SizedBox(height: 14),
+                          ],
+
+                          // Cảnh báo nếu phòng đích đang có người giữ chỗ (Phương án 1)
+                          if (_targetRoomHasPending) ...[
+                            _buildTargetRoomPendingBanner(targetName),
                             const SizedBox(height: 14),
                           ],
 
@@ -562,6 +637,60 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
                 'Thanh toán hóa đơn ngay',
                 style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── BANNER CẢNH BÁO PHÒNG ĐÍCH ĐÃ CÓ NGƯỜI GIỮ CHỖ (PHƯƠNG ÁN 1) ───
+  Widget _buildTargetRoomPendingBanner(String targetName) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.2),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: const BoxDecoration(
+              color: Color(0xFFF1F5F9),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.lock_clock_rounded,
+              color: Color(0xFF64748B),
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Phòng $targetName đang có người giữ chỗ',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF0F172A),
+                  ),
+                ),
+                const SizedBox(height: 3),
+                const Text(
+                  'Hiện tại đã có cư dân khác nộp đơn xin chuyển vào phòng này đang chờ BQL duyệt. Để đảm bảo tính công bằng (First-Come, First-Served), bạn vui lòng quay lại chọn phòng trống khác nhé!',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    color: Color(0xFF64748B),
+                    height: 1.4,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -1453,11 +1582,12 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
   Widget _buildSubmitButton(String targetName) {
     final hasPending = _pendingRequest != null;
     final hasUnpaid = _hasUnpaidInvoices;
+    final hasTargetPending = _targetRoomHasPending;
 
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
-        onPressed: (_isSubmitting || hasPending || hasUnpaid)
+        onPressed: (_isSubmitting || hasPending || hasUnpaid || hasTargetPending)
             ? () {
                 if (hasUnpaid) {
                   ThongBaoHelper.hienThongBao(
@@ -1475,17 +1605,31 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
                         'Bạn đang có yêu cầu #${_pendingRequest!["ma_yeu_cau"]} chuyển sang ${_pendingRequest!["ma_phong_moi"]} đang chờ BQL duyệt. Không thể gửi thêm đơn!',
                     type: ThongBaoType.canhBao,
                   );
+                } else if (hasTargetPending) {
+                  ThongBaoHelper.hienThongBao(
+                    context,
+                    tieuDe: 'Phòng Đã Có Người Giữ Chỗ',
+                    noiDung:
+                        'Phòng $targetName hiện đang có cư dân khác nộp đơn chuyển phòng chờ BQL duyệt. Bạn vui lòng chọn phòng trống khác nhé!',
+                    type: ThongBaoType.canhBao,
+                  );
                 }
               }
             : _submitTransferRequest,
         style: ElevatedButton.styleFrom(
           backgroundColor: hasUnpaid
               ? const Color(0xFFDC2626)
-              : (hasPending ? const Color(0xFFD97706) : _primaryDark),
+              : (hasPending
+                  ? const Color(0xFFD97706)
+                  : (hasTargetPending
+                      ? const Color(0xFF64748B)
+                      : _primaryDark)),
           foregroundColor: Colors.white,
           disabledBackgroundColor: hasUnpaid
               ? const Color(0xFFDC2626).withValues(alpha: 0.7)
-              : _primaryDark.withValues(alpha: 0.6),
+              : (hasTargetPending
+                  ? const Color(0xFF64748B).withValues(alpha: 0.7)
+                  : _primaryDark.withValues(alpha: 0.6)),
           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
@@ -1507,9 +1651,9 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
                   Icon(
                     hasUnpaid
                         ? Icons.warning_rounded
-                        : (hasPending
-                              ? Icons.lock_clock_rounded
-                              : Icons.send_rounded),
+                        : (hasPending || hasTargetPending
+                            ? Icons.lock_clock_rounded
+                            : Icons.send_rounded),
                     size: 16,
                   ),
                   const SizedBox(width: 8),
@@ -1518,8 +1662,10 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
                       hasUnpaid
                           ? 'Vui lòng thanh toán hết hóa đơn phòng cũ'
                           : (hasPending
-                                ? 'Đang có đơn chờ duyệt (#${_pendingRequest!["ma_yeu_cau"]})'
-                                : 'Gửi yêu cầu chuyển phòng $targetName'),
+                              ? 'Đang có đơn chờ duyệt (#${_pendingRequest!["ma_yeu_cau"]})'
+                              : (hasTargetPending
+                                  ? 'Phòng $targetName đang có người giữ chỗ'
+                                  : 'Gửi yêu cầu chuyển phòng $targetName')),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(

@@ -170,6 +170,42 @@ class _RoomTransferSearchScreenState extends State<RoomTransferSearchScreen> {
           .map((r) => _convertModelToRoomMap(r))
           .toList();
 
+      // RÀNG BUỘC PHƯƠNG ÁN 1: Quét danh sách các phòng trống đang có đơn chờ duyệt từ người khác
+      try {
+        final pendingOthers = await Supabase.instance.client
+            .from('yeu_cau_chuyen_phong')
+            .select('ma_phong_moi')
+            .inFilter('trang_thai_tien_do', [
+              'Chờ duyệt',
+              'CHO_DUYET',
+              'Đang xử lý',
+              'Chờ khách xác nhận',
+              'Đã kiểm tra',
+              'Khách đã xác nhận',
+              'Chờ chủ duyệt',
+            ]);
+        final Set<String> pendingRoomCodes = {};
+        for (final row in (pendingOthers as List)) {
+          final p = row['ma_phong_moi']?.toString().trim().toUpperCase();
+          if (p != null && p.isNotEmpty) {
+            pendingRoomCodes.add(p);
+            final pNum = p.replaceAll(RegExp(r'[^0-9]'), '');
+            if (pNum.isNotEmpty) {
+              pendingRoomCodes.add(pNum);
+              pendingRoomCodes.add('P$pNum');
+            }
+          }
+        }
+        for (final r in mapped) {
+          final pCode = (r['maPhong'] ?? '').toString().trim().toUpperCase();
+          final pNum = pCode.replaceAll(RegExp(r'[^0-9]'), '');
+          r['isPendingHold'] = pendingRoomCodes.contains(pCode) ||
+              (pNum.isNotEmpty && pendingRoomCodes.contains(pNum));
+        }
+      } catch (errOther) {
+        debugPrint('Lỗi quét phòng đang chờ duyệt: $errOther');
+      }
+
       // Kiểm tra xem cư dân có đơn nào đang chờ duyệt hay không
       try {
         final maHD = widget.maHopDong ?? 'HD001';
@@ -407,6 +443,17 @@ class _RoomTransferSearchScreenState extends State<RoomTransferSearchScreen> {
         tieuDe: 'Không Thể Gửi Thêm Đơn',
         noiDung:
             'Bạn đang có yêu cầu chuyển sang phòng ${_pendingTransfer!["ma_phong_moi"]} (#${_pendingTransfer!["ma_yeu_cau"]}) đang chờ Ban Quản Lý duyệt. Không thể chọn thêm phòng mới!',
+        type: ThongBaoType.canhBao,
+      );
+      return;
+    }
+
+    if (room['isPendingHold'] == true) {
+      ThongBaoHelper.hienThongBao(
+        context,
+        tieuDe: 'Phòng Đã Có Người Giữ Chỗ',
+        noiDung:
+            'Phòng ${room["maPhong"]} hiện đang có cư dân khác gửi yêu cầu chuyển phòng chờ Ban Quản Lý xét duyệt. Bạn vui lòng chọn phòng trống khác nhé!',
         type: ThongBaoType.canhBao,
       );
       return;
@@ -998,6 +1045,7 @@ class _RoomTransferSearchScreenState extends State<RoomTransferSearchScreen> {
   // ─── 6. ROOM CARD (ĐÃ FIX LỖI NGOẶC VÀ CHỐNG TRÀN) ───
   Widget _buildRoomCard(Map<String, dynamic> r) {
     final isSame = r['isSameBuilding'] == true;
+    final isPendingHold = r['isPendingHold'] == true;
 
     return Container(
       decoration: BoxDecoration(
@@ -1080,6 +1128,41 @@ class _RoomTransferSearchScreenState extends State<RoomTransferSearchScreen> {
                     ),
                   ),
                 ),
+                // Top right tag: Đang có người giữ chỗ (Phương án 1)
+                if (isPendingHold)
+                  Positioned(
+                    top: 10,
+                    right: 10,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF475569),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          Icon(
+                            Icons.lock_clock_rounded,
+                            color: Colors.white,
+                            size: 11,
+                          ),
+                          SizedBox(width: 4),
+                          Text(
+                            'Đang giữ chỗ',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 // Bottom right tag: Tầng (Đã chống tràn)
                 Positioned(
                   bottom: 8,
@@ -1271,13 +1354,17 @@ class _RoomTransferSearchScreenState extends State<RoomTransferSearchScreen> {
                       flex: 5,
                       child: ElevatedButton.icon(
                         onPressed: () => _navigateToTransfer(r),
-                        icon: const Icon(
-                          Icons.sync_alt_rounded,
+                        icon: Icon(
+                          isPendingHold
+                              ? Icons.lock_clock_rounded
+                              : Icons.sync_alt_rounded,
                           size: 15,
                           color: Colors.white,
                         ),
                         label: Text(
-                          'Chuyển sang ${r["maPhong"]}',
+                          isPendingHold
+                              ? 'Đang chờ duyệt'
+                              : 'Chuyển sang ${r["maPhong"]}',
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
@@ -1287,7 +1374,9 @@ class _RoomTransferSearchScreenState extends State<RoomTransferSearchScreen> {
                           overflow: TextOverflow.ellipsis,
                         ),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: _primaryDark,
+                          backgroundColor: isPendingHold
+                              ? const Color(0xFF64748B)
+                              : _primaryDark,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 11),
                           shape: RoundedRectangleBorder(
