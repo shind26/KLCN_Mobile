@@ -59,6 +59,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
     with TickerProviderStateMixin {
   late int _selectedTabIndex;
   bool _daHienPopupNhacGiaHanTrongPhien = false;
+  bool _daGuiYeuCauGiaHan = false;
 
   // ─── Animations cho Thẻ Cư Dân (Hero Room Card) ────────────
   late AnimationController _waveController;
@@ -884,6 +885,116 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
         debugPrint('[NOTIF] Lỗi tải yccp: ');
       }
 
+      // 1.5. Lấy thông báo gia hạn hợp đồng từ phu_luc_hop_dong
+      try {
+        final plghRows = await db
+            .from('phu_luc_hop_dong')
+            .select()
+            .eq('ma_hop_dong', activeHd)
+            .order('ngay_lap', ascending: false);
+
+        for (final row in (plghRows as List)) {
+          final maPhuLuc = row['ma_phu_luc']?.toString() ?? '';
+          final status = row['trang_thai']?.toString() ?? '';
+          final maPhongMoi = row['ma_phong_moi']?.toString() ?? '';
+          final noiDungPl = row['noi_dung_dieu_chinh']?.toString() ?? '';
+          final ngayGiaHanDen = row['ngay_gia_han_den']?.toString() ?? '';
+
+          // Bỏ qua nếu là phụ lục chuyển phòng
+          if (maPhongMoi.isNotEmpty ||
+              maPhuLuc.toUpperCase().startsWith('PLCP') ||
+              noiDungPl.toLowerCase().contains('chuyển')) {
+            continue;
+          }
+
+          final idNotif = 'plgh_${maPhuLuc}_$status';
+          final stLower = status.toLowerCase().trim();
+          final isApproved = !stLower.contains('chờ') &&
+              !stLower.contains('cho') &&
+              (stLower.contains('đã duyệt') ||
+                  stLower.contains('da duyet') ||
+                  stLower.contains('hoàn tất') ||
+                  stLower == 'approved');
+          final isPending = stLower.contains('chờ') ||
+              stLower.contains('cho') ||
+              stLower.contains('đang');
+          final isRejected =
+              stLower.contains('từ chối') || stLower.contains('tu choi');
+
+          String tieuDe = '';
+          String noiDung = '';
+          bool isError = false;
+
+          String fmtNgayGiaHan = ngayGiaHanDen;
+          if (ngayGiaHanDen.isNotEmpty) {
+            try {
+              final d = DateTime.parse(ngayGiaHanDen);
+              fmtNgayGiaHan =
+                  '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+            } catch (_) {}
+          }
+
+          if (isApproved) {
+            tieuDe = '🎉 BQL Đã Phê Duyệt Gia Hạn Hợp Đồng!';
+            noiDung =
+                'Yêu cầu gia hạn hợp đồng phòng $activeRoom đã được Ban Quản Lý duyệt thành công${fmtNgayGiaHan.isNotEmpty ? " đến ngày $fmtNgayGiaHan" : ""}! Phụ lục hợp đồng mới đã có hiệu lực.';
+
+            // Bắn thông báo ngoài hệ thống (thanh trạng thái điện thoại) nếu chưa thông báo
+            final notifKey = 'os_notif_plgh_${maPhuLuc}_approved';
+            if (!ThongBaoHelper.daXem(notifKey)) {
+              ThongBaoHelper.danhDauDaXem(notifKey);
+              SystemNotificationService.show(
+                title: '🎉 BQL Đã Phê Duyệt Gia Hạn Hợp Đồng!',
+                body:
+                    'Hợp đồng phòng $activeRoom đã được BQL duyệt thành công${fmtNgayGiaHan.isNotEmpty ? " đến ngày $fmtNgayGiaHan" : ""}! Phụ lục đã có hiệu lực.',
+                tag: notifKey,
+                loai: 'gia_han',
+              );
+            }
+          } else if (isPending) {
+            tieuDe = '📝 Yêu Cầu Gia Hạn Hợp Đồng Đang Chờ Duyệt';
+            noiDung =
+                'Yêu cầu gia hạn hợp đồng phòng $activeRoom${fmtNgayGiaHan.isNotEmpty ? " đến ngày $fmtNgayGiaHan" : ""} đã gửi thành công và đang chờ BQL phê duyệt.';
+          } else if (isRejected) {
+            tieuDe = '⚠️ Yêu Cầu Gia Hạn Bị Từ Chối';
+            noiDung =
+                'BQL chưa thể phê duyệt gia hạn hợp đồng phòng $activeRoom. Vui lòng liên hệ BQL để được hỗ trợ.';
+            isError = true;
+          }
+
+          if (tieuDe.isNotEmpty) {
+            final daDoc =
+                _danhSachIdDaDoc.contains(idNotif) || (status == 'Chờ duyệt');
+            danhSachMoi.add({
+              'id': idNotif,
+              'tieu_de': tieuDe,
+              'noi_dung': noiDung,
+              'loai': 'gia_han',
+              'thoi_gian':
+                  DateTime.tryParse(row['ngay_lap']?.toString() ?? '') ??
+                  DateTime.now(),
+              'da_doc': daDoc,
+              'is_error': isError,
+              'on_xem': () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ManHinhLichSuGiaHanHopDong(
+                      maHopDong: activeHd,
+                      tenPhong: 'Phòng $activeRoom',
+                      maPhong: activeRoom,
+                      hopDong: _hopDong,
+                    ),
+                  ),
+                ).then((_) => _fetchTenantData());
+              },
+            });
+          }
+        }
+      } catch (e) {
+        debugPrint('[NOTIF] Lỗi tải phụ lục gia hạn: $e');
+      }
+
       // 2. Lấy thông báo hóa đơn chưa thanh toán
       // Chỉ push thông báo khi BQL đã xác nhận gửi (trang_thai != 'Chờ gửi')
       if (_hoaDonMoiNhat != null &&
@@ -1128,8 +1239,9 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
         });
       }
 
-      // 3.9. Đồng bộ thông báo hợp đồng sắp hết hạn (<= 30 ngày)
+      // 3.9. Đồng bộ thông báo hợp đồng sắp hết hạn (<= 30 ngày) - chỉ hiện khi chưa gửi yêu cầu gia hạn
       if (_hopDong != null &&
+          !_daGuiYeuCauGiaHan &&
           _hopDong!.trangThai != 'Đã thanh lý' &&
           _hopDong!.trangThai != 'Đã chấm dứt') {
         int daysLeft = 999;
@@ -1372,6 +1484,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
       final validHdMap = Map<String, dynamic>.from(hopDongRow!);
 
       // ── AUTO-SYNC: TỰ ĐỘNG ĐỒNG BỘ NẾU CÓ PHỤ LỤC / YÊU CẦU CHUYỂN PHÒNG ĐÃ DUYỆT ──
+      bool daGuiGiaHan = false;
       try {
         final currentContractCode = validHdMap['ma_hop_dong']?.toString() ?? '';
         if (currentContractCode.isNotEmpty) {
@@ -1400,6 +1513,29 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
               final isPlChuyenPhong = maPl.startsWith('PLCP') ||
                   noiDung.toLowerCase().contains('chuyển') ||
                   (plMap['ma_phong_moi']?.toString() ?? '').isNotEmpty;
+
+              if (!isPlChuyenPhong) {
+                final isPendingGiaHan = tt.contains('chờ') ||
+                    tt.contains('cho') ||
+                    tt.contains('đang');
+                if (isApproved || isPendingGiaHan) {
+                  daGuiGiaHan = true;
+                }
+                if (isApproved) {
+                  final ngayGhDen = plMap['ngay_gia_han_den']?.toString() ?? '';
+                  if (ngayGhDen.isNotEmpty) {
+                    final oldKt = validHdMap['ngay_kt']?.toString() ?? '';
+                    if (oldKt != ngayGhDen) {
+                      validHdMap['ngay_kt'] = ngayGhDen;
+                      db
+                          .from('hop_dong')
+                          .update({'ngay_kt': ngayGhDen})
+                          .eq('ma_hop_dong', currentContractCode)
+                          .catchError((_) {});
+                    }
+                  }
+                }
+              }
 
               if (isApproved && isPlChuyenPhong) {
                 String? rCode = plMap['ma_phong_moi']?.toString().trim();
@@ -1694,9 +1830,23 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
               if (s.isNotEmpty) itemNames.add(s);
             }
           } else if (val is String) {
-            final cleaned = val
+            final sTrim = val.trim();
+            if (sTrim.isEmpty) return;
+            try {
+              final decoded = jsonDecode(sTrim);
+              if (decoded is List) {
+                for (final e in decoded) {
+                  final s = e?.toString().trim() ?? '';
+                  if (s.isNotEmpty) itemNames.add(s);
+                }
+                return;
+              }
+            } catch (_) {}
+            final cleaned = sTrim
                 .replaceAll('{', '')
                 .replaceAll('}', '')
+                .replaceAll('[', '')
+                .replaceAll(']', '')
                 .replaceAll('"', '');
             for (final s in cleaned.split(',')) {
               final t = s.trim();
@@ -1782,6 +1932,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
         _khachThueData = khachThueRow;
         _danhSachTaiSan = taiSanList;
         _danhSachPhuongTien = phuongTienList;
+        _daGuiYeuCauGiaHan = daGuiGiaHan;
         _isLoading = false;
       });
       await _dongBoDanhSachThongBao();
@@ -2224,10 +2375,25 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
         );
       } else {
         final ngayGiaHanDen = record['ngay_gia_han_den']?.toString() ?? '';
+        String fmtNgayGiaHan = ngayGiaHanDen;
+        if (ngayGiaHanDen.isNotEmpty) {
+          try {
+            final d = DateTime.parse(ngayGiaHanDen);
+            fmtNgayGiaHan =
+                '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+          } catch (_) {}
+          try {
+            Supabase.instance.client
+                .from('hop_dong')
+                .update({'ngay_kt': ngayGiaHanDen})
+                .eq('ma_hop_dong', maHD)
+                .catchError((_) {});
+          } catch (_) {}
+        }
         _hienThongBaoHeThong(
-          tieuDe: '🎉 Hợp Đồng Gia Hạn Đã Được Duyệt!',
+          tieuDe: '🎉 BQL Đã Phê Duyệt Gia Hạn Hợp Đồng!',
           noiDung:
-              'Hợp đồng phòng $maPhong đã được BQL duyệt thành công${ngayGiaHanDen.isNotEmpty ? " đến ngày $ngayGiaHanDen" : ""}!',
+              'Hợp đồng phòng $maPhong đã được BQL duyệt thành công${fmtNgayGiaHan.isNotEmpty ? " đến ngày $fmtNgayGiaHan" : ""}! Hợp đồng mới đã có hiệu lực.',
           loai: 'gia_han',
           tag: approvalKey,
           onXem: () {
@@ -2238,7 +2404,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                   maHopDong: _hopDong?.maHopDong ?? '',
                 ),
               ),
-            );
+            ).then((_) => _fetchTenantData());
           },
         );
 
@@ -2246,7 +2412,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
           context,
           tieuDe: 'Gia Hạn Hợp Đồng Đã Được Duyệt!',
           noiDung:
-              'Ban Quản Lý đã phê duyệt yêu cầu gia hạn hợp đồng phòng $maPhong${ngayGiaHanDen.isNotEmpty ? " đến ngày $ngayGiaHanDen" : ""} thành công! Hợp đồng mới đã có hiệu lực.',
+              'Ban Quản Lý đã phê duyệt yêu cầu gia hạn hợp đồng phòng $maPhong${fmtNgayGiaHan.isNotEmpty ? " đến ngày $fmtNgayGiaHan" : ""} thành công! Hợp đồng mới đã có hiệu lực.',
           type: ThongBaoType.thanhCong,
           nutText: 'Xem Hợp Đồng',
           tag: approvalKey,
@@ -2258,7 +2424,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                   maHopDong: _hopDong?.maHopDong ?? '',
                 ),
               ),
-            );
+            ).then((_) => _fetchTenantData());
           },
         );
       }
@@ -3285,6 +3451,9 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
         _hopDong!.trangThai == 'Đã chấm dứt') {
       return false;
     }
+    // Nếu cư dân đã gửi đơn gia hạn (dù BQL chưa duyệt hay đã duyệt) thì ẩn banner
+    if (_daGuiYeuCauGiaHan) return false;
+
     if (_hopDong!.ngayKt.isEmpty) return false;
     try {
       final dt = DateTime.parse(_hopDong!.ngayKt);
@@ -3397,7 +3566,10 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
   }
 
   void _kiemTraVaHienPopupNhacGiaHan() {
-    if (_daHienPopupNhacGiaHanTrongPhien || !mounted || !_isNguoiDaiDien) return;
+    if (_daHienPopupNhacGiaHanTrongPhien ||
+        !mounted ||
+        !_isNguoiDaiDien ||
+        _daGuiYeuCauGiaHan) return;
     if (_hopDong == null ||
         _hopDong!.trangThai == 'Đã thanh lý' ||
         _hopDong!.trangThai == 'Đã chấm dứt') {
@@ -6479,74 +6651,104 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
           ),
           const SizedBox(height: 20),
 
-          // 5. SECTION: THIẾT BỊ & TIỆN NGHI
-          Row(
-            children: [
-              const Flexible(
-                child: Text(
-                  'Thiết bị & Tiện nghi',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF0F172A),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              const Text(
-                'Trang bị sẵn có',
-                style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
+          // 5. SECTION: THIẾT BỊ & TIỆN NGHI (ĐỒNG BỘ THỰC TẾ THEO PHÒNG)
+          Builder(
+            builder: (context) {
+              final List<String> danhSachThietBi = [];
+              if (_phong != null && _phong!.noiThatSanCo.isNotEmpty) {
+                danhSachThietBi.addAll(_phong!.noiThatSanCo);
+              }
+              if (_phong != null && _phong!.tienIch.isNotEmpty) {
+                for (final ti in _phong!.tienIch) {
+                  if (!danhSachThietBi.contains(ti)) {
+                    danhSachThietBi.add(ti);
+                  }
+                }
+              }
+              if (danhSachThietBi.isEmpty && _danhSachTaiSan.isNotEmpty) {
+                for (final ts in _danhSachTaiSan) {
+                  final name = ts['ten_tai_san']?.toString().trim() ?? '';
+                  if (name.isNotEmpty && !danhSachThietBi.contains(name)) {
+                    danhSachThietBi.add(name);
+                  }
+                }
+              }
+              if (danhSachThietBi.isEmpty) {
+                danhSachThietBi.addAll([
+                  'Tủ lạnh 2 cánh',
+                  'Bếp từ đôi',
+                  'Hút mùi',
+                  'Sofa & bàn trà',
+                  'Giường nệm cao cấp',
+                ]);
+              }
 
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.03),
-                  blurRadius: 10,
-                  offset: const Offset(0, 3),
-                ),
-              ],
-            ),
-            child: Column(
-              children: [
-                _buildDeviceRow(
-                  icon: Icons.ac_unit_rounded,
-                  iconColor: const Color(0xFF0284C7),
-                  iconBg: const Color(0xFFE0F2FE),
-                  title: 'Máy lạnh Daikin Inverter 1.5 HP',
-                  subtitle: 'Treo tường • Điều khiển từ xa',
-                  status: 'Tốt',
-                ),
-                const Divider(height: 20, color: Color(0xFFF1F5F9)),
-                _buildDeviceRow(
-                  icon: Icons.kitchen_rounded,
-                  iconColor: const Color(0xFF0284C7),
-                  iconBg: const Color(0xFFE0F2FE),
-                  title: 'Tủ lạnh Aqua 130L',
-                  subtitle: 'Hai cánh • Đóng tuyết tự xả',
-                  status: 'Tốt',
-                ),
-                const Divider(height: 20, color: Color(0xFFF1F5F9)),
-                _buildDeviceRow(
-                  icon: Icons.water_damage_rounded,
-                  iconColor: const Color(0xFF0284C7),
-                  iconBg: const Color(0xFFE0F2FE),
-                  title: 'Bình nước nóng Ariston 20L',
-                  subtitle: 'Chống giật ELCB an toàn',
-                  status: 'Tốt',
-                ),
-              ],
-            ),
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Flexible(
+                        child: Text(
+                          'Thiết bị & Tiện nghi',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF0F172A),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${danhSachThietBi.length} trang bị sẵn có',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.03),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        for (int i = 0; i < danhSachThietBi.length; i++) ...[
+                          if (i > 0)
+                            const Divider(height: 20, color: Color(0xFFF1F5F9)),
+                          () {
+                            final item = danhSachThietBi[i];
+                            final info = _getDeviceInfo(item);
+                            return _buildDeviceRow(
+                              icon: info['icon'] as IconData,
+                              iconColor: info['iconColor'] as Color,
+                              iconBg: info['iconBg'] as Color,
+                              title: item,
+                              subtitle: info['subtitle'] as String,
+                              status: info['status'] as String,
+                            );
+                          }(),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
           const SizedBox(height: 24),
         ],
@@ -6620,6 +6822,130 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
         ),
       ],
     );
+  }
+
+  Map<String, dynamic> _getDeviceInfo(String itemName) {
+    final lower = itemName.toLowerCase().trim();
+
+    IconData icon = Icons.check_circle_outline_rounded;
+    Color iconColor = const Color(0xFF0284C7);
+    Color iconBg = const Color(0xFFE0F2FE);
+    String subtitle = 'Trang bị sẵn có • Hoạt động tốt';
+
+    if (lower.contains('tủ lạnh')) {
+      icon = Icons.kitchen_rounded;
+      iconColor = const Color(0xFF0284C7);
+      iconBg = const Color(0xFFE0F2FE);
+      subtitle = lower.contains('2 cánh') || lower.contains('hai cánh')
+          ? 'Hai cánh • Đóng tuyết tự xả'
+          : 'Làm lạnh nhanh • Tiết kiệm điện';
+    } else if (lower.contains('bếp')) {
+      icon = Icons.soup_kitchen_rounded;
+      iconColor = const Color(0xFFEA580C);
+      iconBg = const Color(0xFFFFEDD5);
+      subtitle = lower.contains('đôi')
+          ? 'Bếp từ đôi âm bàn • Nấu ăn an toàn'
+          : 'Khu vực nấu nướng • Tiện lợi sạch sẽ';
+    } else if (lower.contains('hút mùi')) {
+      icon = Icons.air_rounded;
+      iconColor = const Color(0xFF0D9488);
+      iconBg = const Color(0xFFCCFBF1);
+      subtitle = 'Khử mùi công suất cao • Thông thoáng';
+    } else if (lower.contains('sofa') || lower.contains('bàn trà')) {
+      icon = Icons.chair_rounded;
+      iconColor = const Color(0xFF7C3AED);
+      iconBg = const Color(0xFFEDE9FE);
+      subtitle = 'Khu vực sinh hoạt • Bàn trà tiếp khách';
+    } else if (lower.contains('giường') || lower.contains('nệm')) {
+      icon = Icons.bed_rounded;
+      iconColor = const Color(0xFF2563EB);
+      iconBg = const Color(0xFFDBEAFE);
+      subtitle = 'Nệm cao cấp • Êm ái sạch sẽ';
+    } else if (lower.contains('máy lạnh') ||
+        lower.contains('điều hòa') ||
+        lower.contains('inverter')) {
+      icon = Icons.ac_unit_rounded;
+      iconColor = const Color(0xFF0284C7);
+      iconBg = const Color(0xFFE0F2FE);
+      subtitle = 'Treo tường • Điều khiển từ xa';
+    } else if (lower.contains('nước nóng') ||
+        lower.contains('nóng lạnh') ||
+        lower.contains('ariston')) {
+      icon = Icons.hot_tub_rounded;
+      iconColor = const Color(0xFF0891B2);
+      iconBg = const Color(0xFFCFFAFE);
+      subtitle = 'Chống giật ELCB • Tiết kiệm điện';
+    } else if (lower.contains('máy giặt')) {
+      icon = Icons.local_laundry_service_rounded;
+      iconColor = const Color(0xFF4F46E5);
+      iconBg = const Color(0xFFEEF2FF);
+      subtitle = 'Lồng ngang • Giặt sấy tiện lợi';
+    } else if (lower.contains('tủ áo') || lower.contains('tủ quần áo')) {
+      icon = Icons.door_sliding_rounded;
+      iconColor = const Color(0xFF9333EA);
+      iconBg = const Color(0xFFF3E8FF);
+      subtitle = 'Nhiều ngăn chứa đồ rộng rãi';
+    } else if (lower.contains('bàn làm việc') || lower.contains('bàn học')) {
+      icon = Icons.desk_rounded;
+      iconColor = const Color(0xFF059669);
+      iconBg = const Color(0xFFD1FAE5);
+      subtitle = 'Kèm ghế tựa • Ánh sáng chuẩn';
+    } else if (lower.contains('ban công')) {
+      icon = Icons.balcony_rounded;
+      iconColor = const Color(0xFF16A34A);
+      iconBg = const Color(0xFFDCFCE7);
+      subtitle = 'Đón ánh sáng tự nhiên & gió trời';
+    } else if (lower.contains('vân tay') || lower.contains('khóa')) {
+      icon = Icons.fingerprint_rounded;
+      iconColor = const Color(0xFF475569);
+      iconBg = const Color(0xFFF1F5F9);
+      subtitle = 'Bảo mật thông minh • Cửa thẻ từ AI';
+    } else if (lower.contains('wifi') || lower.contains('internet')) {
+      icon = Icons.wifi_rounded;
+      iconColor = const Color(0xFF2563EB);
+      iconBg = const Color(0xFFDBEAFE);
+      subtitle = 'Tốc độ cao 150Mbps riêng phòng';
+    } else if (lower.contains('tivi') || lower.contains('tv')) {
+      icon = Icons.tv_rounded;
+      iconColor = const Color(0xFF334155);
+      iconBg = const Color(0xFFF1F5F9);
+      subtitle = 'Smart TV màn hình phẳng';
+    } else if (lower.contains('sân phơi') || lower.contains('phơi')) {
+      icon = Icons.wb_sunny_rounded;
+      iconColor = const Color(0xFFD97706);
+      iconBg = const Color(0xFFFEF3C7);
+      subtitle = 'Khu vực thoáng mát, đón nắng';
+    } else if (lower.contains('thang máy')) {
+      icon = Icons.elevator_rounded;
+      iconColor = const Color(0xFF0284C7);
+      iconBg = const Color(0xFFE0F2FE);
+      subtitle = 'Thẻ từ an ninh, bảo trì định kỳ';
+    } else if (lower.contains('camera')) {
+      icon = Icons.videocam_rounded;
+      iconColor = const Color(0xFFDC2626);
+      iconBg = const Color(0xFFFEE2E2);
+      subtitle = 'Giám sát 24/7 an ninh tuyệt đối';
+    }
+
+    String status = 'Tốt';
+    for (final ts in _danhSachTaiSan) {
+      final tName = ts['ten_tai_san']?.toString().toLowerCase() ?? '';
+      if (tName.contains(lower) || lower.contains(tName)) {
+        final st = ts['tinh_trang']?.toString() ?? '';
+        if (st.isNotEmpty) {
+          status = st;
+          break;
+        }
+      }
+    }
+
+    return {
+      'icon': icon,
+      'iconColor': iconColor,
+      'iconBg': iconBg,
+      'subtitle': subtitle,
+      'status': status,
+    };
   }
 
   Widget _buildDeviceRow({
@@ -6741,6 +7067,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                         builder: (_) => InvoiceHistoryScreen(
                           roomName: roomDisplay,
                           maHopDong: maHopDong,
+                          maPhong: maPhong,
                         ),
                       ),
                     );
@@ -6889,6 +7216,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
               builder: (_) => InvoiceHistoryScreen(
                 roomName: roomDisplay,
                 maHopDong: maHopDong,
+                maPhong: maPhong,
               ),
             ),
           );
@@ -8503,6 +8831,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                         builder: (_) => InvoiceHistoryScreen(
                           maHopDong: maHopDong,
                           roomName: _phong?.tenHienThi ?? 'Phòng $curRoom',
+                          maPhong: curRoom,
                         ),
                       ),
                     ).then((_) => _fetchTenantData());
@@ -11279,7 +11608,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
           maPhong: pCode,
         ),
       ),
-    );
+    ).then((_) => _fetchTenantData());
   }
 
   void _showTerminateContractModal() {

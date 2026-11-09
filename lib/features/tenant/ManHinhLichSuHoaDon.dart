@@ -14,11 +14,13 @@ import 'package:nhatro_kieugiang/core/widgets/LoadingMeoMeo.dart';
 class InvoiceHistoryScreen extends StatefulWidget {
   final String roomName;
   final String? maHopDong;
+  final String? maPhong;
 
   const InvoiceHistoryScreen({
     super.key,
-    this.roomName = 'Phòng 302 • Nhà trọ Kiêu Giang',
+    this.roomName = 'Nhà trọ Kiêu Giang',
     this.maHopDong,
+    this.maPhong,
   });
 
   @override
@@ -64,32 +66,63 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
               .eq('ma_tai_khoan', user.maTaiKhoan)
               .maybeSingle();
           if (kt != null) {
-            final cthd = await db
+            final maKhach = kt['ma_khach']?.toString() ?? '';
+            final chiTietList = await db
                 .from('chi_tiet_hop_dong_khach_thue')
                 .select('ma_hop_dong')
-                .eq('ma_khach', kt['ma_khach'])
-                .limit(1)
-                .maybeSingle();
-            if (cthd != null) {
-              contractCode = cthd['ma_hop_dong']?.toString();
+                .eq('ma_khach', maKhach);
+            if (chiTietList.isNotEmpty) {
+              final maHopDongs = (chiTietList as List)
+                  .map((e) => e['ma_hop_dong']?.toString() ?? '')
+                  .where((s) => s.isNotEmpty)
+                  .toList();
+              if (maHopDongs.isNotEmpty) {
+                final hdRows = await db
+                    .from('hop_dong')
+                    .select('ma_hop_dong, trang_thai')
+                    .inFilter('ma_hop_dong', maHopDongs)
+                    .neq('trang_thai', 'Đã hủy')
+                    .order('ngay_bd', ascending: false);
+                if (hdRows.isNotEmpty) {
+                  final activeRow = (hdRows as List).firstWhere((r) {
+                    final st =
+                        r['trang_thai']?.toString().toLowerCase().trim() ?? '';
+                    return [
+                      'còn hạn',
+                      'đang thuê',
+                      'hieuluc',
+                      'chờ tl',
+                      'chờ thanh lý',
+                    ].contains(st);
+                  }, orElse: () => hdRows.first);
+                  contractCode = activeRow['ma_hop_dong']?.toString();
+                }
+              }
             }
           }
         }
       }
 
-      var query = db.from('hoa_don').select('*, chi_tiet_hoa_don(*)');
-      if (contractCode != null && contractCode.isNotEmpty) {
-        query = query.eq('ma_hop_dong', contractCode);
+      // Nếu không xác định được hợp đồng của cư dân, hiển thị danh sách trống (không tải dữ liệu của phòng khác)
+      if (contractCode == null || contractCode.isEmpty) {
+        if (mounted) {
+          setState(() {
+            _allHoaDons = [];
+            _chiTietMap = {};
+            _chiSoDienNuoc = [];
+            _phieuThuMap = {};
+            _isLoading = false;
+          });
+        }
+        return;
       }
-      var rows = await query.order('ngay_lap', ascending: false);
 
-      // Fallback: nếu lọc theo contractCode không ra thì lấy tất cả hóa đơn hiện có
-      if ((rows as List).isEmpty) {
-        rows = await db
-            .from('hoa_don')
-            .select('*, chi_tiet_hoa_don(*)')
-            .order('ngay_lap', ascending: false);
-      }
+      // 1. Tải hóa đơn CHÍNH XÁC theo mã hợp đồng của cư dân (phòng nào ra phòng nấy)
+      final rows = await db
+          .from('hoa_don')
+          .select('*, chi_tiet_hoa_don(*)')
+          .eq('ma_hop_dong', contractCode)
+          .order('ngay_lap', ascending: false);
 
       final list = (rows as List)
           .map((r) => HoaDonModel.fromJson(Map<String, dynamic>.from(r)))
@@ -106,18 +139,12 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
         }
       }
 
-      // Tải chỉ số điện nước thực tế từ bảng chi_so_dien_nuoc
-      var chiSoQuery = db.from('chi_so_dien_nuoc').select();
-      if (contractCode != null && contractCode.isNotEmpty) {
-        chiSoQuery = chiSoQuery.eq('ma_hop_dong', contractCode);
-      }
-      var chiSoRows = await chiSoQuery.order('thang_nam', ascending: true);
-      if ((chiSoRows as List).isEmpty) {
-        chiSoRows = await db
-            .from('chi_so_dien_nuoc')
-            .select()
-            .order('thang_nam', ascending: true);
-      }
+      // 2. Tải chỉ số điện nước CHÍNH XÁC theo hợp đồng này (không lấy của phòng khác)
+      final chiSoRows = await db
+          .from('chi_so_dien_nuoc')
+          .select()
+          .eq('ma_hop_dong', contractCode)
+          .order('thang_nam', ascending: true);
 
       // Tải danh sách phiếu thu / giao dịch chuyển khoản thực tế từ bảng phieu_thu theo mã hóa đơn
       final List<String> maHds =
@@ -167,7 +194,7 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
                 tongTienHd = hd.tongTienGoc;
               }
             }
-            if (tongTienHd <= 0) tongTienHd = 4200000;
+            if (tongTienHd <= 0) tongTienHd = hd.tongTienGoc > 0 ? hd.tongTienGoc : 0;
 
             // 3. Phân loại các giao dịch hợp lệ (> 0đ)
             final validRaw = rawList.where((pt) {
@@ -1284,7 +1311,7 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
         billTotal = hd.tongTienGoc;
       }
     }
-    if (billTotal <= 0) billTotal = 4200000;
+    if (billTotal <= 0) billTotal = hd.tongTienGoc > 0 ? hd.tongTienGoc : 0;
 
     // Tính tổng tiền thực tế đã thu từ các phiếu thu trong database
     // TUYỆT ĐỐI KHÔNG vượt quá tổng tiền của hóa đơn

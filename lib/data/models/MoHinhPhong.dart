@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 /// Model dữ liệu cho bảng `phong` trên Supabase
 class RoomModel {
   final String maPhong;
@@ -43,15 +45,29 @@ class RoomModel {
   static List<String> _parseStringList(dynamic val) {
     if (val == null) return [];
     if (val is List) {
-      return val.map((e) => e.toString()).toList();
+      return val.map((e) => e.toString().trim()).where((s) => s.isNotEmpty).toList();
     }
     if (val is String) {
-      final cleaned = val
+      final sTrim = val.trim();
+      if (sTrim.isEmpty) return [];
+      try {
+        final decoded = jsonDecode(sTrim);
+        if (decoded is List) {
+          return decoded.map((e) => e.toString().trim()).where((s) => s.isNotEmpty).toList();
+        }
+      } catch (_) {}
+      final cleaned = sTrim
           .replaceAll('{', '')
           .replaceAll('}', '')
+          .replaceAll('[', '')
+          .replaceAll(']', '')
           .replaceAll('"', '');
       if (cleaned.trim().isEmpty) return [];
-      return cleaned.split(',').map((e) => e.trim()).toList();
+      return cleaned
+          .split(',')
+          .map((e) => e.trim())
+          .where((s) => s.isNotEmpty)
+          .toList();
     }
     return [];
   }

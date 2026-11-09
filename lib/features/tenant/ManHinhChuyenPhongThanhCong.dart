@@ -3940,7 +3940,10 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => const InvoiceHistoryScreen(),
+                      builder: (_) => InvoiceHistoryScreen(
+                        maHopDong: _maHopDong,
+                        roomName: 'Phòng ${widget.currentRoomNumber}',
+                      ),
                     ),
                   );
                 },

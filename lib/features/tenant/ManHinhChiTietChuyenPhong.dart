@@ -541,7 +541,10 @@ class _RoomTransferDetailScreenState extends State<RoomTransferDetailScreen> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => const InvoiceHistoryScreen(),
+                    builder: (_) => InvoiceHistoryScreen(
+                      maHopDong: widget.maHopDong ?? widget.hopDong?.maHopDong,
+                      roomName: 'Phòng ${widget.currentRoomNumber}',
+                    ),
                   ),
                 ).then((_) => _kiemTraHoaDonNo());
               },

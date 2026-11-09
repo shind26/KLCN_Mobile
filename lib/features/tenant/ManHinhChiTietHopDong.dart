@@ -879,7 +879,9 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                                 ),
                                 _buildSuccessInfoRow(
                                   'Phòng thuê',
-                                  'Phòng $soPhong',
+                                  soPhong.toLowerCase().startsWith('phòng')
+                                      ? soPhong
+                                      : 'Phòng $soPhong',
                                 ),
                                 const Divider(
                                   height: 14,
@@ -1011,22 +1013,26 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
   }) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Flexible(
-          child: Text(
-            label,
-            style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
-          ),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
         ),
-        const SizedBox(width: 8),
-        Flexible(
-          child: Text(
-            value,
-            textAlign: TextAlign.right,
-            style: TextStyle(
-              fontSize: 12.5,
-              fontWeight: isBold ? FontWeight.bold : FontWeight.w600,
-              color: valueColor ?? const Color(0xFF1E293B),
+        const SizedBox(width: 12),
+        Expanded(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerRight,
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              maxLines: 1,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: isBold ? FontWeight.bold : FontWeight.w600,
+                color: valueColor ?? const Color(0xFF1E293B),
+              ),
             ),
           ),
         ),

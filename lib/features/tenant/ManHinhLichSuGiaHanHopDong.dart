@@ -12,12 +12,14 @@ import 'package:nhatro_kieugiang/core/utils/ThongBaoHelper.dart';
 class ManHinhLichSuGiaHanHopDong extends StatefulWidget {
   final String? maHopDong;
   final String? tenPhong;
+  final String? maPhong;
   final HopDongModel? hopDong;
 
   const ManHinhLichSuGiaHanHopDong({
     super.key,
     this.maHopDong,
     this.tenPhong,
+    this.maPhong,
     this.hopDong,
   });
 
@@ -195,6 +197,11 @@ class _ManHinhLichSuGiaHanHopDongState
   String get _roomName {
     if (widget.tenPhong != null && widget.tenPhong!.isNotEmpty) {
       return widget.tenPhong!;
+    }
+    if (widget.maPhong != null && widget.maPhong!.isNotEmpty) {
+      return widget.maPhong!.toLowerCase().startsWith('phòng')
+          ? widget.maPhong!
+          : 'Phòng ${widget.maPhong}';
     }
     if (widget.hopDong?.maPhong != null && widget.hopDong!.maPhong.isNotEmpty) {
       return 'Phòng ${widget.hopDong!.maPhong}';
