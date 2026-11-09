@@ -3822,18 +3822,15 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: isChuyenPhong
-                            ? const Color(0xFFE0F2FE)
-                            : const Color(0xFFF0FDF4),
+                        color: const Color(0xFFF1F5F9),
                         borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
                       ),
                       child: Icon(
                         isChuyenPhong
                             ? Icons.swap_horiz_rounded
-                            : Icons.history_edu_rounded,
-                        color: isChuyenPhong
-                            ? const Color(0xFF0284C7)
-                            : const Color(0xFF16A34A),
+                            : Icons.description_outlined,
+                        color: const Color(0xFF475569),
                         size: 20,
                       ),
                     ),
@@ -3865,19 +3862,20 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
-                        vertical: 3,
+                        vertical: 3.5,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFDCFCE7),
+                        color: const Color(0xFFF1F5F9),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFF86EFAC)),
+                        border: Border.all(color: const Color(0xFFCBD5E1)),
                       ),
                       child: const Text(
                         'ĐÃ DUYỆT',
                         style: TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF16A34A),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.5,
+                          color: Color(0xFF475569),
                         ),
                       ),
                     ),
@@ -3919,17 +3917,17 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                               children: [
                                 Icon(
                                   Icons.gavel_rounded,
-                                  size: 15,
-                                  color: _primary,
+                                  size: 14,
+                                  color: Color(0xFF475569),
                                 ),
                                 SizedBox(width: 6),
                                 Text(
                                   'CĂN CỨ PHÁP LÝ HỢP ĐỒNG',
                                   style: TextStyle(
-                                    fontSize: 11.5,
+                                    fontSize: 11,
                                     fontWeight: FontWeight.bold,
-                                    color: _primary,
-                                    letterSpacing: 0.3,
+                                    color: Color(0xFF475569),
+                                    letterSpacing: 0.5,
                                   ),
                                 ),
                               ],
@@ -3984,23 +3982,20 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                                 Icon(
                                   isChuyenPhong
                                       ? Icons.meeting_room_outlined
-                                      : Icons.calendar_month_outlined,
-                                  size: 16,
-                                  color: isChuyenPhong
-                                      ? const Color(0xFF0284C7)
-                                      : const Color(0xFF16A34A),
+                                      : Icons.event_note_outlined,
+                                  size: 15,
+                                  color: const Color(0xFF475569),
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
                                   isChuyenPhong
                                       ? 'THÔNG TIN CHUYỂN ĐỔI PHÒNG'
                                       : 'THÔNG TIN GIA HẠN HỢP ĐỒNG',
-                                  style: TextStyle(
-                                    fontSize: 12,
+                                  style: const TextStyle(
+                                    fontSize: 11.5,
                                     fontWeight: FontWeight.bold,
-                                    color: isChuyenPhong
-                                        ? const Color(0xFF0284C7)
-                                        : const Color(0xFF16A34A),
+                                    color: Color(0xFF334155),
+                                    letterSpacing: 0.3,
                                   ),
                                 ),
                               ],
@@ -4086,25 +4081,25 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFEF3C7).withValues(alpha: 0.4),
+                          color: const Color(0xFFF8FAFC),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFFDE68A)),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
                         ),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Icon(
-                              Icons.info_outline_rounded,
+                              Icons.verified_user_outlined,
                               size: 15,
-                              color: Color(0xFFD97706),
+                              color: Color(0xFF64748B),
                             ),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
                                 'Phụ lục này có giá trị pháp lý gắn liền và không tách rời Hợp đồng số $effectiveHd. Mọi quyền lợi và nghĩa vụ khác của hai Bên tiếp tục thực hiện theo Hợp đồng thuê đã ký.',
                                 style: const TextStyle(
-                                  fontSize: 11,
-                                  color: Color(0xFF92400E),
+                                  fontSize: 11.5,
+                                  color: Color(0xFF475569),
                                   height: 1.45,
                                 ),
                               ),

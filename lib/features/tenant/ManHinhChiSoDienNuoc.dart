@@ -664,26 +664,26 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFFBEB),
+                  color: const Color(0xFFF8FAFC),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFFDE68A)),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(
-                      Icons.info_rounded,
-                      color: Color(0xFFD97706),
+                  children: const [
+                    Icon(
+                      Icons.info_outline_rounded,
+                      color: Color(0xFF09638E),
                       size: 20,
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         'Hệ thống chốt chỉ số vào ngày 28 hàng tháng!',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12.5,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF92400E),
+                          color: Color(0xFF0F172A),
                           height: 1.3,
                         ),
                       ),
@@ -1100,12 +1100,12 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                   height: 56,
                   decoration: BoxDecoration(
                     color: isDien
-                        ? const Color(0xFFFEF3C7)
+                        ? const Color(0xFFEBF5FA)
                         : const Color(0xFFDBEAFE),
                     shape: BoxShape.circle,
                     border: Border.all(
                       color: isDien
-                          ? const Color(0xFFFCD34D)
+                          ? const Color(0xFFBAE6FD)
                           : const Color(0xFF93C5FD),
                       width: 2,
                     ),
@@ -1113,7 +1113,7 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                   child: Icon(
                     isDien ? Icons.bolt_rounded : Icons.water_drop_rounded,
                     color: isDien
-                        ? const Color(0xFFD97706)
+                        ? const Color(0xFF09638E)
                         : const Color(0xFF2563EB),
                     size: 32,
                   ),
@@ -1323,8 +1323,8 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                 _buildMeterCard(
                   isDien: true,
                   icon: Icons.bolt_rounded,
-                  color: const Color(0xFFD97706),
-                  bgColor: const Color(0xFFFEF3C7),
+                  color: const Color(0xFF09638E),
+                  bgColor: const Color(0xFFEBF5FA),
                   title: 'Công tơ Điện',
                   maMay: _maCongTo,
                   chiSoTruoc: _chiSoDienTruoc,
@@ -2506,15 +2506,15 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFEF3C7),
+                        color: const Color(0xFFF8FAFC),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFFFDE68A)),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
                       ),
                       child: Row(
                         children: [
                           const Icon(
-                            Icons.warning_amber_rounded,
-                            color: Color(0xFFD97706),
+                            Icons.info_outline_rounded,
+                            color: Color(0xFF64748B),
                             size: 15,
                           ),
                           const SizedBox(width: 6),
@@ -2523,7 +2523,7 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                               'Tiêu thụ tăng cao (${diff.toStringAsFixed(1)} $donVi). Hệ thống sẽ lưu kèm ảnh đối soát!',
                               style: const TextStyle(
                                 fontSize: 11,
-                                color: Color(0xFFB45309),
+                                color: Color(0xFF475569),
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -2880,8 +2880,8 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
                         chiSoTruoc: m.chiSoDienTruoc,
                         donVi: 'kWh',
                         icon: Icons.bolt_rounded,
-                        color: const Color(0xFFD97706),
-                        bgColor: const Color(0xFFFEF3C7),
+                        color: const Color(0xFF09638E),
+                        bgColor: const Color(0xFFEBF5FA),
                         dateStr: dateStr,
                         timeStr: timeStr,
                         ma: _maCongTo,
@@ -3193,15 +3193,15 @@ class _MeterReadingScreenState extends State<MeterReadingScreen>
           // Điện
           _buildSummaryRow(
             icon: Icons.bolt_rounded,
-            iconBg: const Color(0xFFFEF3C7),
-            iconColor: const Color(0xFFD97706),
+            iconBg: const Color(0xFFEBF5FA),
+            iconColor: const Color(0xFF09638E),
             ma: 'Công tơ Điện ($_maCongTo)',
             chiSo:
                 '${m.chiSoDienMoi.toStringAsFixed(0)} kWh  ←  ${m.chiSoDienTruoc.toStringAsFixed(0)}',
             tieu_thu: '${m.tieu_thu_dien.toStringAsFixed(0)} kWh',
             thanh_tien: _formatCurrency(m.thanh_tien_dien),
             timeStr: timeStr,
-            color: const Color(0xFFD97706),
+            color: const Color(0xFF09638E),
           ),
           const SizedBox(height: 10),
 
