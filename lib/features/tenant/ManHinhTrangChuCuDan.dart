@@ -197,7 +197,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
 
     // 2. Kiểm tra vai trò từ chi_tiet_hop_dong_khach_thue (_thanhVienPhong)
     final String tenCuDan =
-        _khachThueData?['ho_ten_khach']?.toString().isNotEmpty == true
+        (_khachThueData?['ho_ten_khach']?.toString() ?? '').isNotEmpty
         ? _khachThueData!['ho_ten_khach'].toString()
         : displayName;
 
@@ -2338,8 +2338,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
     final maPhuLuc = record['ma_phu_luc']?.toString() ?? '';
     final status = record['trang_thai']?.toString() ?? '';
     final isChuyenPhong =
-        record['ma_phong_moi'] != null &&
-        record['ma_phong_moi'].toString().isNotEmpty;
+        (record['ma_phong_moi']?.toString() ?? '').isNotEmpty;
 
     final approvalKey = 'phu_luc_${maPhuLuc}_$status';
     if (_notifiedApprovalKeys.contains(approvalKey) ||
@@ -4949,7 +4948,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                                     widget.roomNumber!.isNotEmpty
                                 ? 'Phòng ${widget.roomNumber}'
                                 : 'Phòng 203'));
-                  final curToaNha = _phong?.toaNha.isNotEmpty == true
+                  final curToaNha = (_phong?.toaNha ?? '').isNotEmpty
                       ? _phong!.toaNha
                       : 'Kiêu Giang 2';
                   _showLuaChonKhachQuaDem(context, curRoomName, curToaNha);
@@ -5775,7 +5774,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
   // ==================== TAB 2: PHÒNG (ROOM DETAILS) ====================
   Widget _buildRoomTab() {
     final roomName = _phong?.tenHienThi ?? 'Phòng $maPhong';
-    final toaNhaName = _phong?.toaNha.isNotEmpty == true
+    final toaNhaName = (_phong?.toaNha ?? '').isNotEmpty
         ? _phong!.toaNha
         : 'Tòa Kiêu Giang 2';
     final tangNum = _phong?.tang ?? 3;
@@ -8331,7 +8330,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
 
   Widget _buildProfileTab() {
     final String tenCuDan =
-        _khachThueData?['ho_ten_khach']?.toString().isNotEmpty == true
+        (_khachThueData?['ho_ten_khach']?.toString() ?? '').isNotEmpty
         ? _khachThueData!['ho_ten_khach'].toString()
         : displayName;
 

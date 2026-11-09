@@ -1169,7 +1169,7 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
       final String thoiHanThue = hd?.thoiHanHopDongText ?? '12 tháng';
       final String ngayBd = hd?.ngayBdFormatted ?? '01/01/2026';
       final String ngayKt = hd?.ngayKtFormatted ?? '31/12/2026';
-      final noiThatStr = phong?.noiThatSanCo.isNotEmpty == true
+      final noiThatStr = (phong?.noiThatSanCo ?? []).isNotEmpty
           ? phong!.noiThatSanCo.join(', ')
           : 'Máy lạnh Inverter, Tủ lạnh riêng 130L, Nước nóng Ariston, Tủ áo, Bàn làm việc, Kệ bếp sinh hoạt, Khóa cổng vân tay AI';
 
@@ -2799,7 +2799,7 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
     final p = _phong;
     final tenPhong = (p?.tenHienThi != null && p!.tenHienThi.isNotEmpty)
         ? p.tenHienThi
-        : (_hopDong?.maPhong.isNotEmpty == true ? _hopDong!.maPhong : '');
+        : ((_hopDong?.maPhong ?? '').isNotEmpty ? _hopDong!.maPhong : '');
     final toaNha = p?.toaNha ?? '';
     final dienTich = p?.dienTich ?? 0;
     final tang = p?.tang ?? 0;
@@ -3416,7 +3416,7 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
   Widget _buildCardDieuKhoanThucTe() => _buildCardDieuKhoanHopDong();
 
   Widget _buildCardDieuKhoanHopDong() {
-    final noiThatList = _phong?.noiThatSanCo.isNotEmpty == true
+    final noiThatList = (_phong?.noiThatSanCo ?? []).isNotEmpty
         ? _phong!.noiThatSanCo
         : [
             'Máy lạnh Inverter',

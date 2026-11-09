@@ -431,7 +431,7 @@ class _PaymentScreenState extends State<PaymentScreen>
           .from('chi_tiet_hoa_don')
           .select()
           .eq('ma_hoa_don', widget.hoaDon.maHoaDon);
-      if (mounted && (rows as List).isNotEmpty) {
+      if (mounted && rows is List && rows.isNotEmpty) {
         setState(() {
           _chiTietHoaDon = List<Map<String, dynamic>>.from(rows);
         });
