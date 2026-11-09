@@ -6,6 +6,7 @@ import 'package:nhatro_kieugiang/core/utils/TienIchDinhDang.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:nhatro_kieugiang/features/tenant/ManHinhLichSuHoaDon.dart';
 import 'package:nhatro_kieugiang/features/tenant/ManHinhChiTietHopDong.dart';
+import 'package:nhatro_kieugiang/features/tenant/ManHinhTrangChuCuDan.dart';
 
 /// Màn hình 4: Xác nhận gửi yêu cầu chuyển phòng thành công
 /// Tóm tắt phiếu yêu cầu, tiến trình tiếp nhận & giữ phòng, hỗ trợ BQL, về trang chủ
@@ -640,20 +641,55 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
         'trang_thai': 'Đã duyệt',
       });
 
-      await db
-          .from('hop_dong')
-          .update({'ma_phong': maPhongMoi})
-          .eq('ma_hop_dong', recMaHD);
-      if (maPhongCu.isNotEmpty) {
-        await db
-            .from('phong')
-            .update({'trang_thai': 'Trống'})
-            .eq('ma_phong', maPhongCu);
+      // 4. Cập nhật mã phòng mới và giá thuê mới vào bảng hop_dong
+      final updateHd = <String, dynamic>{'ma_phong': maPhongMoi};
+      if (giaPhongMoi > 0) {
+        updateHd['gia_thue_thoa_thuan'] = giaPhongMoi;
       }
       await db
-          .from('phong')
-          .update({'trang_thai': 'Đang thuê'})
-          .eq('ma_phong', maPhongMoi);
+          .from('hop_dong')
+          .update(updateHd)
+          .eq('ma_hop_dong', recMaHD);
+
+      final cleanOld = maPhongCu.replaceAll(RegExp(r'[^0-9]'), '');
+      final cleanNew = maPhongMoi.replaceAll(RegExp(r'[^0-9]'), '');
+
+      // 5. Cập nhật trạng thái phòng: cũ -> Trống, mới -> Đang thuê
+      if (maPhongCu.isNotEmpty) {
+        try {
+          await db
+              .from('phong')
+              .update({'trang_thai': 'Trống'})
+              .or('ma_phong.eq.$maPhongCu,ma_phong.eq.P$cleanOld,ma_phong.eq.$cleanOld');
+        } catch (_) {}
+      }
+      try {
+        await db
+            .from('phong')
+            .update({'trang_thai': 'Đang thuê'})
+            .or('ma_phong.eq.$maPhongMoi,ma_phong.eq.P$cleanNew,ma_phong.eq.$cleanNew');
+      } catch (_) {}
+
+      // Cập nhật ma_phong trong khach_thue
+      try {
+        final hdRow = await db
+            .from('hop_dong')
+            .select('ma_khach_dai_dien')
+            .eq('ma_hop_dong', recMaHD)
+            .maybeSingle();
+        final maKhach = hdRow?['ma_khach_dai_dien']?.toString();
+        if (maKhach != null && maKhach.isNotEmpty) {
+          await db
+              .from('khach_thue')
+              .update({'ma_phong': maPhongMoi})
+              .eq('ma_khach', maKhach);
+        } else {
+          await db
+              .from('khach_thue')
+              .update({'ma_phong': maPhongMoi})
+              .or('ma_phong.eq.$maPhongCu,ma_phong.eq.P$cleanOld,ma_phong.eq.$cleanOld');
+        }
+      } catch (_) {}
 
       try {
         await db
@@ -4024,8 +4060,9 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
           SizedBox(
             width: double.infinity,
             child: OutlinedButton(
-              onPressed: () =>
-                  Navigator.popUntil(context, (route) => route.isFirst),
+              onPressed: () {
+                Navigator.popUntil(context, (route) => route.isFirst);
+              },
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(
@@ -4049,8 +4086,10 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: () =>
-                  Navigator.popUntil(context, (route) => route.isFirst),
+              onPressed: () {
+                TenantHomeScreen.pendingTabIndex = 1;
+                Navigator.popUntil(context, (route) => route.isFirst);
+              },
               icon: const Icon(Icons.vpn_key_rounded, size: 20),
               label: Text(
                 'XEM PHÒNG MỚI (${_targetRoomData?["ma_phong"] ?? _maPhongMoiFromDb ?? widget.targetRoom["maPhong"]})',
@@ -4102,8 +4141,9 @@ class _RoomTransferSuccessScreenState extends State<RoomTransferSuccessScreen>
           SizedBox(
             width: double.infinity,
             child: TextButton(
-              onPressed: () =>
-                  Navigator.popUntil(context, (route) => route.isFirst),
+              onPressed: () {
+                Navigator.popUntil(context, (route) => route.isFirst);
+              },
               child: const Text(
                 'Về Trang Chủ',
                 style: TextStyle(

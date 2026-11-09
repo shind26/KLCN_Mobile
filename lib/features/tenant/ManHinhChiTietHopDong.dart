@@ -2315,23 +2315,23 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
     );
   }
 
-  /// Banner thông báo nổi bật khi Bên B (khách thuê) chưa hoàn tất ký hợp đồng
+  /// Banner thông báo khi Bên B (khách thuê) chưa ký hợp đồng
   Widget _buildThongBaoChuaKyHopDongBanner() {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFFBEB), // Amber-50
+        color: const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: const Color(0xFFFCD34D),
-          width: 1.2,
-        ), // Amber-300
+          color: const Color(0xFFE2E8F0),
+          width: 1.1,
+        ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFD97706).withValues(alpha: 0.08),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
@@ -2341,15 +2341,15 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(6),
+                padding: const EdgeInsets.all(7),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFEF3C7),
+                  color: const Color(0xFFEBF5FA),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Icon(
-                  Icons.edit_document,
+                  Icons.edit_note_rounded,
                   size: 20,
-                  color: Color(0xFFD97706),
+                  color: Color(0xFF09638E),
                 ),
               ),
               const SizedBox(width: 10),
@@ -2358,16 +2358,17 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Hợp đồng chưa được ký kết!',
+                      'Hợp đồng chờ ký xác nhận',
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: 13.5,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF92400E),
+                        color: Color(0xFF0F172A),
                       ),
                     ),
+                    SizedBox(height: 1),
                     Text(
-                      'Quý khách chưa ký xác nhận Bên B',
-                      style: TextStyle(fontSize: 11, color: Color(0xFFB45309)),
+                      'Vui lòng hoàn tất chữ ký điện tử Bên B',
+                      style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
                     ),
                   ],
                 ),
@@ -2375,15 +2376,16 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF59E0B),
-                  borderRadius: BorderRadius.circular(12),
+                  color: const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFCBD5E1)),
                 ),
                 child: const Text(
-                  'CHƯA KÝ',
+                  'Chưa ký',
                   style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF475569),
                   ),
                 ),
               ),
@@ -2391,14 +2393,14 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
           ),
           const SizedBox(height: 10),
           const Text(
-            'Bên A (Ban Quản Lý) đã ký xác thực sẵn. Quý khách vui lòng vẽ chữ ký tay tại ô "Chữ ký Bên B" bên dưới và bấm "Xác nhận ký Bên B" để hợp đồng chính thức có hiệu lực pháp lý.',
+            'Ban Quản Lý đã ký duyệt hợp đồng. Bạn vui lòng đọc kỹ các điều khoản và ký xác nhận ở cuối trang để hoàn tất thủ tục nhận phòng.',
             style: TextStyle(
-              fontSize: 11.5,
-              color: Color(0xFF78350F),
-              height: 1.4,
+              fontSize: 12,
+              color: Color(0xFF475569),
+              height: 1.45,
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           InkWell(
             onTap: () {
               if (_scrollController.hasClients) {
@@ -2411,30 +2413,30 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
             },
             borderRadius: BorderRadius.circular(8),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
               decoration: BoxDecoration(
-                color: const Color(0xFFFEF3C7),
+                color: Colors.white,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFFDE68A)),
+                border: Border.all(color: const Color(0xFFCBD5E1)),
               ),
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.draw_rounded, size: 14, color: Color(0xFFB45309)),
+                  Icon(Icons.draw_rounded, size: 14, color: Color(0xFF09638E)),
                   SizedBox(width: 6),
                   Text(
-                    'Kéo xuống ký tên ngay',
+                    'Đến phần ký tên',
                     style: TextStyle(
                       fontSize: 11.5,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFFB45309),
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF09638E),
                     ),
                   ),
                   SizedBox(width: 4),
                   Icon(
                     Icons.arrow_downward_rounded,
                     size: 13,
-                    color: Color(0xFFB45309),
+                    color: Color(0xFF09638E),
                   ),
                 ],
               ),
@@ -2498,7 +2500,7 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                         Icon(
                           Icons.verified_outlined,
                           size: 14,
-                          color: Color(0xFF0284C7),
+                          color: Color(0xFF09638E),
                         ),
                         SizedBox(width: 4),
                         Text(
@@ -2506,7 +2508,7 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF0284C7),
+                            color: Color(0xFF09638E),
                           ),
                         ),
                       ],
@@ -2524,17 +2526,11 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                     Text(
                       _urlChuKyBenB != null && _urlChuKyBenB!.isNotEmpty
                           ? 'Ngày ký: $ngayKy • Đã xác thực điện tử'
-                          : 'Ngày ký: $ngayKy • Chờ Bên B ký tên',
-                      style: TextStyle(
+                          : 'Ngày ký: $ngayKy • Chưa hoàn tất ký',
+                      style: const TextStyle(
                         fontSize: 11,
-                        color:
-                            _urlChuKyBenB != null && _urlChuKyBenB!.isNotEmpty
-                            ? const Color(0xFF64748B)
-                            : const Color(0xFFD97706),
-                        fontWeight:
-                            _urlChuKyBenB != null && _urlChuKyBenB!.isNotEmpty
-                            ? FontWeight.normal
-                            : FontWeight.w600,
+                        color: Color(0xFF64748B),
+                        fontWeight: FontWeight.normal,
                       ),
                     ),
                   ],
@@ -2551,14 +2547,14 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                     ),
                     decoration: BoxDecoration(
                       color: _urlChuKyBenB != null && _urlChuKyBenB!.isNotEmpty
-                          ? const Color(0xFFDCFCE7)
-                          : const Color(0xFFFEF3C7),
+                          ? const Color(0xFFF0FDF4)
+                          : const Color(0xFFF1F5F9),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
                         color:
                             _urlChuKyBenB != null && _urlChuKyBenB!.isNotEmpty
                             ? const Color(0xFFBBF7D0)
-                            : const Color(0xFFFDE68A),
+                            : const Color(0xFFE2E8F0),
                       ),
                     ),
                     child: Row(
@@ -2570,7 +2566,7 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                           color:
                               _urlChuKyBenB != null && _urlChuKyBenB!.isNotEmpty
                               ? const Color(0xFF16A34A)
-                              : const Color(0xFFD97706),
+                              : const Color(0xFF64748B),
                         ),
                         const SizedBox(width: 5),
                         Text(
@@ -2579,12 +2575,12 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                               : 'Chờ Bên B ký',
                           style: TextStyle(
                             fontSize: 11,
-                            fontWeight: FontWeight.bold,
+                            fontWeight: FontWeight.w600,
                             color:
                                 _urlChuKyBenB != null &&
                                     _urlChuKyBenB!.isNotEmpty
                                 ? const Color(0xFF15803D)
-                                : const Color(0xFFB45309),
+                                : const Color(0xFF475569),
                           ),
                         ),
                       ],
@@ -2610,8 +2606,9 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFFF0F9FF),
+              color: const Color(0xFFF8FAFC),
               borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
             ),
             child: Column(
               children: [
@@ -2665,7 +2662,7 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                     const Icon(
                       Icons.calendar_today_rounded,
                       size: 13,
-                      color: Color(0xFF0284C7),
+                      color: Color(0xFF64748B),
                     ),
                     const SizedBox(width: 5),
                     Expanded(
@@ -2683,8 +2680,8 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                       'Đúng hạn',
                       style: TextStyle(
                         fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF16A34A),
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF059669),
                       ),
                     ),
                   ],
@@ -2708,15 +2705,15 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
           child: Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: const Color(0xFFF0F9FF),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFBAE6FD)),
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Giá thuê cố định',
+                  'Giá thuê hàng tháng',
                   style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
                 ),
                 const SizedBox(height: 6),
@@ -2727,18 +2724,18 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                     FormatUtils.currency(giaThue.toDouble()),
                     style: const TextStyle(
                       fontSize: 17,
-                      fontWeight: FontWeight.w900,
-                      color: _primary,
+                      fontWeight: FontWeight.w700,
+                      color: _textDark,
                     ),
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Cam kết không đổi ${_hopDong?.tongSoThang ?? 12}T',
-                  style: TextStyle(
-                    fontSize: 10.5,
-                    color: Color(0xFF0284C7),
-                    fontWeight: FontWeight.bold,
+                  'Thời hạn ${_hopDong?.tongSoThang ?? 12} tháng',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF64748B),
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
@@ -2750,15 +2747,15 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
           child: Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: const Color(0xFFF0FDF4),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFBBF7D0)),
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Tiền cọc giữ chỗ',
+                  'Tiền cọc hợp đồng',
                   style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
                 ),
                 const SizedBox(height: 6),
@@ -2769,18 +2766,18 @@ class _ContractDetailScreenState extends State<ContractDetailScreen> {
                     FormatUtils.currency(tienCoc.toDouble()),
                     style: const TextStyle(
                       fontSize: 17,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFF16A34A),
+                      fontWeight: FontWeight.w700,
+                      color: _textDark,
                     ),
                   ),
                 ),
                 const SizedBox(height: 4),
                 const Text(
-                  'Đã ký quỹ bảo đảm',
+                  'Bảo lưu theo hợp đồng',
                   style: TextStyle(
-                    fontSize: 10.5,
-                    color: Color(0xFF16A34A),
-                    fontWeight: FontWeight.bold,
+                    fontSize: 11,
+                    color: Color(0xFF64748B),
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ],

@@ -597,7 +597,7 @@ class _BookingScreenState extends State<BookingScreen> {
                                 vertical: 5,
                               ),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFEBF5FA),
+                                color: const Color(0xFFF1F5F9),
                                 borderRadius: BorderRadius.circular(20),
                               ),
                               child: Row(
@@ -606,7 +606,7 @@ class _BookingScreenState extends State<BookingScreen> {
                                   Icon(
                                     Icons.home_work_rounded,
                                     size: 13,
-                                    color: Color(0xFF09638E),
+                                    color: Color(0xFF64748B),
                                   ),
                                   SizedBox(width: 4),
                                   Flexible(
@@ -616,7 +616,7 @@ class _BookingScreenState extends State<BookingScreen> {
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
                                         fontSize: 11,
-                                        color: Color(0xFF09638E),
+                                        color: Color(0xFF475569),
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
@@ -636,9 +636,9 @@ class _BookingScreenState extends State<BookingScreen> {
                       child: Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF0F7FF),
+                          color: const Color(0xFFF8FAFC),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFBAE6FD)),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -646,18 +646,18 @@ class _BookingScreenState extends State<BookingScreen> {
                             Row(
                               children: [
                                 const Icon(
-                                  Icons.verified_user_outlined,
-                                  color: Color(0xFF0284C7),
+                                  Icons.info_outline_rounded,
+                                  color: Color(0xFF09638E),
                                   size: 16,
                                 ),
                                 const SizedBox(width: 6),
                                 Expanded(
                                   child: Text(
-                                    'Quy định giữ phòng ($theChanStr - 10% tiền phòng)',
+                                    'Chính sách giữ phòng ($theChanStr - 10% giá thuê)',
                                     style: const TextStyle(
                                       fontSize: 13,
-                                      fontWeight: FontWeight.bold,
-                                      color: Color(0xFF0369A1),
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF0F172A),
                                     ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
@@ -667,11 +667,10 @@ class _BookingScreenState extends State<BookingScreen> {
                             ),
                             const SizedBox(height: 6),
                             Text(
-                              '• Khóa phòng độc quyền: Giữ chỗ trong 5 ngày tới, không cho khách khác thuê.\n'
-                              '• Trừ vào tiền cọc: Được trừ $theChanStr vào hợp đồng khi bạn nhận phòng.',
+                              'Phòng sẽ được giữ riêng cho bạn trong tối đa 5 ngày. Tiền giữ chỗ $theChanStr sẽ được trừ trực tiếp vào tiền cọc khi nhận phòng.',
                               style: const TextStyle(
                                 fontSize: 12,
-                                color: Color(0xFF0C4A6E),
+                                color: Color(0xFF475569),
                                 height: 1.45,
                               ),
                             ),
@@ -806,21 +805,22 @@ class _BookingScreenState extends State<BookingScreen> {
                                       const SizedBox(width: 6),
                                       Container(
                                         padding: const EdgeInsets.symmetric(
-                                          horizontal: 6,
-                                          vertical: 2,
+                                          horizontal: 7,
+                                          vertical: 2.5,
                                         ),
                                         decoration: BoxDecoration(
-                                          color: const Color(0xFF09638E),
-                                          borderRadius: BorderRadius.circular(
-                                            6,
+                                          color: const Color(0xFFF1F5F9),
+                                          borderRadius: BorderRadius.circular(6),
+                                          border: Border.all(
+                                            color: const Color(0xFFE2E8F0),
                                           ),
                                         ),
                                         child: Text(
                                           'Tầng ${room.tang}',
                                           style: const TextStyle(
-                                            fontSize: 10,
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.bold,
+                                            fontSize: 10.5,
+                                            color: Color(0xFF475569),
+                                            fontWeight: FontWeight.w600,
                                           ),
                                         ),
                                       ),
@@ -927,11 +927,10 @@ class _BookingScreenState extends State<BookingScreen> {
                           ),
                           const SizedBox(height: 3),
                           const Text(
-                            'Giữ phòng tối đa 5 ngày tới. Nếu sau 5 ngày không coi phòng sẽ mất cọc.',
+                            'Thời gian giữ phòng tối đa 5 ngày kể từ ngày đặt lịch.',
                             style: TextStyle(
-                              fontSize: 11.5,
-                              color: Color(0xFFD97706),
-                              fontWeight: FontWeight.w600,
+                              fontSize: 12,
+                              color: Color(0xFF64748B),
                             ),
                           ),
                           const SizedBox(height: 14),
@@ -1077,24 +1076,27 @@ class _BookingScreenState extends State<BookingScreen> {
                                   vertical: 3,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFEBF5FA),
+                                  color: const Color(0xFFF1F5F9),
                                   borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: const Color(0xFFE2E8F0),
+                                  ),
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: const [
                                     Icon(
                                       Icons.circle,
-                                      size: 7,
-                                      color: Color(0xFF22C55E),
+                                      size: 6,
+                                      color: Color(0xFF10B981),
                                     ),
                                     SizedBox(width: 4),
                                     Text(
                                       'Có người trực',
                                       style: TextStyle(
-                                        fontSize: 10,
-                                        color: Color(0xFF16A34A),
-                                        fontWeight: FontWeight.bold,
+                                        fontSize: 10.5,
+                                        color: Color(0xFF475569),
+                                        fontWeight: FontWeight.w500,
                                       ),
                                     ),
                                   ],
@@ -1131,7 +1133,6 @@ class _BookingScreenState extends State<BookingScreen> {
                             slots: _allSlots
                                 .where((s) => s['session'] == 'evening')
                                 .toList(),
-                            trailingBadge: 'Rất thuận tiện',
                           ),
 
                           // Banner ngọ nghiệp vụ
@@ -1156,7 +1157,7 @@ class _BookingScreenState extends State<BookingScreen> {
                                   SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
-                                      'Chủ nhật ban quản lý nghỉ tẫn hưởng gia đình. Vui lòng chọn ngày khác trong tuần để đặt lịch xem phòng nhé!',
+                                      'Chủ nhật Ban Quản Lý không làm việc. Quý khách vui lòng chọn ngày khác trong tuần để xem phòng.',
                                       style: TextStyle(
                                         fontSize: 12,
                                         color: Color(0xFF991B1B),
@@ -1547,42 +1548,11 @@ class _BookingScreenState extends State<BookingScreen> {
                     children: [
                       SizedBox(
                         width: double.infinity,
-                        child: ElevatedButton.icon(
+                        child: ElevatedButton(
                           onPressed:
                               (_isSubmitting || _phoneAccountError != null)
                               ? null
                               : _confirmBooking,
-                          icon: _isSubmitting
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2.2,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : Icon(
-                                  _phoneAccountError != null
-                                      ? Icons.block_rounded
-                                      : Icons.security_rounded,
-                                  size: 18,
-                                  color: Colors.white,
-                                ),
-                          label: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Text(
-                              _isSubmitting
-                                  ? 'Đang tạo phiếu giữ chỗ...'
-                                  : (_phoneAccountError != null
-                                        ? 'SĐT đã có tài khoản (Không thể cọc)'
-                                        : 'Tiến Hành Đặt Cọc ($theChanStr)'),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 15.5,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: _phoneAccountError != null
                                 ? const Color(0xFFEF4444)
@@ -1592,17 +1562,62 @@ class _BookingScreenState extends State<BookingScreen> {
                                 : const Color(0xFFCBD5E1),
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
+                              borderRadius: BorderRadius.circular(12),
                             ),
                             elevation: 0,
                           ),
+                          child: _isSubmitting
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    if (_phoneAccountError != null) ...[
+                                      const Icon(
+                                        Icons.block_rounded,
+                                        size: 18,
+                                        color: Colors.white,
+                                      ),
+                                      const SizedBox(width: 8),
+                                    ],
+                                    Flexible(
+                                      child: Text(
+                                        _phoneAccountError != null
+                                            ? 'SĐT đã có tài khoản (Không thể cọc)'
+                                            : 'Tiến hành đặt cọc ($theChanStr)',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w600,
+                                          letterSpacing: 0.2,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    if (_phoneAccountError == null) ...[
+                                      const SizedBox(width: 8),
+                                      const Icon(
+                                        Icons.arrow_forward_rounded,
+                                        size: 18,
+                                        color: Colors.white,
+                                      ),
+                                    ],
+                                  ],
+                                ),
                         ),
                       ),
                       const SizedBox(height: 6),
                       Text(
                         _phoneAccountError != null
                             ? 'Số điện thoại này đã có tài khoản trên hệ thống. Vui lòng dùng số khác!'
-                            : 'Nhấn để tạo mã QR thanh toán giữ chỗ $theChanStr (10% giá thuê phòng) nhanh chóng & an toàn.',
+                            : 'Mã QR thanh toán giữ chỗ sẽ được tạo tự động để bạn chuyển khoản.',
                         textAlign: TextAlign.center,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,

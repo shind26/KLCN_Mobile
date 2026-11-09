@@ -359,7 +359,7 @@ class BookingSuccessScreen extends StatelessWidget {
                             step: '2',
                             title: 'Thời hạn giữ phòng 5 ngày',
                             desc:
-                                'Phòng được giữ độc quyền cho bạn trong vòng 5 ngày để bạn sắp xếp đến nhận phòng hoặc làm thủ tục thuê.',
+                                'Phòng sẽ được giữ riêng cho bạn trong vòng 5 ngày để bạn sắp xếp đến nhận phòng hoặc làm thủ tục thuê.',
                           ),
                           const SizedBox(height: 12),
                           _buildStepItem(

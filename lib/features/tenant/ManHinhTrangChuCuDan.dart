@@ -42,6 +42,8 @@ class TenantHomeScreen extends StatefulWidget {
   final String? roomNumber;
   final int initialTabIndex;
 
+  static int? pendingTabIndex;
+
   const TenantHomeScreen({
     super.key,
     this.tenantName,
@@ -56,6 +58,7 @@ class TenantHomeScreen extends StatefulWidget {
 class _TenantHomeScreenState extends State<TenantHomeScreen>
     with TickerProviderStateMixin {
   late int _selectedTabIndex;
+  bool _daHienPopupNhacGiaHanTrongPhien = false;
 
   // ─── Animations cho Thẻ Cư Dân (Hero Room Card) ────────────
   late AnimationController _waveController;
@@ -1125,6 +1128,56 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
         });
       }
 
+      // 3.9. Đồng bộ thông báo hợp đồng sắp hết hạn (<= 30 ngày)
+      if (_hopDong != null &&
+          _hopDong!.trangThai != 'Đã thanh lý' &&
+          _hopDong!.trangThai != 'Đã chấm dứt') {
+        int daysLeft = 999;
+        DateTime? ngayKtDt;
+        if (_hopDong!.ngayKt.isNotEmpty) {
+          try {
+            ngayKtDt = DateTime.parse(_hopDong!.ngayKt);
+            daysLeft = ngayKtDt.difference(DateTime.now()).inDays;
+          } catch (_) {}
+        }
+
+        if (daysLeft <= 30 && daysLeft >= 0) {
+          final idNotif = 'hd_sap_het_han_${_hopDong!.maHopDong}';
+          final daDoc = _danhSachIdDaDoc.contains(idNotif);
+          final ngayKtStr = ngayKtDt != null
+              ? '${ngayKtDt.day.toString().padLeft(2, '0')}/${ngayKtDt.month.toString().padLeft(2, '0')}/${ngayKtDt.year}'
+              : _hopDong!.ngayKt;
+
+          danhSachMoi.add({
+            'id': idNotif,
+            'tieu_de': '⏳ Hợp Đồng Thuê Sắp Hết Hạn (còn $daysLeft ngày)',
+            'noi_dung':
+                'Hợp đồng phòng $activeRoom sẽ hết hạn vào ngày $ngayKtStr. Bạn có muốn gia hạn hợp đồng không? Bấm vào đây để làm thủ tục gia hạn ngay.',
+            'loai': 'gia_han',
+            'thoi_gian': DateTime.now().subtract(const Duration(minutes: 10)),
+            'da_doc': daDoc,
+            'is_error': daysLeft <= 7,
+            'on_xem': () {
+              setState(() => _selectedTabIndex = 1);
+              _showExtendContractModal();
+            },
+          });
+
+          // Bắn thông báo nổi ngoài hệ thống / thanh trạng thái (chống trùng theo tag)
+          SystemNotificationService.show(
+            title: '⏳ Hợp đồng sắp hết hạn (còn $daysLeft ngày)',
+            body:
+                'Hợp đồng phòng $activeRoom sẽ hết hạn vào ngày $ngayKtStr. Bạn có muốn gia hạn không? Bấm để làm thủ tục gia hạn ngay.',
+            tag: 'notif_hd_sap_het_han_${_hopDong!.maHopDong}',
+            loai: 'gia_han',
+            onXem: () {
+              setState(() => _selectedTabIndex = 1);
+              _showExtendContractModal();
+            },
+          );
+        }
+      }
+
       // 4. Thông báo tòa nhà mặc định
       danhSachMoi.addAll([
         {
@@ -1711,6 +1764,10 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
 
       if (!mounted) return;
       setState(() {
+        if (TenantHomeScreen.pendingTabIndex != null) {
+          _selectedTabIndex = TenantHomeScreen.pendingTabIndex!;
+          TenantHomeScreen.pendingTabIndex = null;
+        }
         _hopDong = hd;
         _phong = activeRoom ??
             (phongRow != null
@@ -1728,6 +1785,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
         _isLoading = false;
       });
       await _dongBoDanhSachThongBao();
+      _kiemTraVaHienPopupNhacGiaHan();
       _initRealtimeTracking();
     } catch (e, st) {
       debugPrint('Lỗi _fetchTenantData: $e\n$st');
@@ -2519,29 +2577,61 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
         '[CHUYEN_PHONG] Đã tự động sinh phụ lục hợp đồng ĐÃ DUYỆT: $maPhuLuc',
       );
 
-      // 4. Cập nhật mã phòng mới vào bảng hop_dong
+      // 4. Cập nhật mã phòng mới và giá thuê mới vào bảng hop_dong
+      final updateHd = <String, dynamic>{'ma_phong': maPhongMoi};
+      if (giaPhongMoi > 0) {
+        updateHd['gia_thue_thoa_thuan'] = giaPhongMoi;
+      }
       await db
           .from('hop_dong')
-          .update({'ma_phong': maPhongMoi})
+          .update(updateHd)
           .eq('ma_hop_dong', recMaHD);
       debugPrint(
         '[CHUYEN_PHONG] Đã cập nhật hợp đồng $recMaHD sang phòng $maPhongMoi',
       );
 
+      final cleanOld = maPhongCu.replaceAll(RegExp(r'[^0-9]'), '');
+      final cleanNew = maPhongMoi.replaceAll(RegExp(r'[^0-9]'), '');
+
       // 5. Cập nhật trạng thái phòng: cũ -> Trống, mới -> Đang thuê
       if (maPhongCu.isNotEmpty) {
+        try {
+          await db
+              .from('phong')
+              .update({'trang_thai': 'Trống'})
+              .or('ma_phong.eq.$maPhongCu,ma_phong.eq.P$cleanOld,ma_phong.eq.$cleanOld');
+        } catch (_) {}
+      }
+      try {
         await db
             .from('phong')
-            .update({'trang_thai': 'Trống'})
-            .eq('ma_phong', maPhongCu);
-      }
-      await db
-          .from('phong')
-          .update({'trang_thai': 'Đang thuê'})
-          .eq('ma_phong', maPhongMoi);
+            .update({'trang_thai': 'Đang thuê'})
+            .or('ma_phong.eq.$maPhongMoi,ma_phong.eq.P$cleanNew,ma_phong.eq.$cleanNew');
+      } catch (_) {}
       debugPrint(
         '[CHUYEN_PHONG] Đã cập nhật trạng thái phòng: $maPhongCu -> Trống, $maPhongMoi -> Đang thuê',
       );
+
+      // Cập nhật ma_phong trong khach_thue
+      try {
+        final hdRow = await db
+            .from('hop_dong')
+            .select('ma_khach_dai_dien')
+            .eq('ma_hop_dong', recMaHD)
+            .maybeSingle();
+        final maKhach = hdRow?['ma_khach_dai_dien']?.toString();
+        if (maKhach != null && maKhach.isNotEmpty) {
+          await db
+              .from('khach_thue')
+              .update({'ma_phong': maPhongMoi})
+              .eq('ma_khach', maKhach);
+        } else {
+          await db
+              .from('khach_thue')
+              .update({'ma_phong': maPhongMoi})
+              .or('ma_phong.eq.$maPhongCu,ma_phong.eq.P$cleanOld,ma_phong.eq.$cleanOld');
+        }
+      } catch (_) {}
 
       // 6. Cập nhật biên bản kiểm tra phòng -> Đã xác nhận
       try {
@@ -3153,6 +3243,15 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
             _animateEntrance(child: _buildHeroRoomCard(), delayMs: 80),
             const SizedBox(height: 16),
 
+            // 2.5 BANNER NHẮC GIA HẠN HỢP ĐỒNG (NẾU CÒN <= 30 NGÀY)
+            if (_isContractNearExpiry()) ...[
+              _animateEntrance(
+                child: _buildContractNearExpiryBanner(),
+                delayMs: 120,
+              ),
+              const SizedBox(height: 16),
+            ],
+
             // 3. HÓA ĐƠN THÁNG (MONTHLY BILL CARD)
             _animateEntrance(child: _buildMonthlyBillCard(), delayMs: 160),
             const SizedBox(height: 22),
@@ -3175,6 +3274,257 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
             ),
             const SizedBox(height: 24),
           ],
+        ),
+      ),
+    );
+  }
+
+  bool _isContractNearExpiry() {
+    if (_hopDong == null ||
+        _hopDong!.trangThai == 'Đã thanh lý' ||
+        _hopDong!.trangThai == 'Đã chấm dứt') {
+      return false;
+    }
+    if (_hopDong!.ngayKt.isEmpty) return false;
+    try {
+      final dt = DateTime.parse(_hopDong!.ngayKt);
+      final days = dt.difference(DateTime.now()).inDays;
+      return days <= 30 && days >= 0;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Widget _buildContractNearExpiryBanner() {
+    int daysLeft = 0;
+    String ngayKtStr = '';
+    if (_hopDong?.ngayKt != null && _hopDong!.ngayKt.isNotEmpty) {
+      try {
+        final dt = DateTime.parse(_hopDong!.ngayKt);
+        daysLeft = dt.difference(DateTime.now()).inDays;
+        ngayKtStr =
+            '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
+      } catch (_) {}
+    }
+    final activeRoom = _hopDong?.maPhong ?? (widget.roomNumber ?? 'P203');
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFBAE6FD), width: 1.2),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF09638E).withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(7),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEBF5FA),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.event_repeat_rounded,
+                  color: Color(0xFF09638E),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Hợp đồng sắp hết hạn (còn $daysLeft ngày)',
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF0F172A),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Hợp đồng phòng $activeRoom sẽ hết hạn vào ngày $ngayKtStr. Bạn có muốn tiếp tục gia hạn hợp đồng không?',
+            style: const TextStyle(
+              fontSize: 12.5,
+              color: Color(0xFF475569),
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              ElevatedButton.icon(
+                onPressed: () {
+                  setState(() => _selectedTabIndex = 1);
+                  _showExtendContractModal();
+                },
+                icon: const Icon(Icons.arrow_forward_rounded, size: 14),
+                label: const Text(
+                  'Gia hạn ngay',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF09638E),
+                  foregroundColor: Colors.white,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _kiemTraVaHienPopupNhacGiaHan() {
+    if (_daHienPopupNhacGiaHanTrongPhien || !mounted || !_isNguoiDaiDien) return;
+    if (_hopDong == null ||
+        _hopDong!.trangThai == 'Đã thanh lý' ||
+        _hopDong!.trangThai == 'Đã chấm dứt') {
+      return;
+    }
+
+    int daysLeft = 999;
+    DateTime? ngayKtDt;
+    if (_hopDong!.ngayKt.isNotEmpty) {
+      try {
+        ngayKtDt = DateTime.parse(_hopDong!.ngayKt);
+        daysLeft = ngayKtDt.difference(DateTime.now()).inDays;
+      } catch (_) {}
+    }
+
+    if (daysLeft <= 30 && daysLeft >= 0) {
+      _daHienPopupNhacGiaHanTrongPhien = true;
+      final ngayKtStr = ngayKtDt != null
+          ? '${ngayKtDt.day.toString().padLeft(2, '0')}/${ngayKtDt.month.toString().padLeft(2, '0')}/${ngayKtDt.year}'
+          : _hopDong!.ngayKt;
+      final activeRoom = _hopDong?.maPhong ?? (widget.roomNumber ?? 'P203');
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _showNhacNhoGiaHanDialog(activeRoom, daysLeft, ngayKtStr);
+      });
+    }
+  }
+
+  void _showNhacNhoGiaHanDialog(String room, int daysLeft, String ngayKtStr) {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFEBF5FA),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.event_repeat_rounded,
+                  color: Color(0xFF09638E),
+                  size: 28,
+                ),
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                'Nhắc Nhở Gia Hạn Hợp Đồng',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 16.5,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Hợp đồng thuê phòng $room của bạn sẽ hết hạn vào ngày $ngayKtStr (còn $daysLeft ngày).\n\nBạn có muốn thực hiện gia hạn hợp đồng ngay bây giờ không?',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFF475569),
+                  height: 1.45,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 11),
+                        side: const BorderSide(color: Color(0xFFCBD5E1)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text(
+                        'Để sau',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        setState(() => _selectedTabIndex = 1);
+                        _showExtendContractModal();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF09638E),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 11),
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text(
+                        'Gia hạn ngay',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -11134,7 +11484,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
           hopDong: _hopDong,
         ),
       ),
-    );
+    ).then((_) => _fetchTenantData());
   }
 
   /// Modal cảnh báo khi cư dân chưa ở đủ 60 ngày (2 tháng)
@@ -12361,8 +12711,8 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                               iconColor = const Color(0xFF0284C7);
                               iconData = Icons.swap_horiz_rounded;
                             } else if (loai == 'gia_han') {
-                              iconBg = const Color(0xFFDCFCE7);
-                              iconColor = const Color(0xFF16A34A);
+                              iconBg = const Color(0xFFEBF5FA);
+                              iconColor = const Color(0xFF09638E);
                               iconData = Icons.edit_calendar_rounded;
                             } else if (loai == 'su_co') {
                               iconBg = const Color(0xFFFEF3C7);
@@ -12416,12 +12766,12 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                                 decoration: BoxDecoration(
                                   color: daDoc
                                       ? Colors.white
-                                      : const Color(0xFFF0FDF4),
+                                      : const Color(0xFFF8FAFC),
                                   borderRadius: BorderRadius.circular(16),
                                   border: Border.all(
                                     color: daDoc
                                         ? const Color(0xFFE2E8F0)
-                                        : const Color(0xFF86EFAC),
+                                        : const Color(0xFFBAE6FD),
                                     width: daDoc ? 1 : 1.3,
                                   ),
                                   boxShadow: [

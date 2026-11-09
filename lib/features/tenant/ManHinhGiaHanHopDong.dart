@@ -620,15 +620,15 @@ class _ManHinhGiaHanHopDongState extends State<ManHinhGiaHanHopDong> {
               margin: const EdgeInsets.only(bottom: 12),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
               decoration: BoxDecoration(
-                color: const Color(0xFFECFDF5),
+                color: const Color(0xFFF8FAFC),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFA7F3D0)),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
               ),
               child: Row(
                 children: [
                   const Icon(
-                    Icons.check_circle_rounded,
-                    color: Color(0xFF16A34A),
+                    Icons.check_circle_outline_rounded,
+                    color: Color(0xFF09638E),
                     size: 20,
                   ),
                   const SizedBox(width: 10),
@@ -641,14 +641,14 @@ class _ManHinhGiaHanHopDongState extends State<ManHinhGiaHanHopDong> {
                           style: TextStyle(
                             fontSize: 12.5,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF065F46),
+                            color: Color(0xFF0F172A),
                           ),
                         ),
                         Text(
                           'Hiệu lực mới đến ${_formatDate(_ngayHetHan)}. Bạn có thể chọn kỳ hạn dưới đây nếu muốn gia hạn tiếp.',
                           style: const TextStyle(
                             fontSize: 11,
-                            color: Color(0xFF047857),
+                            color: Color(0xFF64748B),
                             height: 1.3,
                           ),
                         ),
@@ -670,7 +670,7 @@ class _ManHinhGiaHanHopDongState extends State<ManHinhGiaHanHopDong> {
                       style: TextStyle(
                         fontSize: 11.5,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF16A34A),
+                        color: Color(0xFF09638E),
                       ),
                     ),
                   ),
@@ -688,27 +688,27 @@ class _ManHinhGiaHanHopDongState extends State<ManHinhGiaHanHopDong> {
           else ...[
             Container(
               margin: const EdgeInsets.only(top: 14),
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: BoxDecoration(
-                color: const Color(0xFFECFDF5),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFF86EFAC)),
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
               ),
               child: Row(
                 children: [
                   const Icon(
-                    Icons.check_circle_rounded,
-                    color: Color(0xFF16A34A),
+                    Icons.info_outline_rounded,
+                    color: Color(0xFF09638E),
                     size: 18,
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Hợp đồng sắp hết hạn (còn $_soNgayConLai ngày). Đủ điều kiện gửi đơn gia hạn!',
+                      'Hợp đồng còn $_soNgayConLai ngày. Bạn có thể gửi yêu cầu gia hạn ngay bây giờ.',
                       style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF15803D),
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF334155),
                       ),
                     ),
                   ),
@@ -735,27 +735,16 @@ class _ManHinhGiaHanHopDongState extends State<ManHinhGiaHanHopDong> {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFEFF6FF),
-                    borderRadius: BorderRadius.circular(8),
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(6),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: const [
-                      Icon(
-                        Icons.auto_awesome,
-                        color: Color(0xFF2563EB),
-                        size: 12,
-                      ),
-                      SizedBox(width: 4),
-                      Text(
-                        'Tối thiểu 6th - Tối đa 1 năm',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF2563EB),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
+                  child: const Text(
+                    '6 - 12 tháng',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF475569),
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ],
@@ -788,7 +777,6 @@ class _ManHinhGiaHanHopDongState extends State<ManHinhGiaHanHopDong> {
                     id: '12',
                     title: '12 Th',
                     subtitle: 'Tối đa 1 năm',
-                    tag: 'Ưu đãi nhất',
                     priceSub: '${(_giaThue / 1000000).toStringAsFixed(1)}M/th',
                   ),
                 ),
@@ -821,7 +809,7 @@ class _ManHinhGiaHanHopDongState extends State<ManHinhGiaHanHopDong> {
                             ? Icons.check_circle_rounded
                             : Icons.tune_rounded,
                         size: 14,
-                        color: const Color(0xFF0284C7),
+                        color: const Color(0xFF09638E),
                       ),
                       const SizedBox(width: 4),
                       Text(
@@ -831,7 +819,7 @@ class _ManHinhGiaHanHopDongState extends State<ManHinhGiaHanHopDong> {
                         style: const TextStyle(
                           fontSize: 11.5,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF0284C7),
+                          color: Color(0xFF09638E),
                         ),
                       ),
                     ],
@@ -859,7 +847,7 @@ class _ManHinhGiaHanHopDongState extends State<ManHinhGiaHanHopDong> {
                 children: [
                   const Icon(
                     Icons.date_range_rounded,
-                    color: Color(0xFF0284C7),
+                    color: Color(0xFF09638E),
                     size: 20,
                   ),
                   const SizedBox(width: 10),
@@ -892,16 +880,16 @@ class _ManHinhGiaHanHopDongState extends State<ManHinhGiaHanHopDong> {
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: const Color(0xFFF0FDF4),
+                color: const Color(0xFFF8FAFC),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFBBF7D0)),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: const [
                   Icon(
-                    Icons.check_circle_rounded,
-                    color: Color(0xFF16A34A),
+                    Icons.shield_outlined,
+                    color: Color(0xFF09638E),
                     size: 20,
                   ),
                   SizedBox(width: 10),
@@ -914,7 +902,7 @@ class _ManHinhGiaHanHopDongState extends State<ManHinhGiaHanHopDong> {
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF15803D),
+                            color: Color(0xFF0F172A),
                           ),
                         ),
                         SizedBox(height: 4),
@@ -922,7 +910,7 @@ class _ManHinhGiaHanHopDongState extends State<ManHinhGiaHanHopDong> {
                           'Tiền cọc bảo lưu 100%. BQL Kiêu Giang duyệt & gửi phụ lục ký điện tử qua ứng dụng trong 24 giờ làm việc.',
                           style: TextStyle(
                             fontSize: 12,
-                            color: Color(0xFF166534),
+                            color: Color(0xFF64748B),
                             height: 1.4,
                           ),
                         ),
@@ -1184,7 +1172,7 @@ class _ManHinhGiaHanHopDongState extends State<ManHinhGiaHanHopDong> {
                 ),
                 child: const Icon(
                   Icons.verified_user_rounded,
-                  color: Color(0xFF0284C7),
+                  color: Color(0xFF09638E),
                   size: 20,
                 ),
               ),
@@ -1217,7 +1205,7 @@ class _ManHinhGiaHanHopDongState extends State<ManHinhGiaHanHopDong> {
                   vertical: 5,
                 ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEFF6FF),
+                  color: const Color(0xFFF0F9FF),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: const Color(0xFFBAE6FD)),
                 ),
@@ -1226,7 +1214,7 @@ class _ManHinhGiaHanHopDongState extends State<ManHinhGiaHanHopDong> {
                   style: const TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF0284C7),
+                    color: Color(0xFF09638E),
                   ),
                 ),
               ),
@@ -1280,7 +1268,7 @@ class _ManHinhGiaHanHopDongState extends State<ManHinhGiaHanHopDong> {
                       style: const TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF16A34A),
+                        color: Color(0xFF0F172A),
                       ),
                     ),
                   ],
@@ -1299,9 +1287,6 @@ class _ManHinhGiaHanHopDongState extends State<ManHinhGiaHanHopDong> {
     required String title,
     required String subtitle,
     String? priceSub,
-    String? tag,
-    String? extraBenefit,
-    bool isHighlight = false,
   }) {
     final isSelected = _selectedPackage == id;
 
@@ -1309,59 +1294,36 @@ class _ManHinhGiaHanHopDongState extends State<ManHinhGiaHanHopDong> {
       onTap: () => setState(() => _selectedPackage = id),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        height: 130,
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        height: 118,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected
-              ? (isHighlight
-                    ? const Color(0xFF0284C7)
-                    : const Color(0xFF09638E))
-              : Colors.white,
-          borderRadius: BorderRadius.circular(16),
+          color: isSelected ? const Color(0xFFF0F9FF) : Colors.white,
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: isSelected
-                ? (isHighlight
-                      ? const Color(0xFF0284C7)
-                      : const Color(0xFF09638E))
+                ? const Color(0xFF09638E)
                 : const Color(0xFFE2E8F0),
-            width: isSelected ? 2 : 1,
+            width: isSelected ? 1.8 : 1,
           ),
           boxShadow: [
             if (isSelected)
               BoxShadow(
-                color: const Color(0xFF09638E).withValues(alpha: 0.2),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
+                color: const Color(0xFF09638E).withValues(alpha: 0.08),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
               ),
           ],
         ),
         child: Stack(
           children: [
-            if (tag != null)
-              Positioned(
+            if (isSelected)
+              const Positioned(
                 top: 0,
                 right: 0,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? const Color(0xFFFBBF24)
-                        : const Color(0xFFFEF3C7),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    tag,
-                    style: TextStyle(
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.bold,
-                      color: isSelected
-                          ? const Color(0xFF78350F)
-                          : const Color(0xFFB45309),
-                    ),
-                  ),
+                child: Icon(
+                  Icons.check_circle_rounded,
+                  size: 16,
+                  color: Color(0xFF09638E),
                 ),
               ),
             Column(
@@ -1371,48 +1333,31 @@ class _ManHinhGiaHanHopDongState extends State<ManHinhGiaHanHopDong> {
                 Text(
                   title,
                   style: TextStyle(
-                    fontSize: 20,
+                    fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: isSelected ? Colors.white : const Color(0xFF0F172A),
+                    color: isSelected
+                        ? const Color(0xFF09638E)
+                        : const Color(0xFF0F172A),
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   subtitle,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: isSelected
-                        ? Colors.white70
-                        : const Color(0xFF64748B),
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF64748B),
                   ),
                 ),
                 if (priceSub != null) ...[
                   const SizedBox(height: 2),
                   Text(
                     priceSub,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 10.5,
                       fontWeight: FontWeight.w500,
-                      color: isSelected
-                          ? Colors.white60
-                          : const Color(0xFF94A3B8),
+                      color: Color(0xFF94A3B8),
                     ),
-                  ),
-                ],
-                if (extraBenefit != null) ...[
-                  const SizedBox(height: 3),
-                  Text(
-                    extraBenefit,
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: isSelected
-                          ? const Color(0xFFBAE6FD)
-                          : const Color(0xFF0284C7),
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ],
