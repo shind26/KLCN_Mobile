@@ -11519,12 +11519,12 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFEF3C7),
+                    color: const Color(0xFFEBF5FA),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(
-                    Icons.history_toggle_off_rounded,
-                    color: Color(0xFFD97706),
+                    Icons.schedule_rounded,
+                    color: Color(0xFF09638E),
                     size: 24,
                   ),
                 ),
@@ -11558,9 +11558,9 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: const Color(0xFFFFFBEB),
+                color: const Color(0xFFF8FAFC),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFFDE68A)),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
               ),
               child: Column(
                 children: [
@@ -11571,15 +11571,15 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                         'Ngày bắt đầu hợp đồng:',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Color(0xFF78350F),
+                          color: Color(0xFF64748B),
                         ),
                       ),
                       Text(
                         hd.ngayBdFormatted,
                         style: const TextStyle(
                           fontSize: 12.5,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF78350F),
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF0F172A),
                         ),
                       ),
                     ],
@@ -11592,15 +11592,15 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                         'Thời gian đã ở thực tế:',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Color(0xFF78350F),
+                          color: Color(0xFF64748B),
                         ),
                       ),
                       Text(
                         '${hd.soNgayDaO} ngày',
                         style: const TextStyle(
                           fontSize: 12.5,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFFD97706),
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF0F172A),
                         ),
                       ),
                     ],
@@ -11613,20 +11613,20 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                         'Quy định tối thiểu BQL:',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Color(0xFF78350F),
+                          color: Color(0xFF64748B),
                         ),
                       ),
                       Text(
                         '60 ngày (2 tháng)',
                         style: TextStyle(
                           fontSize: 12.5,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF78350F),
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF0F172A),
                         ),
                       ),
                     ],
                   ),
-                  const Divider(height: 16, color: Color(0xFFFDE68A)),
+                  const Divider(height: 16, color: Color(0xFFE2E8F0)),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -11635,15 +11635,15 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                         style: TextStyle(
                           fontSize: 12.5,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFFB45309),
+                          color: Color(0xFF0F172A),
                         ),
                       ),
                       Text(
                         '${hd.soNgayConThieuChuyenPhong} ngày nữa',
                         style: const TextStyle(
                           fontSize: 13,
-                          fontWeight: FontWeight.w900,
-                          color: Color(0xFFDC2626),
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF09638E),
                         ),
                       ),
                     ],
@@ -11652,13 +11652,26 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
               ),
             ),
             const SizedBox(height: 14),
-            const Text(
-              '📌 Lưu ý: Bạn cần ở tối thiểu 60 ngày tại phòng hiện tại trước khi chuyển phòng mới. Nếu có lý do đặc biệt, bạn liên hệ BQL để được hỗ trợ nhé.',
-              style: TextStyle(
-                fontSize: 11.5,
-                color: Color(0xFF475569),
-                height: 1.45,
-              ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                Icon(
+                  Icons.info_outline_rounded,
+                  size: 15,
+                  color: Color(0xFF64748B),
+                ),
+                SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Cư dân cần lưu trú tối thiểu 60 ngày tại phòng hiện tại trước khi chuyển phòng mới. Nếu có lý do đặc biệt, vui lòng liên hệ BQL để được hỗ trợ.',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: Color(0xFF64748B),
+                      height: 1.45,
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 20),
             SizedBox(
@@ -11724,12 +11737,12 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFEF3C7),
+                    color: const Color(0xFFEBF5FA),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(
-                    Icons.timelapse_rounded,
-                    color: Color(0xFFD97706),
+                    Icons.schedule_rounded,
+                    color: Color(0xFF09638E),
                     size: 24,
                   ),
                 ),
@@ -11763,9 +11776,9 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: const Color(0xFFFFFBEB),
+                color: const Color(0xFFF8FAFC),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFFDE68A)),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
               ),
               child: Column(
                 children: [
@@ -11776,7 +11789,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                         'Phòng vừa chuyển đến:',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Color(0xFF78350F),
+                          color: Color(0xFF64748B),
                         ),
                       ),
                       Text(
@@ -11784,7 +11797,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                         style: const TextStyle(
                           fontSize: 12.5,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF0284C7),
+                          color: Color(0xFF09638E),
                         ),
                       ),
                     ],
@@ -11798,15 +11811,15 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                           'Ngày chuyển vào phòng mới:',
                           style: TextStyle(
                             fontSize: 12,
-                            color: Color(0xFF78350F),
+                            color: Color(0xFF64748B),
                           ),
                         ),
                         Text(
                           '${ngayChuyen.day.toString().padLeft(2, '0')}/${ngayChuyen.month.toString().padLeft(2, '0')}/${ngayChuyen.year}',
                           style: const TextStyle(
                             fontSize: 12.5,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF78350F),
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF0F172A),
                           ),
                         ),
                       ],
@@ -11820,15 +11833,15 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                         'Thời gian đã ở tại phòng này:',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Color(0xFF78350F),
+                          color: Color(0xFF64748B),
                         ),
                       ),
                       Text(
                         '$daysSince ngày',
                         style: const TextStyle(
                           fontSize: 12.5,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFFD97706),
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF0F172A),
                         ),
                       ),
                     ],
@@ -11841,20 +11854,20 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                         'Quy định giãn cách tối thiểu:',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Color(0xFF78350F),
+                          color: Color(0xFF64748B),
                         ),
                       ),
                       Text(
                         '60 ngày (2 tháng)',
                         style: TextStyle(
                           fontSize: 12.5,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF78350F),
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF0F172A),
                         ),
                       ),
                     ],
                   ),
-                  const Divider(height: 16, color: Color(0xFFFDE68A)),
+                  const Divider(height: 16, color: Color(0xFFE2E8F0)),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -11863,15 +11876,15 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                         style: TextStyle(
                           fontSize: 12.5,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFFB45309),
+                          color: Color(0xFF0F172A),
                         ),
                       ),
                       Text(
                         '$daysRemaining ngày nữa',
                         style: const TextStyle(
                           fontSize: 13,
-                          fontWeight: FontWeight.w900,
-                          color: Color(0xFFDC2626),
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF09638E),
                         ),
                       ),
                     ],
@@ -11880,13 +11893,26 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
               ),
             ),
             const SizedBox(height: 14),
-            const Text(
-              '📌 Lưu ý: Cần ở tối thiểu 60 ngày tại phòng mới trước khi tiếp tục đổi phòng bạn nhé.',
-              style: TextStyle(
-                fontSize: 11.5,
-                color: Color(0xFF475569),
-                height: 1.45,
-              ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                Icon(
+                  Icons.info_outline_rounded,
+                  size: 15,
+                  color: Color(0xFF64748B),
+                ),
+                SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Theo quy định quản lý, cư dân cần lưu trú tối thiểu 60 ngày tại phòng mới trước khi tiếp tục yêu cầu đổi phòng.',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: Color(0xFF64748B),
+                      height: 1.45,
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 20),
             SizedBox(
@@ -12843,21 +12869,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                                           Text(
                                             noiDung,
                                             style: const TextStyle(
-                                              fontSize: 12,
-                                              color: Color(0xFF64748B),
-                                              height: 1.35,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 8),
-                                          Row(
-                                            children: [
-                                              const Icon(
-                                                Icons.access_time_rounded,
-                                                size: 12,
-                                                color: Color(0xFF94A3B8),
-                                              ),
-                                              const SizedBox(width: 4),
-                                              Text(
+         
                                                 timeDisplay,
                                                 style: const TextStyle(
                                                   fontSize: 11,
