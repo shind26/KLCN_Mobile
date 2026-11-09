@@ -1886,13 +1886,22 @@ class _InvoiceHistoryScreenState extends State<InvoiceHistoryScreen> {
       iconColor = _navyDark;
     } else if (lower.contains('điện')) {
       icon = Icons.bolt_rounded;
-      iconColor = const Color(0xFFD97706);
+      iconColor = const Color(0xFF09638E);
     } else if (lower.contains('nước')) {
       icon = Icons.water_drop_outlined;
       iconColor = const Color(0xFF0284C7);
-    } else if (lower.contains('rác') ||
-        lower.contains('vệ sinh') ||
-        lower.contains('dịch vụ')) {
+    } else if (lower.contains('wifi') ||
+        lower.contains('mạng') ||
+        lower.contains('internet')) {
+      icon = Icons.wifi_rounded;
+      iconColor = const Color(0xFF6366F1);
+    } else if (lower.contains('xe') || lower.contains('gửi xe')) {
+      icon = Icons.two_wheeler_rounded;
+      iconColor = const Color(0xFF8B5CF6);
+    } else if (lower.contains('rác') || lower.contains('vệ sinh')) {
+      icon = Icons.delete_outline_rounded;
+      iconColor = const Color(0xFF059669);
+    } else if (lower.contains('dịch vụ')) {
       icon = Icons.cleaning_services_outlined;
       iconColor = const Color(0xFF0D9488);
     }

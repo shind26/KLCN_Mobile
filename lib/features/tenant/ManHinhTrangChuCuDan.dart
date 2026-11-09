@@ -4507,13 +4507,24 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
                           c = const Color(0xFF0F2042);
                         } else if (nameLower.contains('điện')) {
                           ic = Icons.bolt_rounded;
-                          c = const Color(0xFFD97706);
+                          c = const Color(0xFF09638E);
                         } else if (nameLower.contains('nước')) {
                           ic = Icons.water_drop_outlined;
                           c = const Color(0xFF0284C7);
+                        } else if (nameLower.contains('wifi') ||
+                            nameLower.contains('mạng') ||
+                            nameLower.contains('internet')) {
+                          ic = Icons.wifi_rounded;
+                          c = const Color(0xFF6366F1);
+                        } else if (nameLower.contains('xe') ||
+                            nameLower.contains('gửi xe')) {
+                          ic = Icons.two_wheeler_rounded;
+                          c = const Color(0xFF8B5CF6);
                         } else if (nameLower.contains('rác') ||
-                            nameLower.contains('vệ sinh') ||
-                            nameLower.contains('dịch vụ')) {
+                            nameLower.contains('vệ sinh')) {
+                          ic = Icons.delete_outline_rounded;
+                          c = const Color(0xFF059669);
+                        } else if (nameLower.contains('dịch vụ')) {
                           ic = Icons.cleaning_services_outlined;
                           c = const Color(0xFF0D9488);
                         }

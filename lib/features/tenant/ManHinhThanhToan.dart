@@ -76,6 +76,7 @@ class _PaymentScreenState extends State<PaymentScreen>
   int _countdownSec = 15 * 60;
   Timer? _countdownTimer;
   bool _isFeesExpanded = false;
+  List<Map<String, dynamic>> _chiTietHoaDon = [];
 
   /// Chế độ thanh toán
   PaymentMode _paymentMode = PaymentMode.payAll;
@@ -201,6 +202,7 @@ class _PaymentScreenState extends State<PaymentScreen>
     _initAnimations();
     _startCountdown();
     _startAutoDetection();
+    _loadChiTietHoaDon();
 
     // Nếu hóa đơn đã được thanh toán từ trước thì chuyển thẳng sang xem biên lai, tuyệt đối không gọi _handleConfirmPayment
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -421,6 +423,20 @@ class _PaymentScreenState extends State<PaymentScreen>
     _pulseAnimation = Tween<double>(begin: 0.4, end: 1.0).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
+  }
+
+  Future<void> _loadChiTietHoaDon() async {
+    try {
+      final rows = await Supabase.instance.client
+          .from('chi_tiet_hoa_don')
+          .select()
+          .eq('ma_hoa_don', widget.hoaDon.maHoaDon);
+      if (mounted && (rows as List).isNotEmpty) {
+        setState(() {
+          _chiTietHoaDon = List<Map<String, dynamic>>.from(rows);
+        });
+      }
+    } catch (_) {}
   }
 
   void _startCountdown() {
@@ -1291,9 +1307,19 @@ Nội dung: ${widget.hoaDon.noiDungChuyenKhoan}''';
                 children: [
                   const Divider(height: 1, color: Color(0xFFE2E8F0)),
                   const SizedBox(height: 10),
-                  _buildFeeItem('Tiền phòng', hd.tienPhong),
-                  _buildFeeItem('Tiền điện & nước', hd.tienDienNuoc),
-                  _buildFeeItem('Dịch vụ khác / Wifi / Rác', hd.tienDichVuKhac),
+                  if (_chiTietHoaDon.isNotEmpty) ...[
+                    for (final item in _chiTietHoaDon)
+                      _buildFeeItem(
+                        item['ten_khoan_thu']?.toString() ??
+                            item['khoan_muc']?.toString() ??
+                            'Khoản thu',
+                        num.tryParse(item['thanh_tien']?.toString() ?? '0') ?? 0,
+                      ),
+                  ] else ...[
+                    _buildFeeItem('Tiền phòng', hd.tienPhong),
+                    _buildFeeItem('Tiền điện & nước', hd.tienDienNuoc),
+                    _buildFeeItem('Dịch vụ khác / Wifi / Rác', hd.tienDichVuKhac),
+                  ],
                   if (hd.noCu > 0)
                     _buildFeeItem('Nợ kỳ trước', hd.noCu, isWarning: true),
                 ],
