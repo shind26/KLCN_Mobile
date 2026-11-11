@@ -12,7 +12,7 @@ class UserModel {
   UserModel({
     required this.maTaiKhoan,
     required this.tenDangNhap,
-    required this.matKhau,
+    this.matKhau = '',
     required this.vaiTro,
     required this.coSoVanHanh,
     this.ngayTao,
@@ -41,7 +41,7 @@ class UserModel {
     return {
       'ma_tai_khoan': maTaiKhoan,
       'ten_dang_nhap': tenDangNhap,
-      'mat_khau': matKhau,
+      // BẢO MẬT: Tuyệt đối không lưu mật khẩu hoặc chuỗi băm hash vào session/SharedPreferences
       'vai_tro': vaiTro,
       'co_so_van_hanh': coSoVanHanh,
       'ngay_tao': ngayTao,

@@ -1373,11 +1373,28 @@ class _TenantHomeScreenState extends State<TenantHomeScreen>
               .eq('ma_tai_khoan', user.maTaiKhoan)
               .maybeSingle();
           final status = (accRow?['trang_thai']?.toString() ?? '').trim();
-          if (status.toLowerCase() == 'tamkhoa') {
+          final stLower = status.toLowerCase();
+          final isLocked = stLower == 'khoa' ||
+              stLower.contains('khoa') ||
+              stLower.contains('khoá') ||
+              stLower == 'inactive' ||
+              stLower == 'vohieuhoa';
+          if (isLocked) {
+            debugPrint(
+              '[AUTO_LOCK_KICK] Tài khoản ${user.maTaiKhoan} có trạng thái $status do Web Admin thiết lập -> Điều hướng ra đăng nhập',
+            );
+            await _daVangRaDangNhapDoKhoaTaiKhoan(
+              'Tài khoản đã bị khóa bởi Ban Quản Lý. Vui lòng liên hệ BQL (0328.004.663) để được hỗ trợ!',
+            );
+            return;
+          }
+          if (stLower == 'tamkhoa') {
             debugPrint(
               '[AUTO_LOCK_KICK] Tài khoản ${user.maTaiKhoan} có trạng thái TamKhoa trên Supabase -> Điều hướng ra đăng nhập',
             );
-            await _daVangRaDangNhapDoKhoaTaiKhoan();
+            await _daVangRaDangNhapDoKhoaTaiKhoan(
+              'Tài khoản đang bị tạm khóa. Vui lòng liên hệ BQL (0328.004.663) để được hỗ trợ!',
+            );
             return;
           }
         } catch (eAcc) {

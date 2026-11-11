@@ -96,15 +96,22 @@ class AuthService {
               Map<String, dynamic>.from(res),
             );
             final dbStatus =
-                res['trang_thai']?.toString() ?? latestUser.trangThai;
-            if (dbStatus.toLowerCase() == 'tamkhoa' || !latestUser.isActive) {
+                (res['trang_thai']?.toString() ?? latestUser.trangThai).trim();
+            final stLower = dbStatus.toLowerCase();
+            final isLocked = stLower == 'khoa' ||
+                stLower.contains('khoa') ||
+                stLower.contains('khoá') ||
+                stLower == 'inactive' ||
+                stLower == 'tamkhoa' ||
+                !latestUser.isActive;
+            if (isLocked) {
               debugPrint(
                 '>>> [AuthService.init] Tài khoản ${latestUser.maTaiKhoan} có trạng thái $dbStatus trên Supabase -> Tự động đăng xuất!',
               );
               await logout();
               return;
             }
-            currentUserNotifier.value = latestUser;
+            currentUserNotifier.value = latestUser.copyWith(matKhau: '');
             return;
           }
         } catch (eDb) {
@@ -115,7 +122,7 @@ class AuthService {
           await logout();
           return;
         }
-        currentUserNotifier.value = localUser;
+        currentUserNotifier.value = localUser.copyWith(matKhau: '');
         debugPrint(
           '>>> [AuthService.init] Phục hồi phiên đăng nhập thành công: ${currentUserNotifier.value?.tenDangNhap} (Vai trò: ${currentUserNotifier.value?.vaiTro})',
         );
@@ -167,18 +174,45 @@ class AuthService {
 
       final user = UserModel.fromJson(Map<String, dynamic>.from(res));
       final dbStatus = (res['trang_thai']?.toString() ?? user.trangThai).trim();
-      if (dbStatus.toLowerCase() == 'tamkhoa') {
+      final stLower = dbStatus.toLowerCase();
+
+      // RÀNG BUỘC: Chặn tuyệt đối trạng thái Khoa do Web Admin thiết lập
+      if (stLower == 'khoa' ||
+          stLower == 'đã khóa' ||
+          stLower == 'da khoa' ||
+          stLower == 'bikhoa' ||
+          stLower == 'inactive' ||
+          stLower == 'vohieuhoa' ||
+          stLower.contains('khoa') ||
+          stLower.contains('khoá')) {
+        return (
+          success: false,
+          error: 'Tài khoản đã bị khóa bởi Ban Quản Lý. Vui lòng liên hệ BQL (0328.004.663) để được hỗ trợ!',
+          user: null,
+        );
+      }
+      if (stLower == 'tamkhoa') {
         return (
           success: false,
           error: 'Tài khoản đang bị tạm khóa. Vui lòng liên hệ BQL (0328.004.663) để được hỗ trợ!',
           user: null,
         );
       }
+      if (!user.isActive) {
+        return (
+          success: false,
+          error: 'Tài khoản hiện không hoạt động. Vui lòng liên hệ Ban Quản Lý!',
+          user: null,
+        );
+      }
+
+      // BẢO MẬT: Xóa bỏ mật khẩu/hash khỏi UserModel trước khi đưa vào State RAM và lưu phiên
+      final safeUser = user.copyWith(matKhau: '');
 
       // Lưu phiên đăng nhập nếu được chọn ghi nhớ
       final prefs = await SharedPreferences.getInstance();
       if (rememberMe) {
-        await prefs.setString(_keyCurrentUser, jsonEncode(user.toJson()));
+        await prefs.setString(_keyCurrentUser, jsonEncode(safeUser.toJson()));
         await prefs.setString(_keySavedUsername, username.trim());
         await prefs.setBool(_keyRememberMe, true);
       } else {
@@ -187,10 +221,10 @@ class AuthService {
         await prefs.setBool(_keyRememberMe, false);
       }
 
-      // Cập nhật State toàn cục trong RAM cho phiên hiện tại
-      currentUserNotifier.value = user;
+      // Cập nhật State toàn cục trong RAM cho phiên hiện tại (không lưu mật khẩu/hash)
+      currentUserNotifier.value = safeUser;
 
-      return (success: true, error: null, user: user);
+      return (success: true, error: null, user: safeUser);
     } catch (e) {
       debugPrint('Lỗi AuthService.login: $e');
       return (
@@ -216,10 +250,32 @@ class AuthService {
       if (res != null) {
         user = UserModel.fromJson(Map<String, dynamic>.from(res));
         final dbStatus = (res['trang_thai']?.toString() ?? user.trangThai).trim();
-        if (dbStatus.toLowerCase() == 'tamkhoa') {
+        final stLower = dbStatus.toLowerCase();
+        if (stLower == 'khoa' ||
+            stLower == 'đã khóa' ||
+            stLower == 'da khoa' ||
+            stLower == 'bikhoa' ||
+            stLower == 'inactive' ||
+            stLower == 'vohieuhoa' ||
+            stLower.contains('khoa') ||
+            stLower.contains('khoá')) {
+          return (
+            success: false,
+            error: 'Tài khoản đã bị khóa bởi Ban Quản Lý. Vui lòng liên hệ BQL (0328.004.663) để được hỗ trợ!',
+            user: null,
+          );
+        }
+        if (stLower == 'tamkhoa') {
           return (
             success: false,
             error: 'Tài khoản đang bị tạm khóa. Vui lòng liên hệ BQL (0328.004.663) để được hỗ trợ!',
+            user: null,
+          );
+        }
+        if (!user.isActive) {
+          return (
+            success: false,
+            error: 'Tài khoản hiện không hoạt động. Vui lòng liên hệ Ban Quản Lý!',
             user: null,
           );
         }
@@ -255,15 +311,18 @@ class AuthService {
         }
       }
 
+      // BẢO MẬT: Xóa bỏ thông tin mật khẩu/token xác thực trước khi lưu session
+      final safeUser = user.copyWith(matKhau: '');
+
       // Lưu phiên đăng nhập
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_keyCurrentUser, jsonEncode(user.toJson()));
+      await prefs.setString(_keyCurrentUser, jsonEncode(safeUser.toJson()));
       await prefs.setString(_keySavedUsername, cleanPhone);
 
       // Cập nhật State toàn cục
-      currentUserNotifier.value = user;
+      currentUserNotifier.value = safeUser;
 
-      return (success: true, error: null, user: user);
+      return (success: true, error: null, user: safeUser);
     } catch (e) {
       debugPrint('Lỗi loginWithPhoneOtp: $e');
       return (
@@ -306,9 +365,10 @@ class AuthService {
   /// Cập nhật user hiện tại và lưu vào SharedPreferences
   static Future<void> updateCurrentUser(UserModel updatedUser) async {
     try {
-      currentUserNotifier.value = updatedUser;
+      final safeUser = updatedUser.copyWith(matKhau: '');
+      currentUserNotifier.value = safeUser;
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_keyCurrentUser, jsonEncode(updatedUser.toJson()));
+      await prefs.setString(_keyCurrentUser, jsonEncode(safeUser.toJson()));
     } catch (e) {
       debugPrint('Lỗi updateCurrentUser: $e');
     }
